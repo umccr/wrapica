@@ -48,6 +48,16 @@ jobs:
 #          cat "${{ inputs.coverage_report_artifacts_path }}" >> notes.md
 #          echo '```' >> notes.md  # Wrap report in code format - end
 
+      # Check if --prerelease arg should be set
+      - name: Check if prerelease
+        id: is_prerelease
+        run: |
+          if [[ " ${{ inputs.git_tag }} " =~ dev ]]; then
+            echo "is_prerelease==--prerelease" >> "${GITHUB_OUTPUT}"
+          else
+            echo "is_prerelease==" >> "${GITHUB_OUTPUT}"
+          fi
+
       # Upload as gh release
       - name: Push Release
         env:
@@ -57,4 +67,5 @@ jobs:
             "${{ inputs.git_tag }}" \
             --notes-file notes.md \
             --title "${{ inputs.git_tag }} release" \
+            ${{ is_prerelease.outputs.is_prerelease }} \
             ${{ inputs.dist_artifacts_path }}/*
