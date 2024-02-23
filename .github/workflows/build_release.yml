@@ -67,5 +67,5 @@ jobs:
             "${{ inputs.git_tag }}" \
             --notes-file notes.md \
             --title "${{ inputs.git_tag }} release" \
-            ${{ is_prerelease.outputs.is_prerelease }} \
+            ${{ steps.is_prerelease.outputs.is_prerelease }} \
             ${{ inputs.dist_artifacts_path }}/*
