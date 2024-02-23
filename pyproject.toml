@@ -1,0 +1,43 @@
+[build-system]
+requires = [
+    "setuptools>=61.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wrapica"
+version = "0.0.0"
+authors = [
+    { name = "Alexis Lucattini", email = "alexis.lucattini@umccr.org" },
+]
+description = "Secondary level functions for ICAv2 based off libica"
+readme = "Readme.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "libica >= 2.3.0, < 3",
+  "PyJWT >= 2.8.0, < 3",
+  "ruamel.base >= 1.0.0, < 2",
+  "ruamel.yaml >= 0.18.0, < 0.19",
+  "verboselogs >= 1.7, < 2",
+]
+
+[project.urls]
+Homepage = "https://github.com/umccr/wrapica"
+"Bug Tracker" = "https://github.com/umccr/wrapica/issues"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-mock"
+]
+build = [
+    "build",
+]
+toml = [
+    "tomli_w >= 1.0.0, < 2",
+]
