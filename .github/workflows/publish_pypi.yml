@@ -69,7 +69,7 @@ jobs:
       # Check successful deployment to pypi
       - name: Check Successful Deployment
         env:
-          wrapica: ${{ inputs.git_tag }}
+          WRAPICA_VERSION: ${{ inputs.git_tag }}
         run: |
           if [[ "${{ inputs.is_pre_release }}" == "true" ]]; then
             make install_test_pypi

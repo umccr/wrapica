@@ -27,8 +27,7 @@ install_test_pypi:
 	@pip install \
 		--index-url https://test.pypi.org/simple/ \
 		--extra-index-url https://pypi.org/simple/ \
-		v2-samplesheet-maker==${V2_SAMPLESHEET_MAKER_VERSION}
-	@v2-samplesheet-maker --help
+		wrapica==${WRAPICA_VERSION}
 
 # Install to pypi
 push_pypi:
@@ -38,5 +37,4 @@ push_pypi:
 install_pypi:
 	@pip install \
 		--index-url https://pypi.org/simple/ \
-		v2-samplesheet-maker==${V2_SAMPLESHEET_MAKER_VERSION}
-	@v2-samplesheet-maker --help
+		wrapica=="${WRAPICA_VERSION}"
