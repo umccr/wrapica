@@ -98,15 +98,6 @@ jobs:
           echo "pypi_repository_url=${pypi_repository_url}" >> "${GITHUB_OUTPUT}"
           echo "index_url=${index_url}" >> "${GITHUB_OUTPUT}"
 
-      # Docker Container
-      - id: get_docker_container_tags
-        run: |
-          docker_container_uri_str_list="ghcr.io/${{ github.repository }}:${{ steps.get_tag.outputs.tag }}"
-          if [[ "${{ steps.is_pre_release.outputs.is_pre_release }}" == "false" ]]; then
-            docker_container_uri_str_list="${docker_container_uri_str_list},ghcr.io/${{ github.repository }}:latest"
-          fi
-          echo "docker_container_uri_str_list=${docker_container_uri_str_list}" >> "${GITHUB_OUTPUT}"
-
       # Get environment type
       - id: get_environment
         run: |
@@ -153,7 +144,6 @@ jobs:
       pypi_repository: ${{ steps.get_repository_and_index_url.outputs.pypi_repository }}
       pypi_repository_url: ${{ steps.get_repository_and_index_url.outputs.pypi_repository_url }}
       index_url: ${{ steps.get_repository_and_index_url.outputs.index_url }}
-      docker_container_uri_str_list: ${{ steps.get_docker_container_tags.outputs.docker_container_uri_str_list }}
       environment: ${{ steps.get_environment.outputs.environment }}
       branch_name: ${{ steps.get_branch_name.outputs.branch_name }}
 
@@ -219,20 +209,6 @@ jobs:
       dist_artifacts_path: dist
       environment: ${{ needs.setup.outputs.environment }}
 
-  # Now build container
-  build_container:
-    needs:
-      - setup
-      # - test
-      - build_package_wheels
-      - build_release
-      - publish_pypi
-    uses: ./.github/workflows/build_container.yml
-    with:
-      git_tag: ${{ needs.setup.outputs.git_tag }}
-      index_url: ${{ needs.setup.outputs.index_url }}
-      docker_container_uri_str_list: ${{ needs.setup.outputs.docker_container_uri_str_list }}
-
   # Now generate a PR
   make_pull_request:
     runs-on: ubuntu-latest
@@ -245,7 +221,6 @@ jobs:
       - build_package_wheels
       - build_release
       - publish_pypi
-      - build_container
     if: ${{ needs.setup.outputs.is_pre_release == 'false' }}
     steps:
       # Complete git checkout
