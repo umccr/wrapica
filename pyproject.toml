@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wrapica"
-version = "0.0.1.dev20240223155235"
+version = "0.0.1.dev20240223160530"
 authors = [
     { name = "Alexis Lucattini", email = "alexis.lucattini@umccr.org" },
 ]
