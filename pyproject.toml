@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wrapica"
-version = "0.0.0"
+version = "0.0.1.dev20240223153849"
 authors = [
     { name = "Alexis Lucattini", email = "alexis.lucattini@umccr.org" },
 ]
@@ -19,11 +19,11 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  "libica >= 2.3.0, < 3",
-  "PyJWT >= 2.8.0, < 3",
-  "ruamel.base >= 1.0.0, < 2",
-  "ruamel.yaml >= 0.18.0, < 0.19",
-  "verboselogs >= 1.7, < 2",
+    "libica >= 2.3.0, < 3",
+    "PyJWT >= 2.8.0, < 3",
+    "ruamel.base >= 1.0.0, < 2",
+    "ruamel.yaml >= 0.18.0, < 0.19",
+    "verboselogs >= 1.7, < 2",
 ]
 
 [project.urls]
@@ -33,7 +33,7 @@ Homepage = "https://github.com/umccr/wrapica"
 [project.optional-dependencies]
 test = [
     "pytest",
-    "pytest-mock"
+    "pytest-mock",
 ]
 build = [
     "build",
