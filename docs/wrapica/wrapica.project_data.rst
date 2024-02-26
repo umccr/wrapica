@@ -16,5 +16,5 @@ Functions
      DataUrlWithPath,
      Download,
      ProjectData,
+     AwsTempCredentials,
      TempCredentials
-

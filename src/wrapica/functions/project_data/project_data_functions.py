@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 from libica.openapi.v2 import ApiClient, ApiException
 from libica.openapi.v2.api.project_data_api import ProjectDataApi
 from libica.openapi.v2.model.analysis_input_external_data import AnalysisInputExternalData
+from libica.openapi.v2.model.aws_temp_credentials import AwsTempCredentials
 from libica.openapi.v2.model.create_data import CreateData
 from libica.openapi.v2.model.create_temporary_credentials import CreateTemporaryCredentials
 from libica.openapi.v2.model.data_id_or_path_list import DataIdOrPathList
@@ -31,7 +32,7 @@ from ...utils.globals import LIBICAV2_DEFAULT_PAGE_SIZE
 from ...utils.miscell import is_uuid_format
 
 
-def get_project_file_id_from_project_id_and_path(
+def get_project_data_file_id_from_project_id_and_path(
         project_id: str,
         file_path: Path,
         create_file_if_not_found: bool = False
@@ -40,11 +41,43 @@ def get_project_file_id_from_project_id_and_path(
     Given a project id, parent folder path and file_name, return the file id
     If the file is not found, and create_file_if_not_found is True, create the file
 
-    :param project_id:
-    :param file_path:
-    :param create_file_if_not_found: 
+    :param project_id:  The project id
+    :param file_path:  The path to the file
+    :param create_file_if_not_found:  Create the file object if it does not exist
 
-    :return:
+    :return: The file id
+
+    :raises: FileNotFoundError, ApiException
+
+    Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            create_download_urls, get_project_folder_id_from_project_id_and_path,
+            # Data types
+            ProjectData, DataUrlWithPath
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        file_id: str = get_project_file_id_from_project_id_and_path(
+            project_id="abcd-1234-efab-5678",
+            file_path=Path("/path/to/file.txt")
+        )
+
+        download_urls: List[DataUrlWithPath] = create_download_urls(
+            project_id="proj.abcdef1234567890",
+            folder_id=project_folder_obj.data.id,
+            recursive=True
+        )
+
+        for download_url in download_urls:
+            print(download_url.url)
+
     """
     # Get the configuration
     configuration = get_icav2_configuration()
@@ -81,8 +114,7 @@ def get_project_file_id_from_project_id_and_path(
         else:
             file_obj = create_file_in_project(
                 project_id=project_id,
-                parent_folder_path=Path(parent_folder_path),
-                file_name=file_path.name
+                file_path=file_path.absolute(),
             )
             return file_obj.data.id
 
@@ -108,13 +140,39 @@ def create_data_in_project(
     data_type: DataType
 ) -> ProjectData:
     """
-    Create a folder in a project context
+    Create a data object in a project context
 
-    :param project_id:
-    :param parent_folder_path:
-    :param data_name:
-    :param data_type:
-    :return:
+    :param project_id: The project ID
+    :param parent_folder_path: The parent folder path of where the data object needs to be created
+    :param data_name:  The name of the file or folder
+    :param data_type:  One of DataType.FILE or DataType.FOLDER
+
+    :return: The newly created project data object
+    :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_]
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            create_data_in_project, create_data_in_project,
+            # Data types / Enums
+            ProjectData, DataType
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        project_data_obj: ProjectData = create_data_in_project(
+            project_id="abcd-1234-efab-5678",
+            parent_folder_path=Path("/path/to/folder/"),
+            data_name="file.txt",
+            data_type=DataType.FILE
+        )
     """
 
     # Get the configuration
@@ -150,37 +208,93 @@ def create_data_in_project(
 
 def create_file_in_project(
     project_id: str,
-    parent_folder_path: Path,
-    file_name: str
+    file_path: Path,
 ) -> ProjectData:
     """
     Create a file in a project
+
+    :param project_id: The project id to create the file in
+    :param file_path: The path to the file
+
+    :return: The newly created file
+
+    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            create_file_in_project
+            # Data types / Enums
+            ProjectData
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        project_data_obj: ProjectData = create_file_in_project(
+            project_id="abcd-1234-efab-5678",
+            file_path=Path("/path/to/file.txt")
+        )
     """
     return create_data_in_project(
         project_id=project_id,
-        parent_folder_path=parent_folder_path,
-        data_name=file_name,
+        parent_folder_path=file_path.parent,
+        data_name=file_path.name,
         data_type=DataType.FILE
     )
 
 
 def create_folder_in_project(
     project_id: str,
-    parent_folder_path: Path,
-    folder_name: str
+    folder_path: Path,
 ) -> ProjectData:
     """
     Create a folder in a project
+
+    :param project_id:  The project ID
+    :param folder_path:  The path to the folder to create
+
+    :return: The newly created folder project data object
+    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            create_folder_in_project
+            # Data types / Enums
+            ProjectData
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        project_data_obj: ProjectData = create_folder_in_project(
+            project_id="abcd-1234-efab-5678",
+            folder_path=Path("/path/to/folder/new/")
+        )
+
     """
     return create_data_in_project(
         project_id=project_id,
-        parent_folder_path=parent_folder_path,
-        data_name=folder_name,
+        parent_folder_path=folder_path.parent,
+        data_name=folder_path.name,
         data_type=DataType.FOLDER
     )
 
 
-def get_project_folder_id_from_project_id_and_path(
+def get_project_data_folder_id_from_project_id_and_path(
     project_id: str,
     folder_path: Path,
     create_folder_if_not_found: bool = False
@@ -192,11 +306,31 @@ def get_project_folder_id_from_project_id_and_path(
     we need to append a '/' to the end of the path before calling the API
     In the case that the folder_path is the root folder, we ensure that only a single '/' is provided.
 
-    :param project_id:
-    :param folder_path:
-    :param create_folder_if_not_found:
+    :param project_id:  The project id to search in
+    :param folder_path:  The path to the folder
+    :param create_folder_if_not_found:  If folder does not exist in project, do we want to create it?
 
-    :return:
+    :return: The folder id
+
+    :raises: NotADirectoryError, ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            get_project_folder_id_from_project_id_and_path
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        folder_id: str = get_project_folder_id_from_project_id_and_path(
+            project_id="abcd-1234-efab-5678",
+            folder_path=Path("/path/to/folder/")
+        )
     """
     # Get the configuration
     configuration = get_icav2_configuration()
@@ -244,8 +378,7 @@ def get_project_folder_id_from_project_id_and_path(
             # Create the folder
             folder_id = create_folder_in_project(
                 project_id=project_id,
-                parent_folder_path=folder_path.parent,
-                folder_name=folder_path.name
+                folder_path=folder_path
             )
         else:
             logger.error("Could not find folder id for folder: %s\n" % folder_path)
@@ -264,16 +397,56 @@ def get_project_data_id_from_project_id_and_path(
     Given a project_id and a path, return the data_id, where DATA_TYPE is one of FILE or FOLDER
     A few different methods, available, would look into bssh_manager implementation first
     Should call the underlying get_data_id_from_project_id_and_path function split by data type
-    :return:
+
+    :param project_id: The project context the data exists in
+    :param data_path: The path to the data in the project
+    :param data_type: The data_type, one of DataType.FILE, DataType.FOLDER
+    :param create_data_if_not_found:
+
+    :raises: FileNotFoundError, NotADirectoryError, ApiException
+
+    :return: The data id
+
+    :note:
+      Use get_file_id_from_project_id_and_path or get_folder_id_from_project_id_and_path instead if data_type is known
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            get_project_data_id_from_project_id_and_path
+            # Data types / Enums
+            DataType
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        # Get a folder
+        data_id: str = get_project_data_id_from_project_id_and_path(
+            project_id="abcd-1234-efab-5678",
+            data_path=Path("/path/to/folder/"),
+            data_type=DataType.FOLDER
+        )
+
+        # Get a file
+        data_id: str = get_project_data_id_from_project_id_and_path(
+            project_id="abcd-1234-efab-5678",
+            data_path=Path("/path/to/file.txt"),
+            data_type=DataType.FILE
+        )
     """
     if data_type == DataType.FOLDER:
-        return get_project_folder_id_from_project_id_and_path(
+        return get_project_data_folder_id_from_project_id_and_path(
             project_id=project_id,
             folder_path=data_path,
             create_folder_if_not_found=create_data_if_not_found
         )
     else:
-        return get_project_file_id_from_project_id_and_path(
+        return get_project_data_file_id_from_project_id_and_path(
             project_id=project_id,
             file_path=data_path,
             create_file_if_not_found=create_data_if_not_found
@@ -287,10 +460,33 @@ def get_project_data_obj_by_id(
     """
     Given a project_id and a data_id, return the data object
 
-    :param project_id:
-    :param data_id:
+    :param project_id: The project id to search in
+    :param data_id: The data id
 
-    :return:
+    :return: The project data object
+    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+
+    :raises: ApiException
+
+    :Examples:
+
+    ..code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            get_project_data_obj_by_id
+            # Data types / Enums
+            ProjectData
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        project_data_obj: ProjectData = get_project_data_obj_by_id(
+            project_id="abcd-1234-efab-5678",
+            data_id="fil.abcdef1234567890"
+        )
     """
 
     # Get the configuration
@@ -324,9 +520,52 @@ def get_project_data_obj_from_project_id_and_path(
     """
     Given a project_id and a path, return the data object, where DATA_TYPE is one of FILE or FOLDER
     Will call the get_project_data_id and then call get_project_data_obj_by_id
-    :return:
-    """
 
+    :param project_id: The project id to search in
+    :param data_path: The path to the data in the project
+    :param data_type: The data_type, one of DataType.FILE, DataType.FOLDER
+    :param create_data_if_not_found: If the data is not found, and create_data_if_not_found is True, create the data
+
+    :return: The project data object
+    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+
+    :raises: FileNotFoundError, NotADirectoryError, ApiException
+
+    :Examples:
+
+    ..code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            get_project_data_obj_from_project_id_and_path
+            # Data types / Enums
+            ProjectData, DataType
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        # Get a folder project data object
+        project_folder_data_obj: ProjectData = get_project_data_obj_from_project_id_and_path(
+            project_id="abcd-1234-efab-5678",
+            data_path=Path("/path/to/folder/"),
+            data_type=DataType.FOLDER
+        )
+
+        # Get a file project data object
+        project_file_data_obj: ProjectData = get_project_data_obj_from_project_id_and_path(
+            project_id="abcd-1234-efab-5678",
+            data_path=Path("/path/to/file.txt"),
+            data_type=DataType.FILE
+        )
+
+        print(project_folder_data_obj.data.id)
+        # fol.abcdef1234567890
+
+        print(project_file_data_obj.data.id)
+        # fil.abcdef1234567890
+    """
     # Collect the data id, either fol.id or fil.id
     project_data_id: str = get_project_data_id_from_project_id_and_path(
         project_id=project_id,
@@ -348,9 +587,35 @@ def get_project_data_path_by_id(
 ) -> Path:
     """
     Given a project id and data id, return the path of the data
-    :param project_id:
-    :param data_id:
-    :return:
+
+    :param project_id: The project id to search in
+    :param data_id: The data id
+
+    :return: The path of the data
+    :rtype: Path
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            get_project_data_path_by_id
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        project_data_path: Path = get_project_data_path_by_id(
+            project_id="abcd-1234-efab-5678",
+            data_id="fil.abcdef1234567890"
+        )
+
+        print(project_data_path)
+        # /path/to/file.txt
     """
     project_data_path = get_project_data_obj_by_id(
         project_id=project_id,
@@ -374,19 +639,67 @@ def list_project_data_non_recursively(
     sort: Optional[Union[ProjectDataSortParameters, List[ProjectDataSortParameters]]] = ""
 ) -> List[ProjectData]:
     """
-    Given a project id and parent folder id or path, return a list of data objects that are directly under that folder
-    :param parent_folder_path:
-    :param project_id:
-    :param parent_folder_id:
-    :param file_name:
-    :param status:
-    :param data_type:
-    :param creation_date_after:
-    :param creation_date_before:
-    :param status_date_after:
-    :param status_date_before:
-    :param sort:
-    :return:
+    Given a project id and parent folder id or path,
+    return a list of data objects that are directly under that folder
+
+    :param project_id: The project id to search in
+    :param parent_folder_path: The path to the parent folder (can use parent_folder_id instead)
+    :param parent_folder_id: The parent folder id (can use parent_folder_path instead)
+    :param file_name: The name of the file or directory to look for, can also be a list of names, may also use * as a wildcard
+    :param status: The status of the data, one of ProjectDataStatusValues
+    :param data_type: The type of the data, one of DataType.FILE, DataType.FOLDER
+    :param creation_date_after: Return only data created after this date
+    :param creation_date_before: Return only data created before this date
+    :param status_date_after: Return only data with status date after this date
+    :param status_date_before: Return only data with status date before this date
+    :param sort: The sort order, one or more of ProjectDataSortParameters (Use '-' prefix to sort in descending order)
+      * timeCreated - Sort by time created
+      * timeModified - Sort by time modified
+      * name - Sort by name
+      * path - Sort by path
+      * fileSizeInBytes - Sort by file size in bytes
+      * status - Sort by status
+      * format - Sort by format
+      * dataType - Sort by data type
+      * willBeArchivedAt - Sort by when the data will be archived
+      * willBeDeletedAt - Sort by when the data will be deleted
+
+    :return: List of data objects
+    :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_]
+
+    :raises: AssertionError, ApiException, ValueError
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            list_project_data_non_recursively
+            # Data types / Enums
+            ProjectData, ProjectDataStatusValues, DataType, ProjectDataSortParameters
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        project_data_list: List[ProjectData] = list_project_data_non_recursively(
+            project_id="abcd-1234-efab-5678",
+            parent_folder_path=Path("/path/to/folder/"),
+            file_name="file.txt",
+            status=ProjectDataStatusValues.COMPLETED,
+            data_type=DataType.FILE,
+            creation_date_after=datetime(2021, 1, 1),
+            creation_date_before=datetime(2021, 12, 31),
+            status_date_after=datetime(2021, 1, 1),
+            status_date_before=datetime(2021, 12, 31),
+            sort=ProjectDataSortParameters.TIME_CREATED
+        )
+
+        for project_data in project_data_list:
+            print(project_data.data.details.name)
+
     """
     # Check one of parent_folder_id and parent_folder_path is specified
     if parent_folder_id is None and parent_folder_path is None:
@@ -513,14 +826,47 @@ def find_project_data_recursively(
     Given a project_id, a parent_folder_id, a data_name and a data_type, return a list of data objects
     This is a slow exercise and should only be used if the max_depth is low and the total number of items in the
     directory is very high
-    :param project_id:
-    :param parent_folder_id:
-    :param parent_folder_path:
-    :param name:
-    :param data_type:
-    :param min_depth:
-    :param max_depth:
-    :return:
+
+    :param project_id: The project id to search in
+    :param parent_folder_id: The parent folder id (alternative to parent_folder_path)
+    :param parent_folder_path: The path to the parent folder (alternative to parent_folder_id)
+    :param name: The name of the file or directory to look for, may also use * as a wildcard
+    :param data_type: The type of the data, one of DataType.FILE, DataType.FOLDER
+    :param min_depth: The minimum depth to search
+    :param max_depth: The maximum depth to search
+
+    :return: List of data objects
+    :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_]
+
+    :raises: ApiException, AssertionError, ValueError
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            find_project_data_recursively
+            # Data types / Enums
+            ProjectData, DataType
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        project_data_list: List[ProjectData] = find_project_data_recursively(
+            project_id="abcd-1234-efab-5678",
+            parent_folder_id="fol.abcdef1234567890",
+            name="file.txt",
+            data_type=DataType.FILE,
+            min_depth=1,
+            max_depth=3
+        )
+
+        for project_data in project_data_list:
+            print(project_data.data.details.name)
+
     """
     # Check one of parent_folder_id and parent_folder_path is specified
     if parent_folder_id is None and parent_folder_path is None:
@@ -584,11 +930,40 @@ def find_project_data_bulk(
 ) -> List[ProjectData]:
     """
     Given a project_id and a parent_folder_id, return a list of all data objects in the folder (recursively)
-    :param project_id:
-    :param parent_folder_id:
-    :param parent_folder_path:
-    :param data_type:
-    :return:
+
+    :param project_id: The project id to search in
+    :param parent_folder_id: The parent folder id (alternative to parent_folder_path)
+    :param parent_folder_path: The path to the parent folder (alternative to parent_folder_id)
+    :param data_type: The type of the data, one of DataType.FILE, DataType.FOLDER
+
+    :return: List of data objects
+    :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_]
+
+    :raises: ApiException, AssertionError
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            find_project_data_bulk
+            # Data types / Enums
+            ProjectData, DataType
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        project_data_list: List[ProjectData] = find_project_data_bulk(
+            project_id="abcd-1234-efab-5678",
+            parent_folder_id="fol.abcdef1234567890",
+            data_type=DataType.FILE
+        )
+
+        for project_data in project_data_list:
+            print(project_data.data.details.name)
     """
     # Check one of parent_folder_id and parent_folder_path is specified
     if parent_folder_id is None and parent_folder_path is None:
@@ -652,9 +1027,33 @@ def create_download_url(
     Given a project_id and a data_id, create a presigned url for a file
     in project-pipeline, or view a file in project-data
     Create download URL
-    :param project_id:
-    :param file_id:
-    :return:
+
+    :param project_id: The owning project id
+    :param file_id: The id of the file
+
+    :return: The download URL string
+    :rtype: str
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import create_download_url
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        download_url: str = create_download_url(
+            project_id="proj.abcdef1234567890",
+            file_id="fil.abcdef1234567890"
+        )
+
+        print(download_url)
+        # https://s3.amazonaws.com/umccr-illumina-prod/abcd-1234-efab-5678/abcdef1234567890
+
     """
     configuration = get_icav2_configuration()
 
@@ -775,6 +1174,8 @@ def convert_icav2_uri_to_data_obj(
     :return: libica v2 Project Data Object
     :rtype: `Project Data <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
 
+    :raises: ValueError, ApiException
+
     :Examples:
 
     .. code-block:: python
@@ -819,13 +1220,65 @@ def get_aws_credentials_access_for_project_folder(
     project_id: str,
     folder_id: Optional[str],
     folder_path: Optional[Path]
-) -> Dict:
+) -> AwsTempCredentials:
     """
     Given a project_id and a folder_id or folder_path, collect the AWS Access Credentials for downloading this data.
-    :param project_id:
-    :param folder_id
-    :param folder_path
-    :return:
+
+    :param project_id: The project id of the data
+    :param folder_id: The folder id (alternative to folder_path)
+    :param folder_path: The folder path (alternative to folder_id)
+
+    :return: An object with the following attributes:
+      * access_key
+      * secret_key
+      * session_token
+      * region
+      * bucket
+      * object_prefix
+      * server_side_encryption_algorithm
+      * server_side_encryption_key
+
+    :rtype: `AwsTempCredentials <https://umccr-illumina.github.io/libica/openapi/v2/docs/AwsTempCredentials/>`_
+
+    :raises: AssertionError, ApiException, ValueError
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            get_aws_credentials_access_for_project_folder
+            # Data types / Enums
+            AwsTempCredentials
+        )
+        import subprocess
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        aws_temp_credentials: AwsTempCredentials = get_aws_credentials_access_for_project_folder(
+            project_id="proj.abcdef1234567890",
+            folder_path=Path("/path/to/folder/")
+        )
+
+        local_path = Path("/path/to/local/folder/")
+
+        subprocess.run(
+          [
+            "aws", "s3", "sync",
+            # Can add sync parameters here like --dryrun or --exclude / --include
+            "s3://{}/{}".format(aws_temp_credentials.bucket, aws_temp_credentials.object_prefix),
+            str(local_path)
+          ],
+          env={
+            "AWS_ACCESS_KEY_ID": aws_temp_credentials.access_key,
+            "AWS_SECRET_ACCESS_KEY": aws_temp_credentials.secret_key,
+            "AWS_SESSION_TOKEN": aws_temp_credentials.session_token,
+            "AWS_REGION": aws_temp_credentials.region
+          }
+        )
     """
     # Check one of parent_folder_id and parent_folder_path is specified
     if folder_id is None and folder_path is None:
@@ -836,7 +1289,7 @@ def get_aws_credentials_access_for_project_folder(
         raise AssertionError
 
     if folder_id is None:
-        folder_id = get_project_folder_id_from_project_id_and_path(
+        folder_id = get_project_data_folder_id_from_project_id_and_path(
             project_id=project_id,
             folder_path=folder_path
         )
@@ -863,8 +1316,21 @@ def get_aws_credentials_access_for_project_folder(
 def is_folder_id_format(folder_id_str: str) -> bool:
     """
     Does this string look like a folder id?
-    :param folder_id_str:
-    :return:
+
+    :param folder_id_str: The string to check
+
+    :return: True if the string looks like a folder id
+    :rtype: bool
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import is_folder_id_format
+
+        print(is_folder_id_format("fol.abcdef1234567890"))
+        # True
     """
     return re.match("fol.[0-9a-f]{32}", folder_id_str) is not None
 
@@ -872,17 +1338,44 @@ def is_folder_id_format(folder_id_str: str) -> bool:
 def is_file_id_format(file_id_str: str) -> bool:
     """
     Does this string look like a folder id?
-    :param file_id_str:
-    :return:
+
+    :param file_id_str: The string to check
+
+    :return: True if the string looks like a file id
+    :rtype: bool
+
+    :Examples:
+
+    .. code-block:: python
+    :linenos:
+
+        from wrapica.project_data import is_file_id_format
+
+        print(is_file_id_format("fil.abcdef1234567890"))
+        # True
+
     """
     return re.match("fil.[0-9a-f]{32}", file_id_str) is not None
 
 
-def is_data_id(data_id):
+def is_data_id(data_id: str) -> bool:
     """
     Check if data id is a data id
-    :param data_id:
-    :return:
+
+    :param data_id: The data id to check
+
+    :return: True if the data id is a data id
+
+    :rtype: bool
+
+    :Examples:
+
+    .. code-block:: python
+
+    from wrapica.project_data import is_data_id
+
+    print(is_data_id("fil.abcdef1234567890"))
+    # True
     """
     return is_file_id_format(data_id) or is_folder_id_format(data_id)
 
@@ -897,10 +1390,47 @@ def presign_cwl_directory(
     ]
 ]:
     """
-    Given a CWL directory object
-    :param project_id:
-    :param data_id:
-    :return:
+    Given a CWL directory object, presign all files in the directory recursively, and return the list of presigned url
+
+    :param project_id: The project id to search in
+    :param data_id: The data id
+
+    :return: The CWL input json Directory object where each file in the listing has a presigned url for a location attributes
+    :rtype: List[Dict[str, Union[Union[dict, str], Any]]]
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import presign_cwl_directory
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+        # Use wrapica.project_data.get_folder_id_from_project_id_and_path
+        # If you need to convert a folder path to a folder id
+
+        cwl_directory: List[Dict[str, Union[Union[dict, str], Any]]] = presign_cwl_directory(
+            project_id="abcd-1234-efab-5678",
+            data_id="fol.abcdef1234567890"
+        )
+
+        print(cwl_directory)
+        # [
+        #   {
+        #     "class": "Directory",
+        #     "basename": "folder",
+        #     "listing": [
+        #       {
+        #         "class": "File",
+        #         "basename": "file.txt",
+        #         "location": "https://s3.amazonaws.com/umccr-illumina-prod/abcd-1234-efab-5678/abcdef1234567890"
+        #       }
+        #     ]
+        #   }
+        # ]
     """
     # Data ids
     cwl_item_objs = []
@@ -949,10 +1479,55 @@ def presign_cwl_directory_with_external_data_mounts(
     Given a cwl directory with a listing attribute, presign all files in the directory recursively, and return the
     list of presigned url mount objects and the cwl directory listing object
 
-    :param project_id:
-    :param data_id:
+    :param project_id: The project id to search in
+    :param data_id: The data id
 
     :return: external_data_mounts, cwl_item_objs
+    :rtype: Tuple[List[`AnalysisInputExternalData <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisInputExternalData/>`_], List[Dict]]
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import presign_cwl_directory_with_external_data_mounts
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+        # Use wrapica.project_data.get_folder_id_from_project_id_and_path
+        # If you need to convert a folder path to a folder id
+
+        external_data_mounts, cwl_item_objs = presign_cwl_directory_with_external_data_mounts(
+            project_id="abcd-1234-efab-5678",
+            data_id="fol.abcdef1234567890"
+        )
+
+        print(external_data_mounts)
+        # [
+        #   {
+        #     "url": "https://s3.amazonaws.com/umccr-illumina-prod/abcd-1234-efab-5678/abcdef1234567890",
+        #     "type": "FILE",
+        #     "mount_path": "abcd-1234-efab-5678/abcdef1234567890/file.txt"
+        #   }
+        # ]
+
+        print(cwl_item_objs)
+        # [
+        #   {
+        #     "class": "Directory",
+        #     "basename": "folder",
+        #     "listing": [
+        #       {
+        #         "class": "File",
+        #         "basename": "file.txt",
+        #         "location": "abcd-1234-efab-5678/abcdef1234567890/file.txt"
+        #       }
+        #     ]
+        #   }
+        # ]
+
     """
     # Data ids
     cwl_item_objs = []

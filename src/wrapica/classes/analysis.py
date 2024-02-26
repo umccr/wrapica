@@ -316,7 +316,7 @@ class ICAv2EngineParameters:
         :param analysis_output:
         :return:
         """
-        from ..functions.project_data.project_data_functions import get_project_folder_id_from_project_id_and_path
+        from ..functions.project_data.project_data_functions import get_project_data_folder_id_from_project_id_and_path
 
         # Just set the id if it is not None
         if output_parent_folder_id is not None:
@@ -345,7 +345,7 @@ class ICAv2EngineParameters:
             # Populate placeholders in the output path
             self.output_parent_folder_path = self.populate_placeholders_in_output_path(self.output_parent_folder_path)
 
-            self.output_parent_folder_id = get_project_folder_id_from_project_id_and_path(
+            self.output_parent_folder_id = get_project_data_folder_id_from_project_id_and_path(
                 project_id=self.project_id,
                 folder_path=self.output_parent_folder_path,
                 create_folder_if_not_found=True

@@ -3,11 +3,11 @@
 # Import everything
 from .functions.project_data.project_data_functions import (
     # Project Data functions
-    get_project_file_id_from_project_id_and_path,
+    get_project_data_file_id_from_project_id_and_path,
     create_data_in_project,
     create_file_in_project,
     create_folder_in_project,
-    get_project_folder_id_from_project_id_and_path,
+    get_project_data_folder_id_from_project_id_and_path,
     get_project_data_id_from_project_id_and_path,
     get_project_data_obj_by_id,
     get_project_data_obj_from_project_id_and_path,
@@ -32,16 +32,17 @@ from .functions.project_data.project_data_functions import (
     DataUrlWithPath,
     Download,
     ProjectData,
+    AwsTempCredentials,
     TempCredentials
 )
 
 __all__ = [
     # Functions
-    'get_project_file_id_from_project_id_and_path',
+    'get_project_data_file_id_from_project_id_and_path',
     'create_data_in_project',
     'create_file_in_project',
     'create_folder_in_project',
-    'get_project_folder_id_from_project_id_and_path',
+    'get_project_data_folder_id_from_project_id_and_path',
     'get_project_data_id_from_project_id_and_path',
     'get_project_data_obj_by_id',
     'get_project_data_obj_from_project_id_and_path',
@@ -66,5 +67,6 @@ __all__ = [
     'DataUrlWithPath',
     'Download',
     'ProjectData',
+    'AwsTempCredentials',
     'TempCredentials'
 ]
