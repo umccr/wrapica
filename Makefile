@@ -38,3 +38,8 @@ install_pypi:
 	@pip install \
 		--index-url https://pypi.org/simple/ \
 		wrapica=="${WRAPICA_VERSION}"
+
+# Build docs
+build_docs:
+	@pip install .[docs]
+	@sphinx-build docs/ docs/_build/

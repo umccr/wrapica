@@ -42,6 +42,7 @@ from ...utils.logger import get_logger
 from ...utils.configuration import get_icav2_configuration
 from ...utils.enums import AnalysisStorageSize, WorkflowLanguage, DataType
 
+
 if typing.TYPE_CHECKING:
     # Import type hints for IDE only, not at runtime
     # Prevents circular imports
@@ -271,7 +272,7 @@ def create_cwl_input_json_analysis_obj(
     output_parent_folder_path: Optional[str] = None,
     analysis_output_uri: Optional[str] = None,
     # Meta parameters
-    tags: Optional[ICAv2PipelineAnalysisTags] = None,
+    tags: Optional['ICAv2PipelineAnalysisTags'] = None,
     # CWL Specific parameters
     cwltool_overrides: Optional[Dict] = None
 ) -> 'ICAv2CWLPipelineAnalysis':

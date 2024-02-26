@@ -39,10 +39,12 @@ def get_project_file_id_from_project_id_and_path(
     """
     Given a project id, parent folder path and file_name, return the file id
     If the file is not found, and create_file_if_not_found is True, create the file
-    :param project_id: 
+
+    :param project_id:
     :param file_path:
     :param create_file_if_not_found: 
-    :return: 
+
+    :return:
     """
     # Get the configuration
     configuration = get_icav2_configuration()
@@ -106,7 +108,13 @@ def create_data_in_project(
     data_type: DataType
 ) -> ProjectData:
     """
-    Create a folder in a project
+    Create a folder in a project context
+
+    :param project_id:
+    :param parent_folder_path:
+    :param data_name:
+    :param data_type:
+    :return:
     """
 
     # Get the configuration
@@ -676,14 +684,42 @@ def create_download_urls(
 ) -> List[DataUrlWithPath]:
     """
     Given a project data folder return a list where each item is an object with the following attributes
-    * data_id: The data id
-    * data_urn: The data urn
-    * data_path: The project data path
-    * url: The presigned url
-    :param project_id:
-    :param folder_id:
-    :param recursive:
-    :return:
+
+    :param project_id: The owning project id
+    :param folder_id:  The id of the folder
+    :param recursive:  Whether to provide download urls recursively
+    
+    :return: List of download urls
+    :rtype: List[`DataUrlWithPath <https://umccr-illumina.github.io/libica/openapi/v2/docs/DataUrlWithPathList/>`_]
+
+    Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            # Functions
+            create_download_urls, get_project_folder_id_from_project_id_and_path
+            # Data types
+            ProjectData, DataUrlWithPath
+        )
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        project_folder_obj: ProjectData = get_project_folder_id_from_project_id_and_path(
+            project_id="abcd-1234-efab-5678",
+            folder_path=Path("/path/to/folder/")
+        )
+
+        download_urls: List[DataUrlWithPath] = create_download_urls(
+            project_id="proj.abcdef1234567890",
+            folder_id=project_folder_obj.data.id,
+            recursive=True
+        )
+
+        for download_url in download_urls:
+            print(download_url.url)
     """
 
     if recursive:
@@ -732,9 +768,26 @@ def convert_icav2_uri_to_data_obj(
 ) -> ProjectData:
     """
     Given an ICAv2 URI, return a project data object
-    :param data_uri:
-    :param create_data_if_not_found:
-    :return: project_id, data_id, data_type
+
+    :param data_uri: The icav2 uri to convert to a data object
+    :param create_data_if_not_found:  If the data is not found, and create_data_if_not_found is True, create the data
+
+    :return: libica v2 Project Data Object
+    :rtype: `Project Data <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import convert_icav2_uri_to_data_obj, ProjectData
+
+        project_data_object: ProjectData = convert_icav2_uri_to_data_obj(
+            "icav2://project-name/path/to/data/"
+        )
+
+        print(project_data_object.data.id)
+        # file.abcdef1234567890
     """
     # Import other functions locally to avoid circular imports
     from ..project.project_functions import get_project_id_from_project_name
@@ -892,6 +945,15 @@ def presign_cwl_directory_with_external_data_mounts(
     # Dict listing
     List[Dict]
 ]:
+    """
+    Given a cwl directory with a listing attribute, presign all files in the directory recursively, and return the
+    list of presigned url mount objects and the cwl directory listing object
+
+    :param project_id:
+    :param data_id:
+
+    :return: external_data_mounts, cwl_item_objs
+    """
     # Data ids
     cwl_item_objs = []
 
