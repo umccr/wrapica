@@ -170,10 +170,17 @@ jobs:
 #          name: coverage_report
 #          path: coverage_report.txt
 
+  # Commit docs
+  commit_docs_requirement_file:
+    needs:
+      - setup
+    uses: ./.github/workflows/build_docs_requirements_file.yml
+
   # Build package
   build_package_wheels:
     needs:
       - setup
+      - commit_docs_requirement_file
       # - test
     uses: ./.github/workflows/build_package.yml
 
@@ -181,6 +188,7 @@ jobs:
   build_release:
     needs:
       - setup
+      - commit_docs_requirement_file
       # - test
       - build_package_wheels
     uses: ./.github/workflows/build_release.yml
@@ -196,6 +204,7 @@ jobs:
   publish_pypi:
     needs:
       - setup
+      - commit_docs_requirement_file
       # - test
       - build_package_wheels
       - build_release
@@ -217,6 +226,7 @@ jobs:
         shell: bash -l {0}
     needs:
       - setup
+      - commit_docs_requirement_file
       # - test
       - build_package_wheels
       - build_release
