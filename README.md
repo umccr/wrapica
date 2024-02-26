@@ -1,5 +1,10 @@
 # wrapica
 
+[![Documentation Status](https://readthedocs.org/projects/wrapica/badge/?version=latest)](https://wrapica.readthedocs.io/en/latest/?badge=latest)
+[![Build and Deploy][pipeline_on_tag_badge_svg_url]][pipeline_on_tag_url]
+[![PyPI version][badge_fury_svg_url]][badge_fury_url]
+
+
 A suite of secondary / tertiary functions for running ICAv2 API calls
 
 ## Installing wrapica
@@ -62,3 +67,8 @@ workflow_steps: List[AnalysisStep] = get_workflow_steps(
 )
 ```
 
+[read_the_docs_url]: https://wrapica.readthedocs.io/en/latest/?badge=latest
+[pipeline_on_tag_url]: https://github.com/umccr/wrapica/actions/workflows/pipeline_on_tag.yml
+[pipeline_on_tag_badge_svg_url]: https://github.com/umccr/wrapica/actions/workflows/pipeline_on_tag.yml/badge.svg
+[badge_fury_url]: https://badge.fury.io/py/wrapica
+[badge_fury_svg_url]: https://badge.fury.io/py/wrapica.svg
