@@ -41,3 +41,8 @@ build = [
 toml = [
     "tomli_w >= 1.0.0, < 2",
 ]
+docs = [
+  "sphinx >= 7.2.6, < 8",
+  "sphinx-rtd-theme >= 2.0.0, < 3",
+  "sphinx_autodoc_typehints"
+]
