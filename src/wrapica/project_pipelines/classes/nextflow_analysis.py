@@ -27,7 +27,7 @@ from .analysis import (
 )
 
 # Local imports
-from ...utils.enums import (
+from ...enums import (
     AnalysisStorageSize, WorkflowLanguage,
     StructuredInputParameterType, StructuredInputParameterTypeMapping
 )

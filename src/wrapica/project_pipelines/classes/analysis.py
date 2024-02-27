@@ -29,7 +29,7 @@ from libica.openapi.v2.model.project_data import ProjectData
 
 # Local imports
 from ...utils import recursively_build_open_api_body_from_libica_item
-from ...utils.enums import AnalysisStorageSize, DataType
+from ...enums import AnalysisStorageSize, DataType
 from ...utils.globals import ICAv2AnalysisStorageSize
 from ...utils.miscell import sanitise_dict_keys
 from ...utils.logger import get_logger

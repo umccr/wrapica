@@ -24,6 +24,7 @@ dependencies = [
     "ruamel.base >= 1.0.0, < 2",
     "ruamel.yaml >= 0.18.0, < 0.19",
     "verboselogs >= 1.7, < 2",
+    "websocket_client >= 1.4.2, < 2",
 ]
 
 [project.urls]

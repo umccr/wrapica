@@ -36,13 +36,14 @@ def get_outputs_object_from_analysis_id(
     :param analysis_id: The analysis id to query
 
     :return: List of analysis outputs
-    :rtype: List[`AnalysisOutput <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisOutput`_]
+    :rtype: List[`AnalysisOutput <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisOutput>`_]
 
-    :raises ApiException:
+    :raises: ApiException
 
-    Example:
+    :Examples:
 
     .. code-block:: python
+    
         :linenos:
         from wrapica.project_analysis import get_outputs_object_from_analysis_id
 
@@ -81,11 +82,12 @@ def get_cwl_outputs_json_from_analysis_id(
     :return: List of analysis outputs
     :rtype: Dict[str, Any]
 
-    :raises ApiException:
+    :raises: ApiException
 
-    Example:
+    :Examples:
 
     .. code-block:: python
+
         :linenos:
         from wrapica.project_analysis import get_cwl_outputs_json_from_analysis_id
 
@@ -124,13 +126,14 @@ def get_analysis_obj(
     :param analysis_id: The analysis id to query
 
     :return: The analysis object
-    :rtype: `Analysis <https://umccr-illumina.github.io/libica/openapi/v2/docs/Analysis`_
+    :rtype: `Analysis <https://umccr-illumina.github.io/libica/openapi/v2/docs/Analysis>`_
 
-    :raises ApiException:
+    :raises: ApiException
 
-    :Example:
+    :Examples:
 
     .. code-block:: python
+
         :linenos:
         from wrapica.project_analysis import get_analysis_obj
 
@@ -165,13 +168,14 @@ def get_analysis_steps(project_id: str, analysis_id: str, include_technical_step
     :param analysis_id:
 
     :return: List of analysis steps
-    :rtype: List[`AnalysisStep <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisStep`_]
+    :rtype: List[`AnalysisStep <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisStep>`_]
 
-    :raises ApiException
+    :raises: ApiException
 
-    :Example:
+    :Examples:
 
     .. code-block:: python
+
         :linenos:
         from wrapica.project_analysis import get_analysis_steps
 
@@ -218,7 +222,7 @@ def get_analysis_log_from_analysis_step(analysis_step: AnalysisStep) -> Analysis
     :param analysis_step:
 
     :return: Get the logs attribute of an analysis step
-    :rtype: `AnalysisStepLogs <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisStepLogs`_
+    :rtype: `AnalysisStepLogs <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisStepLogs>`_
 
     :Examples:
 
@@ -255,9 +259,13 @@ def write_analysis_step_logs(
 
     :raises: ApiException, NotADirectoryError
 
+    :return: None
+    :rtype: None
+
     :Examples:
 
     .. code-block:: python
+
         :linenos:
         from pathlib import Path
         from wrapica.project_analysis import get_analysis_steps

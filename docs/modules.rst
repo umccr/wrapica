@@ -2,11 +2,12 @@ Modules
 =======
 
 .. toctree::
-   :maxdepth: 1
+    :maxdepth: 1
 
-   wrapica/project
+    wrapica/project
 
-   wrapica/project_data
+    wrapica/project_data
 
-   wrapica/project_pipeline
+    wrapica/project_pipelines
 
+    wrapica/project_analysis
