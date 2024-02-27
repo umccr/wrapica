@@ -9,12 +9,3 @@ Functions
    :undoc-members:
    :show-inheritance:
    :exclude-members:
-     AnalysisInputExternalData,
-     CreateData,
-     CreateTemporaryCredentials,
-     DataIdOrPathList,
-     DataUrlWithPath,
-     Download,
-     ProjectData,
-     AwsTempCredentials,
-     TempCredentials

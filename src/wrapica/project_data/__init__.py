@@ -24,16 +24,7 @@ from .functions.project_data_functions import (
     is_data_id,
     presign_cwl_directory,
     presign_cwl_directory_with_external_data_mounts,
-    # Libica models
-    AnalysisInputExternalData,
-    CreateData,
-    CreateTemporaryCredentials,
-    DataIdOrPathList,
-    DataUrlWithPath,
-    Download,
-    ProjectData,
-    AwsTempCredentials,
-    TempCredentials
+    read_icav2_file_contents
 )
 
 __all__ = [
@@ -59,14 +50,5 @@ __all__ = [
     'is_data_id',
     'presign_cwl_directory',
     'presign_cwl_directory_with_external_data_mounts',
-    # Libica models
-    'AnalysisInputExternalData',
-    'CreateData',
-    'CreateTemporaryCredentials',
-    'DataIdOrPathList',
-    'DataUrlWithPath',
-    'Download',
-    'ProjectData',
-    'AwsTempCredentials',
-    'TempCredentials'
+    'read_icav2_file_contents'
 ]

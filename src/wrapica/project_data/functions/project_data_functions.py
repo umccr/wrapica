@@ -7,11 +7,13 @@ List of available functions:
 
 # Standard imports
 import re
+from io import TextIOWrapper
 from pathlib import Path
 from typing import Dict, List, Union, Optional, Any, Tuple
 from datetime import datetime
 from urllib.parse import urlparse
 
+import requests
 # Libica imports
 from libica.openapi.v2 import ApiClient, ApiException
 from libica.openapi.v2.api.project_data_api import ProjectDataApi
@@ -26,7 +28,7 @@ from libica.openapi.v2.model.project_data import ProjectData
 from libica.openapi.v2.model.temp_credentials import TempCredentials
 
 # Local imports
-from ...utils.enums import DataType, ProjectDataSortParameters, ProjectDataStatusValues
+from ...enums import DataType, ProjectDataSortParameters, ProjectDataStatusValues
 from ...utils.configuration import get_icav2_configuration, logger
 from ...utils.globals import LIBICAV2_DEFAULT_PAGE_SIZE
 from ...utils.miscell import is_uuid_format
@@ -54,12 +56,11 @@ def get_project_data_file_id_from_project_id_and_path(
     .. code-block:: python
         :linenos:
 
+        from pathlib import Path
         from wrapica.project_data import (
-            # Functions
-            create_download_urls, get_project_folder_id_from_project_id_and_path,
-            # Data types
-            ProjectData, DataUrlWithPath
+            create_download_urls, get_project_folder_id_from_project_id_and_path
         )
+        from wrapica.libica_models import DataUrlWithPath
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -157,12 +158,12 @@ def create_data_in_project(
     .. code-block:: python
         :linenos:
 
+        from pathlib import Path
         from wrapica.project_data import (
-            # Functions
             create_data_in_project, create_data_in_project,
-            # Data types / Enums
-            ProjectData, DataType
         )
+        from wrapica.enums import DataType
+        from wrapica.libica_models import ProjectData
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -227,12 +228,9 @@ def create_file_in_project(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            # Functions
-            create_file_in_project
-            # Data types / Enums
-            ProjectData
-        )
+        from pathlib import Path
+        from wrapica.project_data import create_file_in_project
+        from wrapica.libica_models import ProjectData
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -270,12 +268,9 @@ def create_folder_in_project(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            # Functions
-            create_folder_in_project
-            # Data types / Enums
-            ProjectData
-        )
+        from pathlib import Path
+        from wrapica.project_data import create_folder_in_project
+        from wrapica.libica_models import ProjectData
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -319,10 +314,8 @@ def get_project_data_folder_id_from_project_id_and_path(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            # Functions
-            get_project_folder_id_from_project_id_and_path
-        )
+        from pathlib import Path
+        from wrapica.project_data import get_project_folder_id_from_project_id_and_path
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -415,12 +408,9 @@ def get_project_data_id_from_project_id_and_path(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            # Functions
-            get_project_data_id_from_project_id_and_path
-            # Data types / Enums
-            DataType
-        )
+        from pathlib import Path
+        from wrapica.project_data import get_project_data_id_from_project_id_and_path
+        from wrapica.enums import DataType
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -473,12 +463,8 @@ def get_project_data_obj_by_id(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            # Functions
-            get_project_data_obj_by_id
-            # Data types / Enums
-            ProjectData
-        )
+        from wrapica.project_data import get_project_data_obj_by_id
+        from wrapica.libica_models import ProjectData
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -536,12 +522,10 @@ def get_project_data_obj_from_project_id_and_path(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            # Functions
-            get_project_data_obj_from_project_id_and_path
-            # Data types / Enums
-            ProjectData, DataType
-        )
+        from pathlib import Path
+        from wrapica.project_data import get_project_data_obj_from_project_id_and_path
+        from wrapica.enums import DataType
+        from wrapica.libica_models import ProjectData
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -601,10 +585,8 @@ def get_project_data_path_by_id(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            # Functions
-            get_project_data_path_by_id
-        )
+        from pathlib import Path
+        from wrapica.project_data import get_project_data_path_by_id
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -674,12 +656,10 @@ def list_project_data_non_recursively(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            # Functions
-            list_project_data_non_recursively
-            # Data types / Enums
-            ProjectData, ProjectDataStatusValues, DataType, ProjectDataSortParameters
-        )
+        from pathlib import Path
+        from wrapica.project_data import list_project_data_non_recursively
+        from wrapica.libica_models import ProjectData, ProjectDataSortParameters
+        from wrapica.enums import ProjectDataStatusValues, DataType
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -845,12 +825,9 @@ def find_project_data_recursively(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            # Functions
-            find_project_data_recursively
-            # Data types / Enums
-            ProjectData, DataType
-        )
+        from wrapica.project_data import find_project_data_recursively
+        from wrapica.enums import DataType
+        from wrapica.libica_models import ProjectData
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -946,12 +923,9 @@ def find_project_data_bulk(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            # Functions
-            find_project_data_bulk
-            # Data types / Enums
-            ProjectData, DataType
-        )
+        from wrapica.project_data import find_project_data_bulk
+        from wrapica.enums import DataType
+        from wrapica.libica_models import ProjectData
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -1097,11 +1071,9 @@ def create_download_urls(
         :linenos:
 
         from wrapica.project_data import (
-            # Functions
             create_download_urls, get_project_folder_id_from_project_id_and_path
-            # Data types
-            ProjectData, DataUrlWithPath
         )
+        from wrapica.libica_models import ProjectData, DataUrlWithPath
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -1247,13 +1219,9 @@ def get_aws_credentials_access_for_project_folder(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            # Functions
-            get_aws_credentials_access_for_project_folder
-            # Data types / Enums
-            AwsTempCredentials
-        )
         import subprocess
+        from wrapica.project_data import get_aws_credentials_access_for_project_folder
+        from wrapica.libica_models import AwsTempCredentials
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
@@ -1467,8 +1435,8 @@ def presign_cwl_directory(
 
 
 def presign_cwl_directory_with_external_data_mounts(
-        project_id: str,
-        data_id: str
+    project_id: str,
+    data_id: str
 ) -> Tuple[
     # External data mounts
     List[AnalysisInputExternalData],
@@ -1589,3 +1557,40 @@ def presign_cwl_directory_with_external_data_mounts(
             )
 
     return external_data_mounts, cwl_item_objs
+
+
+def read_icav2_file_contents(
+    project_id: str,
+    data_id: str,
+    output_path: Union[Path, TextIOWrapper]
+):
+    """
+    Write icav2 file contents to a path
+
+    :param project_id:
+    :param data_id:
+    :param output_path:
+    :return:
+    """
+    if isinstance(output_path, Path):
+        # Ensure parent directory exists
+        if not output_path.parent.exists():
+            logger.error(f"Could not write to output path {output_path} as the parent directory does not exist")
+            raise NotADirectoryError
+
+    # Get the presigned url
+    presigned_url = create_download_url(project_id, data_id)
+
+    # Get the file contents with the requests package
+    r = requests.get(presigned_url)
+
+    if isinstance(output_path, Path):
+        # Write the file contents to the output path
+        with open(output_path, "wb") as f:
+            f.write(r.content)
+    else:
+        # Write the file contents to the output path
+        output_path.write(r.content.decode())
+
+
+

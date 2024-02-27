@@ -7,8 +7,7 @@ from .functions.project_analyses_functions import (
     get_analysis_obj,
     get_analysis_steps,
     get_analysis_log_from_analysis_step,
-    write_analysis_step_logs,
-    get_run_folder_inputs_from_analysis_id,
+    write_analysis_step_logs
 )
 
 __all__ = [
@@ -17,6 +16,5 @@ __all__ = [
     'get_analysis_obj',
     'get_analysis_steps',
     'get_analysis_log_from_analysis_step',
-    'write_analysis_step_logs',
-    'get_run_folder_inputs_from_analysis_id'
+    'write_analysis_step_logs'
 ]
