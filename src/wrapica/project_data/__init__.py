@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Import everything
-from .functions.project_data.project_data_functions import (
+from .functions.project_data_functions import (
     # Project Data functions
     get_project_data_file_id_from_project_id_and_path,
     create_data_in_project,

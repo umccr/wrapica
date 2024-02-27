@@ -26,9 +26,9 @@ from .analysis import (
 )
 
 # Local imports
-from ..utils.enums import AnalysisStorageSize, WorkflowLanguage
-from ..utils.globals import ICAv2AnalysisStorageSize
-from ..utils.logger import get_logger
+from ...utils.enums import AnalysisStorageSize, WorkflowLanguage
+from ...utils.globals import ICAv2AnalysisStorageSize
+from ...utils.logger import get_logger
 
 # Set logger
 logger = get_logger()
@@ -60,7 +60,7 @@ class ICAv2CwlAnalysisJsonInput(ICAv2AnalysisInput):
         self.external_mounts_list: List[AnalysisInputExternalData] = []
 
         # Generate typed values for creating analysis
-        self.input_json: Optional[str] = None
+        self.input_json_str: Optional[str] = None
 
     def validate_input(self):
         """
@@ -79,13 +79,13 @@ class ICAv2CwlAnalysisJsonInput(ICAv2AnalysisInput):
         # Generate a CWL analysis input
         return CwlAnalysisJsonInput(
             object_type=self.object_type,
-            input_json=self.input_json,
+            input_json=self.input_json_str,
             mounts=self.mount_paths_list,
             external_data=self.external_mounts_list
         )
 
     def deference_cwl_input_json(self):
-        from src.wrapica.functions.project_pipelines.project_pipelines_functions import (
+        from ..functions.project_pipelines_functions import (
             convert_icav2_uris_to_data_ids_from_cwl_input_json
         )
         self.input_json_deferenced_dict, self.mount_paths_list, self.external_mounts_list = convert_icav2_uris_to_data_ids_from_cwl_input_json(
@@ -93,7 +93,7 @@ class ICAv2CwlAnalysisJsonInput(ICAv2AnalysisInput):
         )
 
     def set_input_json(self):
-        self.input_json = json.dumps(self.input_json_deferenced_dict, indent=2)
+        self.input_json_str = json.dumps(self.input_json_deferenced_dict, indent=2)
 
 
 class ICAv2CWLEngineParameters(ICAv2EngineParameters):
@@ -276,7 +276,7 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
         )
 
     def launch_analysis(self) -> Analysis:
-        from ..functions.project_pipelines.project_pipelines_functions import launch_cwl_workflow
+        from ..functions.project_pipelines_functions import launch_cwl_workflow
         return launch_cwl_workflow(
             project_id=self.project_id,
             cwl_analysis=self.analysis,

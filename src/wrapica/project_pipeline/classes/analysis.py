@@ -28,11 +28,11 @@ from libica.openapi.v2.model.nextflow_analysis_input import NextflowAnalysisInpu
 from libica.openapi.v2.model.project_data import ProjectData
 
 # Local imports
-from ..utils import recursively_build_open_api_body_from_libica_item
-from ..utils.enums import AnalysisStorageSize, DataType
-from ..utils.globals import ICAv2AnalysisStorageSize
-from ..utils.miscell import sanitise_dict_keys
-from ..utils.logger import get_logger
+from ...utils import recursively_build_open_api_body_from_libica_item
+from ...utils.enums import AnalysisStorageSize, DataType
+from ...utils.globals import ICAv2AnalysisStorageSize
+from ...utils.miscell import sanitise_dict_keys
+from ...utils.logger import get_logger
 
 # Set logger
 logger = get_logger()
@@ -238,7 +238,7 @@ class ICAv2EngineParameters:
         analysis_input: Optional[Union[CwlAnalysisJsonInput, CwlAnalysisStructuredInput]] = None
     ):
         # Local import of functions from classes to avoid circular imports
-        from ..functions.project_pipelines.project_pipelines_functions import (
+        from ..functions.project_pipelines_functions import (
             get_default_analysis_storage_id_from_project_pipeline,
             get_activation_id
         )
@@ -316,7 +316,7 @@ class ICAv2EngineParameters:
         :param analysis_output:
         :return:
         """
-        from ..functions.project_data.project_data_functions import get_project_data_folder_id_from_project_id_and_path
+        from ...project_data import get_project_data_folder_id_from_project_id_and_path
 
         # Just set the id if it is not None
         if output_parent_folder_id is not None:
@@ -394,7 +394,7 @@ class ICAv2EngineParameters:
         :return:
         """
         # Import functions locally to avoid circular imports
-        from ..functions import fill_placeholder_path
+        from ...utils import fill_placeholder_path
         return fill_placeholder_path(
             analysis_path,
             self.placeholder_dict
@@ -492,7 +492,7 @@ class ICAv2PipelineAnalysis:
         Convert the analysis output to a mapping
         :return:
         """
-        from ..functions.project_data.project_data_functions import convert_icav2_uri_to_data_obj
+        from ...project_data import convert_icav2_uri_to_data_obj
         # Ensure that the path attribute of analysis_output_uri ends with /
         if not urlparse(self.analysis_output_uri).path.endswith("/"):
             raise ValueError("The analysis output uri must end with a /")

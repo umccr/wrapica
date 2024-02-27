@@ -24,8 +24,24 @@ def get_project_id_from_project_name(
     """
     Given a project name return the id of the project
     Will raise an error if the project id cannot be found
-    :param project_name:
-    :return:
+
+    :param project_name: The name of the project
+
+    :return: The id of the project
+    :rtype: str
+
+    :raises ValueError, ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        from wrapica.project import get_project_id_from_project_name
+
+        project_id = get_project_id_from_project_name("my_project")
+
+        print(project_id)
+        # "1234-5678-9012-3456"
     """
 
     # Configuration
