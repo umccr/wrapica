@@ -49,7 +49,7 @@ def get_project_data_file_id_from_project_id_and_path(
 
     :raises: FileNotFoundError, ApiException
 
-    Examples:
+    :Examples:
 
     .. code-block:: python
         :linenos:
@@ -134,10 +134,10 @@ def get_project_data_file_id_from_project_id_and_path(
 
 
 def create_data_in_project(
-    project_id: str,
-    parent_folder_path: Path,
-    data_name: str,
-    data_type: DataType
+        project_id: str,
+        parent_folder_path: Path,
+        data_name: str,
+        data_type: DataType
 ) -> ProjectData:
     """
     Create a data object in a project context
@@ -207,8 +207,8 @@ def create_data_in_project(
 
 
 def create_file_in_project(
-    project_id: str,
-    file_path: Path,
+        project_id: str,
+        file_path: Path,
 ) -> ProjectData:
     """
     Create a file in a project
@@ -251,8 +251,8 @@ def create_file_in_project(
 
 
 def create_folder_in_project(
-    project_id: str,
-    folder_path: Path,
+        project_id: str,
+        folder_path: Path,
 ) -> ProjectData:
     """
     Create a folder in a project
@@ -295,9 +295,9 @@ def create_folder_in_project(
 
 
 def get_project_data_folder_id_from_project_id_and_path(
-    project_id: str,
-    folder_path: Path,
-    create_folder_if_not_found: bool = False
+        project_id: str,
+        folder_path: Path,
+        create_folder_if_not_found: bool = False
 ) -> str:
     """
     Given a project_id and a path, return the folder_id.
@@ -388,10 +388,10 @@ def get_project_data_folder_id_from_project_id_and_path(
 
 
 def get_project_data_id_from_project_id_and_path(
-    project_id: str,
-    data_path: Path,
-    data_type: DataType,
-    create_data_if_not_found: bool = False
+        project_id: str,
+        data_path: Path,
+        data_type: DataType,
+        create_data_if_not_found: bool = False
 ) -> str:
     """
     Given a project_id and a path, return the data_id, where DATA_TYPE is one of FILE or FOLDER
@@ -454,8 +454,8 @@ def get_project_data_id_from_project_id_and_path(
 
 
 def get_project_data_obj_by_id(
-    project_id: str,
-    data_id: str
+        project_id: str,
+        data_id: str
 ) -> ProjectData:
     """
     Given a project_id and a data_id, return the data object
@@ -470,7 +470,7 @@ def get_project_data_obj_by_id(
 
     :Examples:
 
-    ..code-block:: python
+    .. code-block:: python
         :linenos:
 
         from wrapica.project_data import (
@@ -512,10 +512,10 @@ def get_project_data_obj_by_id(
 
 
 def get_project_data_obj_from_project_id_and_path(
-    project_id: str,
-    data_path: Path,
-    data_type: DataType,
-    create_data_if_not_found: bool = False
+        project_id: str,
+        data_path: Path,
+        data_type: DataType,
+        create_data_if_not_found: bool = False
 ) -> ProjectData:
     """
     Given a project_id and a path, return the data object, where DATA_TYPE is one of FILE or FOLDER
@@ -533,7 +533,7 @@ def get_project_data_obj_from_project_id_and_path(
 
     :Examples:
 
-    ..code-block:: python
+    .. code-block:: python
         :linenos:
 
         from wrapica.project_data import (
@@ -582,8 +582,8 @@ def get_project_data_obj_from_project_id_and_path(
 
 
 def get_project_data_path_by_id(
-    project_id: str,
-    data_id: str
+        project_id: str,
+        data_id: str
 ) -> Path:
     """
     Given a project id and data id, return the path of the data
@@ -626,17 +626,17 @@ def get_project_data_path_by_id(
 
 
 def list_project_data_non_recursively(
-    project_id: str,
-    parent_folder_id: Optional[str] = None,
-    parent_folder_path: Optional[Path] = None,
-    file_name: Optional[Union[str, List[str]]] = None,
-    status: Optional[Union[ProjectDataStatusValues, List[ProjectDataStatusValues]]] = None,
-    data_type: Optional[DataType] = None,
-    creation_date_after: Optional[datetime] = None,
-    creation_date_before: Optional[datetime] = None,
-    status_date_after: Optional[datetime] = None,
-    status_date_before: Optional[datetime] = None,
-    sort: Optional[Union[ProjectDataSortParameters, List[ProjectDataSortParameters]]] = ""
+        project_id: str,
+        parent_folder_id: Optional[str] = None,
+        parent_folder_path: Optional[Path] = None,
+        file_name: Optional[Union[str, List[str]]] = None,
+        status: Optional[Union[ProjectDataStatusValues, List[ProjectDataStatusValues]]] = None,
+        data_type: Optional[DataType] = None,
+        creation_date_after: Optional[datetime] = None,
+        creation_date_before: Optional[datetime] = None,
+        status_date_after: Optional[datetime] = None,
+        status_date_before: Optional[datetime] = None,
+        sort: Optional[Union[ProjectDataSortParameters, List[ProjectDataSortParameters]]] = ""
 ) -> List[ProjectData]:
     """
     Given a project id and parent folder id or path,
@@ -814,13 +814,13 @@ def list_project_data_non_recursively(
 
 
 def find_project_data_recursively(
-    project_id: str,
-    parent_folder_id: str,
-    parent_folder_path: Path,
-    name: str,
-    data_type: DataType,
-    min_depth: Optional[int] = None,
-    max_depth: Optional[int] = None
+        project_id: str,
+        parent_folder_id: str,
+        parent_folder_path: Path,
+        name: str,
+        data_type: DataType,
+        min_depth: Optional[int] = None,
+        max_depth: Optional[int] = None
 ) -> List[ProjectData]:
     """
     Given a project_id, a parent_folder_id, a data_name and a data_type, return a list of data objects
@@ -909,24 +909,24 @@ def find_project_data_recursively(
         for subfolder in subfolders:
             matched_data_items.extend(
                 find_project_data_recursively(
-                        project_id=project_id,
-                        parent_folder_id=subfolder.data.id,
-                        parent_folder_path=subfolder.data.details.path,
-                        name=name,
-                        data_type=data_type,
-                        min_depth=min_depth - 1 if min_depth is not None else None,
-                        max_depth=max_depth - 1 if max_depth is not None else None
-                    )
+                    project_id=project_id,
+                    parent_folder_id=subfolder.data.id,
+                    parent_folder_path=subfolder.data.details.path,
+                    name=name,
+                    data_type=data_type,
+                    min_depth=min_depth - 1 if min_depth is not None else None,
+                    max_depth=max_depth - 1 if max_depth is not None else None
                 )
+            )
 
         return matched_data_items
 
 
 def find_project_data_bulk(
-    project_id: str,
-    parent_folder_id: Optional[str] = None,
-    parent_folder_path: Optional[Path] = None,
-    data_type: Optional[DataType] = None
+        project_id: str,
+        parent_folder_id: Optional[str] = None,
+        parent_folder_path: Optional[Path] = None,
+        data_type: Optional[DataType] = None
 ) -> List[ProjectData]:
     """
     Given a project_id and a parent_folder_id, return a list of all data objects in the folder (recursively)
@@ -1020,8 +1020,8 @@ def find_project_data_bulk(
 
 
 def create_download_url(
-    project_id: str,
-    file_id: str
+        project_id: str,
+        file_id: str
 ) -> str:
     """
     Given a project_id and a data_id, create a presigned url for a file
@@ -1077,9 +1077,9 @@ def create_download_url(
 
 
 def create_download_urls(
-    project_id: str,
-    folder_id: str,
-    recursive: bool = False
+        project_id: str,
+        folder_id: str,
+        recursive: bool = False
 ) -> List[DataUrlWithPath]:
     """
     Given a project data folder return a list where each item is an object with the following attributes
@@ -1087,11 +1087,11 @@ def create_download_urls(
     :param project_id: The owning project id
     :param folder_id:  The id of the folder
     :param recursive:  Whether to provide download urls recursively
-    
+
     :return: List of download urls
     :rtype: List[`DataUrlWithPath <https://umccr-illumina.github.io/libica/openapi/v2/docs/DataUrlWithPathList/>`_]
 
-    Examples:
+    :Examples:
 
     .. code-block:: python
         :linenos:
@@ -1191,7 +1191,7 @@ def convert_icav2_uri_to_data_obj(
         # file.abcdef1234567890
     """
     # Import other functions locally to avoid circular imports
-    from ..project.project_functions import get_project_id_from_project_name
+    from ...project import get_project_id_from_project_name
 
     data_uri_obj = urlparse(data_uri)
 
@@ -1217,9 +1217,9 @@ def convert_icav2_uri_to_data_obj(
 
 
 def get_aws_credentials_access_for_project_folder(
-    project_id: str,
-    folder_id: Optional[str],
-    folder_path: Optional[Path]
+        project_id: str,
+        folder_id: Optional[str],
+        folder_path: Optional[Path]
 ) -> AwsTempCredentials:
     """
     Given a project_id and a folder_id or folder_path, collect the AWS Access Credentials for downloading this data.
@@ -1381,8 +1381,8 @@ def is_data_id(data_id: str) -> bool:
 
 
 def presign_cwl_directory(
-    project_id: str,
-    data_id: str
+        project_id: str,
+        data_id: str
 ) -> List[
     Union[
         Dict[str, Union[Union[dict, str], Any]],
@@ -1467,12 +1467,12 @@ def presign_cwl_directory(
 
 
 def presign_cwl_directory_with_external_data_mounts(
-    project_id: str,
-    data_id: str
+        project_id: str,
+        data_id: str
 ) -> Tuple[
     # External data mounts
     List[AnalysisInputExternalData],
-    # Dict listing
+        # Dict listing
     List[Dict]
 ]:
     """

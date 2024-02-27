@@ -51,5 +51,17 @@ class ProjectDataStatusValues(Enum):
 
 
 class WorkflowLanguage(Enum):
-    CWL: "CWL"
-    NEXTFLOW: "NEXTFLOW"
+    CWL = "CWL"
+    NEXTFLOW = "NEXTFLOW"
+
+
+class StructuredInputParameterType(Enum):
+    BOOLEAN = "boolean"
+    STRING = "string"
+    INTEGER = "integer"
+
+
+class StructuredInputParameterTypeMapping(Enum):
+    BOOLEAN = bool
+    STRING = str
+    INTEGER = int
