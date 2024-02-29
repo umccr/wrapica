@@ -9,7 +9,9 @@ from typing import List, Union, Dict, Any, Optional
 
 # Libica imports
 from libica.openapi.v2 import ApiClient, ApiException
+from libica.openapi.v2.api.project_analysis_api import ProjectAnalysisApi
 from libica.openapi.v2.model.analysis import Analysis
+from libica.openapi.v2.model.analysis_input import AnalysisInput
 from libica.openapi.v2.model.analysis_output import AnalysisOutput
 from libica.openapi.v2.model.analysis_output_list import AnalysisOutputList
 from libica.openapi.v2.model.analysis_step import AnalysisStep
@@ -23,6 +25,114 @@ from ...utils.websocket_helpers import write_websocket_to_file, convert_html_to_
 from ...utils.logger import get_logger
 
 logger = get_logger()
+
+
+def get_project_analysis_inputs(
+    project_id: str,
+    analysis_id: str
+) -> List[AnalysisInput]:
+    """
+    Get the analysis inputs for a given analysis
+
+    :param project_id: The project context the analysis was run in
+    :param analysis_id: The analysis id to query
+
+    :return: List of analysis inputs
+    :rtype: List[`AnalysisInput <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisInput>`_]
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        :linenos:
+        from wrapica.project_analysis import get_project_analysis_inputs
+
+        # Set params
+        project_id = "project_id"
+        analysis_id = "analysis_id"
+
+        workflow_inputs = get_project_analysis_inputs(project_id, analysis_id)
+
+    """
+
+    # Enter a context with an instance of the API client
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectAnalysisApi(api_client)
+
+        # example passing only required values which don't have defaults set
+        try:
+            # Retrieve the outputs of an analysis.
+            analysis_input_list: List[AnalysisInput] = api_instance.get_analysis_inputs(
+                project_id, analysis_id
+            ).items
+        except ApiException as e:
+            logger.error("Exception when calling ProjectAnalysisApi->get_analysis_outputs: %s\n" % e)
+            raise ApiException
+
+    return analysis_input_list
+
+
+def get_analysis_input_object_from_analysis_code(
+    project_id: str,
+    analysis_id: str,
+    analysis_code: str
+) -> AnalysisInput:
+    """
+    Given an analysis code for an analysis id, collect the analysis input object
+    Confirm the input has either analysis or external data attributes
+
+    :param project_id: The project context the analysis was run in
+    :param analysis_id: The analysis id to query
+    :param analysis_code: The analysis input code to query
+
+    :return: The analysis input object
+    :rtype: `AnalysisInput <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisInput>`_
+
+    :raises: StopIteration, ValueError, ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        :linenos:
+        from wrapica.project_analysis import get_analysis_input_object_from_analysis_code
+
+        # Set params
+        project_id = "project_id"
+        analysis_id = "analysis_id"
+        analysis_code = "run_folder"
+
+        run_folder_input_data_id = get_analysis_input_object_from_analysis_code(
+            project_id, analysis_id, analysis_code
+        ).analysis_data[0].data_id
+    """
+
+    # Get analysis inputs
+    analysis_input_list: List[AnalysisInput] = get_project_analysis_inputs(
+        project_id,
+        analysis_id
+    )
+
+    # Iterate through inputs to find the one we want
+    try:
+        input_obj: AnalysisInput = next(
+            filter(
+                lambda analysis_iter: analysis_iter.code == analysis_code,
+                analysis_input_list
+            )
+        )
+    except StopIteration:
+        logger.error(f"Could not get {analysis_code} from analysis {analysis_id}")
+        raise StopIteration
+
+    if len(input_obj.analysis_data) == 0 and len(input_obj.external_data) == 0:
+        logger.error(f"Expected analysis data or external data to be 1 but got {len(input_obj.analysis_data)}")
+        raise ValueError
+
+    return input_obj
 
 
 def get_outputs_object_from_analysis_id(
@@ -66,7 +176,63 @@ def get_outputs_object_from_analysis_id(
         logger.error("Exception when calling ProjectAnalysisApi->get_analysis_outputs: %s\n" % e)
         raise ApiException
 
-    return api_response.outputs
+    return api_response.items
+
+
+def get_analysis_output_object_from_analysis_code(
+    project_id: str,
+    analysis_id: str,
+    analysis_code: str
+) -> AnalysisOutput:
+    """
+    Given an analysis code for an analysis id, collect the analysis output object
+
+    :param project_id: The project context the analysis was run in
+    :param analysis_id: The analysis id to query
+    :param analysis_code: The analysis output code to collect
+
+    :return: The analysis output object
+    :rtype: `AnalysisOutput <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisOutput>`_
+
+    :raises: StopIteration, ValueError, ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        :linenos:
+        from wrapica.project_analysis import get_analysis_output_object_from_analysis_code
+
+        # Set params
+        project_id = "project_id"
+        analysis_id = "analysis_id"
+        analysis_code = "Output"
+
+        analysis_folder_output_id = get_analysis_output_object_from_analysis_code(
+            project_id, analysis_id, analysis_code
+        ).data[0].data_id
+    """
+
+    analysis_output: List[AnalysisOutput] = get_outputs_object_from_analysis_id(
+        project_id,
+        analysis_id
+    )
+    try:
+        output_obj: AnalysisOutput = next(
+            filter(
+                lambda analysis_iter: analysis_iter.code == analysis_code,
+                analysis_output
+            )
+        )
+    except StopIteration:
+        logger.error(f"Could not get output item from analysis {analysis_id}")
+        raise StopIteration
+
+    if len(output_obj.data) == 0:
+        logger.error(f"Expected analysis output data to be at least 1 but got {len(output_obj.data)}")
+        raise ValueError
+
+    return output_obj
 
 
 def get_cwl_outputs_json_from_analysis_id(

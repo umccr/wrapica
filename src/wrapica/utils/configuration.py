@@ -176,7 +176,7 @@ def get_icav2_access_token() -> str:
     """
     access_token = environ.get("ICAV2_ACCESS_TOKEN", None)
 
-    if access_token is None or check_access_token_expiry(access_token):
+    if access_token is None or not check_access_token_expiry(access_token):
         access_token = get_access_token_from_session_file()
 
     return access_token

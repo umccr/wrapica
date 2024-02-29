@@ -12,6 +12,9 @@ from libica.openapi.v2.api.project_pipeline_api import ProjectPipelineApi
 
 from libica.openapi.v2.model.activation_code_detail import ActivationCodeDetail
 from libica.openapi.v2.model.analysis import Analysis
+from libica.openapi.v2.model.analysis import Analysis
+from libica.openapi.v2.model.analysis_input import AnalysisInput
+from libica.openapi.v2.model.analysis_output import AnalysisOutput
 from libica.openapi.v2.model.analysis_data_input import AnalysisDataInput
 from libica.openapi.v2.model.analysis_input_data_mount import AnalysisInputDataMount
 from libica.openapi.v2.model.analysis_input_external_data import AnalysisInputExternalData
@@ -43,3 +46,4 @@ from libica.openapi.v2.model.project_pipeline_list import ProjectPipelineList
 from libica.openapi.v2.model.search_matching_activation_codes_for_cwl_analysis import SearchMatchingActivationCodesForCwlAnalysis
 from libica.openapi.v2.model.search_matching_activation_codes_for_nextflow_analysis import SearchMatchingActivationCodesForNextflowAnalysis
 from libica.openapi.v2.model.temp_credentials import TempCredentials
+from libica.openapi.v2.model.job import Job

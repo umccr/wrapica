@@ -9,23 +9,30 @@ List of available functions:
 import re
 from io import TextIOWrapper
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Dict, List, Union, Optional, Any, Tuple
 from datetime import datetime
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 import requests
 # Libica imports
 from libica.openapi.v2 import ApiClient, ApiException
 from libica.openapi.v2.api.project_data_api import ProjectDataApi
+from libica.openapi.v2.api.project_data_copy_batch_api import ProjectDataCopyBatchApi
 from libica.openapi.v2.model.analysis_input_external_data import AnalysisInputExternalData
 from libica.openapi.v2.model.aws_temp_credentials import AwsTempCredentials
 from libica.openapi.v2.model.create_data import CreateData
+from libica.openapi.v2.model.create_project_data_copy_batch import CreateProjectDataCopyBatch
+from libica.openapi.v2.model.create_project_data_copy_batch_item import CreateProjectDataCopyBatchItem
 from libica.openapi.v2.model.create_temporary_credentials import CreateTemporaryCredentials
 from libica.openapi.v2.model.data_id_or_path_list import DataIdOrPathList
 from libica.openapi.v2.model.data_url_with_path import DataUrlWithPath
 from libica.openapi.v2.model.download import Download
+from libica.openapi.v2.model.job import Job
 from libica.openapi.v2.model.project_data import ProjectData
+from libica.openapi.v2.model.project_data_copy_batch import ProjectDataCopyBatch
 from libica.openapi.v2.model.temp_credentials import TempCredentials
+from libica.openapi.v2.model.upload import Upload
 
 # Local imports
 from ...enums import DataType, ProjectDataSortParameters, ProjectDataStatusValues
@@ -388,7 +395,6 @@ def get_project_data_id_from_project_id_and_path(
 ) -> str:
     """
     Given a project_id and a path, return the data_id, where DATA_TYPE is one of FILE or FOLDER
-    A few different methods, available, would look into bssh_manager implementation first
     Should call the underlying get_data_id_from_project_id_and_path function split by data type
 
     :param project_id: The project context the data exists in
@@ -974,7 +980,7 @@ def find_project_data_bulk(
                 file_path_match_mode="STARTS_WITH_CASE_INSENSITIVE",
                 page_size=str(page_size),
                 page_token=page_token,
-                type=data_type
+                type=data_type.value
             )
 
         except ApiException as e:
@@ -1185,6 +1191,70 @@ def convert_icav2_uri_to_data_obj(
         data_path=Path(data_uri_obj.path),
         data_type=data_type,
         create_data_if_not_found=create_data_if_not_found
+    )
+
+
+def convert_project_data_obj_to_icav2_uri(
+    project_data: ProjectData
+) -> str:
+    """
+    Return the file object as an icav2:// uri
+
+    :param project_data: The ProjectData object
+
+    :return: The icav2:// uri string
+    """
+    return str(
+        urlunparse((
+            "icav2",
+            project_data.project_id,
+            project_data.data.details.path + ("/" if project_data.data.details.data_type == "FOLDER" else ""),
+            None, None, None
+        ))
+    )
+
+
+def convert_project_id_and_data_path_to_icav2_uri(
+    project_id: str,
+    data_path: Path,
+    data_type: DataType
+) -> str:
+    """
+    Given a project_id and a data_id, return the icav2:// uri
+
+    Unlike convert_project_data_obj_to_icav2_uri, this does not require the path to exist.
+
+    If the data_type is DataType.FOLDER, the path should end with a forward slash.
+
+    :param project_id: The project id to search in
+    :param data_path: The path to the data in the project
+    :param data_type: The data_type, one of DataType.FILE, DataType.FOLDER
+
+    :return: The icav2:// uri string
+    :rtype: str
+
+    :Examples:
+
+    .. code-block:: python
+
+        :linenos:
+        from wrapica.project_data import convert_project_id_and_data_path_to_icav2_uri
+        from wrapica.enums import DataType
+
+        icav2_uri: str = convert_project_id_and_data_path_to_icav2_uri(
+            project_id="abcd-1234-efab-5678",
+            data_path=Path("/path/to/folder/"),
+            data_type=DataType.FOLDER
+        )
+    """
+
+    return str(
+        urlunparse((
+            "icav2",
+            project_id,
+            str(data_path) + ("/" if data_type == DataType.FOLDER else ""),
+            None, None, None
+        ))
     )
 
 
@@ -1593,4 +1663,217 @@ def read_icav2_file_contents(
         output_path.write(r.content.decode())
 
 
+def read_icav2_file_contents_to_string(
+    project_id: str,
+    data_id: str
+) -> str:
+    """
 
+    Stream down the icav2 file contents and return as a string
+
+    :param project_id: The project id
+    :param data_id: The data id
+
+    :return: The file contents as a string
+    :rtype: str
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        :linenos:
+        from wrapica.project_data import read_icav2_file_contents_to_string
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        file_contents: str = read_icav2_file_contents_to_string(
+            project_id="abcd-1234-efab-5678",
+            data_id="fil.abcdef1234567890"
+        )
+
+        print(file_contents)
+        # this is the file contents
+    """
+
+    with NamedTemporaryFile() as temp_file_h:
+        read_icav2_file_contents(
+            project_id=project_id,
+            data_id=data_id,
+            output_path=Path(temp_file_h.name)
+        )
+
+        with open(temp_file_h.name, "r") as f:
+            return f.read()
+
+
+def get_project_data_upload_url(
+    project_id: str,
+    data_id: str
+):
+    # The client must configure the authentication and authorization parameters
+    # in accordance with the API server security policy.
+
+    # Enter a context with an instance of the API client
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectDataApi(api_client)
+
+    # example passing only required values which don't have defaults set
+    try:
+        # Retrieve an upload URL for this data.
+        api_response: Upload = api_instance.create_upload_url_for_data(project_id, data_id)
+    except ApiException as e:
+        logger.error("Exception when calling ProjectDataApi->create_upload_url_for_data: %s\n" % e)
+        raise ApiException
+
+    return api_response.url
+
+
+def write_icav2_file_contents(
+    project_id: str,
+    data_path: Path,
+    file_stream_or_path: Union[Path, TextIOWrapper]
+):
+    """
+    Write icav2 file contents to a path
+
+    :param project_id:
+    :param data_path:
+    :param file_stream_or_path:
+    :return:
+    """
+
+    try:
+        _ = get_project_data_file_id_from_project_id_and_path(
+            project_id=project_id,
+            file_path=data_path,
+            create_file_if_not_found=False
+        )
+    except (ApiException, FileNotFoundError):
+        new_file_id = get_project_data_file_id_from_project_id_and_path(
+            project_id=project_id,
+            file_path=data_path,
+            create_file_if_not_found=False
+        )
+    else:
+        raise FileExistsError(f"File {data_path} already exists in project {project_id}")
+
+    # Get the upload url
+    upload_url = get_project_data_upload_url(
+        project_id=project_id,
+        data_id=new_file_id
+    )
+
+    if isinstance(file_stream_or_path, Path):
+        with open(file_stream_or_path, "rb") as f:
+            file_contents = f.read()
+    else:
+        file_contents = file_stream_or_path.read()
+
+    # Upload file contents with the requests package
+    requests.put(upload_url, data=file_contents)
+
+
+def get_file_by_file_name_from_project_data_list(
+    file_name: str,
+    project_data_list: List[ProjectData]
+) -> ProjectData:
+    """
+    Useful for collecting a file object from an analysis output object
+
+    :param file_name: The name of the file to get
+    :param project_data_list: The list of project data objects to search through
+
+    :return: The file object
+    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+
+    :raises: ValueError
+
+    :Examples:
+
+    .. code-block:: python
+
+        from wrapica.project_data import get_file_by_file_name_from_project_data_list
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        project_data_list: List[ProjectData] = find_project_data_bulk(
+            project_id="abcd-1234-efab-5678",
+            parent_folder_id="fol.abcdef1234567890",
+            data_type=DataType.FILE
+        )
+
+        file_obj: ProjectData = get_file_by_file_name_from_project_data_list(
+            file_name="file.txt",
+            project_data_list=project_data_list
+        )
+    """
+
+    # Find the first file with this name
+    try:
+        return next(
+            filter(
+                lambda file_iter: (
+                    file_iter.data.details.name == file_name and
+                    file_iter.data.details.data_type == DataType.FILE.value
+                ),
+                project_data_list
+            )
+        )
+    except StopIteration:
+        logger.error(f"Could not get file {file_name} from analysis output")
+        raise ValueError
+
+
+def project_data_copy_batch_handler(
+    source_data_ids: List[str],
+    destination_project_id: str,
+    destination_folder_path: Path
+) -> Job:
+    """
+    Copy a batch of files from one project to another
+    """
+
+    # Get the configuration
+    configuration = get_icav2_configuration()
+
+    # Enter a context with an instance of the API client
+    with ApiClient(configuration) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectDataCopyBatchApi(api_client)
+
+    # example passing only required values which don't have defaults set
+    try:
+        # Copy a batch of project data.
+        api_response: ProjectDataCopyBatch = api_instance.create_project_data_copy_batch(
+            project_id=destination_project_id,
+            create_project_data_copy_batch=CreateProjectDataCopyBatch(
+                items=list(
+                    map(
+                        lambda source_data_id_iter: CreateProjectDataCopyBatchItem(
+                            data_id=source_data_id_iter
+                        ),
+                        source_data_ids
+                    )
+                ),
+                destination_folder_id=get_project_data_folder_id_from_project_id_and_path(
+                    project_id=destination_project_id,
+                    folder_path=destination_folder_path,
+                    create_folder_if_not_found=True
+                ),
+                copy_user_tags=True,
+                copy_technical_tags=True,
+                copy_instrument_info=True,
+                action_on_exist="SKIP"
+            )
+        )
+    except ApiException as e:
+        logger.error("Exception when calling ProjectDataApi->copy_project_data_batch: %s\n" % e)
+        raise ApiException
+
+    # Return the job ID for the project data copy batch
+    return api_response.job
