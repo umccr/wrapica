@@ -175,6 +175,8 @@ jobs:
     needs:
       - setup
     uses: ./.github/workflows/build_docs_requirements_file.yml
+    with:
+      git_branch: ${{ needs.setup.outputs.branch_name }}
 
   # Build package
   build_package_wheels:
