@@ -59,9 +59,11 @@ class StructuredInputParameterType(Enum):
     BOOLEAN = "boolean"
     STRING = "string"
     INTEGER = "integer"
+    OPTION = "options"
 
 
 class StructuredInputParameterTypeMapping(Enum):
     BOOLEAN = bool
     STRING = str
     INTEGER = int
+    OPTION = str

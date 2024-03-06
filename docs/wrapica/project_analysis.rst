@@ -1,10 +1,10 @@
-Project Data
+Project Analysis
 =======================================
 
 Functions
 ---------------
 
-.. automodule:: wrapica.project_data
+.. automodule:: wrapica.project_analysis
    :members:
    :undoc-members:
    :show-inheritance:

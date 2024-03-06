@@ -43,7 +43,7 @@ from libica.openapi.v2.model.search_matching_activation_codes_for_nextflow_analy
 # Local imports
 from ...utils.logger import get_logger
 from ...utils.configuration import get_icav2_configuration
-from ...utils.enums import AnalysisStorageSize, WorkflowLanguage, DataType
+from ...enums import AnalysisStorageSize, WorkflowLanguage, DataType
 
 
 if typing.TYPE_CHECKING:
@@ -73,7 +73,7 @@ def get_project_pipeline_obj(project_id: str, pipeline_id: str) -> ProjectPipeli
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipeline import get_project_pipeline_obj
+        from wrapica.project_pipelines import get_project_pipeline_obj
 
         project_id = "project-123"
         pipeline_id = "pipeline-123"
@@ -112,7 +112,7 @@ def get_project_pipeline_id_from_pipeline_code(project_id: str, pipeline_code: s
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipeline import get_project_pipeline_id_from_pipeline_code
+        from wrapica.project_pipelines import get_project_pipeline_id_from_pipeline_code
 
         project_id = "project-123"
         pipeline_code = "pipeline-123"
@@ -161,7 +161,7 @@ def get_default_analysis_storage_id_from_project_pipeline(project_id: str, pipel
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipeline import get_default_analysis_storage_id_from_project_pipeline
+        from wrapica.project_pipelines import get_default_analysis_storage_id_from_project_pipeline
 
         project_id = "project-123"
         pipeline_id = "pipeline-123"
@@ -195,7 +195,7 @@ def get_project_pipeline_description_from_pipeline_id(project_id: str, pipeline_
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipeline import get_project_pipeline_description_from_pipeline_id
+        from wrapica.project_pipelines import get_project_pipeline_description_from_pipeline_id
 
         project_id = "project-123"
         pipeline_id = "pipeline-123"
@@ -224,12 +224,8 @@ def get_analysis_storage_id_from_analysis_storage_size(analysis_storage_size: An
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipeline import (
-            # Functions
-            get_analysis_storage_id_from_analysis_storage_size,
-            # Classes / Enums
-            AnalysisStorageSize
-        )
+        from wrapica.project_pipelines import get_analysis_storage_id_from_analysis_storage_size
+        from wrapica.enums import AnalysisStorageSize
 
         analysis_storage_size = AnalysisStorageSize.SMALL
 
@@ -273,7 +269,7 @@ def get_activation_id(
             analysis_input=analysis_input
         ).id
 
-    elif workflow_language.value == "Nextflow":
+    elif workflow_language.value == "NEXTFLOW":
         return get_best_matching_entitlement_detail_for_nextflow_analysis(
             project_id=project_id,
             pipeline_id=pipeline_id,
@@ -304,8 +300,10 @@ def get_best_matching_entitlement_detail_for_cwl_analysis(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipeline import get_best_matching_entitlement_detail_for_cwl_analysis
-        from wrapica.classes.cwl_analysis import CwlAnalysisJsonInput
+        from wrapica.project_pipelines import (
+            get_best_matching_entitlement_detail_for_cwl_analysis,
+            CwlAnalysisJsonInput
+        )
 
         project_id = "project-123"
         pipeline_id = "pipeline-123"
@@ -368,8 +366,10 @@ def get_best_matching_entitlement_detail_for_nextflow_analysis(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipeline import get_best_matching_entitlement_detail_for_nextflow_analysis
-        from wrapica.classes.nextflow_analysis import NextflowAnalysisInput
+        from wrapica.project_pipelines import (
+            get_best_matching_entitlement_detail_for_nextflow_analysis,
+            NextflowAnalysisInput
+        )
 
         project_id = "project-123"
         pipeline_id = "pipeline-123"
@@ -392,19 +392,19 @@ def get_best_matching_entitlement_detail_for_nextflow_analysis(
         search_matching_activation_codes_for_nextflow_analysis = SearchMatchingActivationCodesForNextflowAnalysis(
             project_id=project_id,
             pipeline_id=pipeline_id,
-            analysis_input=analysis_input,
-        )  # SearchMatchingActivationCodesForCwlAnalysis |  (optional)
+            analysis_input=analysis_input
+        )  # SearchMatchingActivationCodesForNextflowAnalysis |  (optional)
 
         # example passing only required values which don't have defaults set
         # and optional values
         try:
             # Search the best matching activation code detail for Cwl pipeline.
-            api_response = api_instance.find_all_matching_activation_codes_for_nextflow(
+            api_response = api_instance.find_best_matching_activation_codes_for_nextflow(
                 search_matching_activation_codes_for_nextflow_analysis=search_matching_activation_codes_for_nextflow_analysis
             )
         except ApiException as e:
             raise ValueError(
-                "Exception when calling EntitlementDetailApi->find_best_matching_activation_code_for_cwl: %s\n" % e)
+                "Exception when calling EntitlementDetailApi->find_best_matching_activation_code_for_nextflow: %s\n" % e)
 
     return api_response
 
@@ -439,23 +439,23 @@ def create_cwl_input_json_analysis_obj(
     :param analysis_storage_size: The analysis storage size to use
     :param activation_id: The activation id to use
     :param output_parent_folder_id: The output parent folder id to use
-    (can use output_parent_folder_path or analysis_output_uri instead)
+        (can use output_parent_folder_path or analysis_output_uri instead)
     :param output_parent_folder_path: The output parent folder path to use
-    (can use output_parent_folder_id or analysis_output_uri instead)
+        (can use output_parent_folder_id or analysis_output_uri instead)
     :param analysis_output_uri: The analysis output uri to use
-    (can use output_parent_folder_id or output_parent_folder_path instead)
+        (can use output_parent_folder_id or output_parent_folder_path instead)
     :param tags: The tags to use
     :param cwltool_overrides: The cwltool overrides to use
 
     :return: The CWL analysis object
-    :rtype: `ICAv2CWLPipelineAnalysis <wrapica.project_pipeline.ICAv2CWLPipelineAnalysis>`_
+    :rtype: `ICAv2CWLPipelineAnalysis <wrapica.project_pipelines.ICAv2CWLPipelineAnalysis>`_
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipeline import (
+        from wrapica.project_pipelines import (
             # Functions
             create_cwl_input_json_analysis_obj,
             # Classes
@@ -484,6 +484,19 @@ def create_cwl_input_json_analysis_obj(
               "billing='ExpensiveGroup'"
             ]
         )
+
+        cwl_pipeline_analysis = create_cwl_input_json_analysis_obj(
+            user_reference=user_reference,
+            project_id=project_id,
+            pipeline_id=pipeline_id,
+            analysis_input_dict=analysis_input_dict,
+            analysis_storage_id=analysis_storage_id,
+            analysis_storage_size=analysis_storage_size,
+            activation_id=activation_id,
+            analysis_output_uri=analysis_output_uri,
+            tags=tags
+        )
+
     """
     # Import classes locally to prevent circular imports
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis, ICAv2CwlAnalysisJsonInput
@@ -529,14 +542,14 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis) -> Ana
         :linenos:
 
         from pathlib import Path
-        from wrapica.project_pipeline import (
+        from wrapica.project_pipelines import (
             # Functions
             launch_cwl_workflow,
             # Wrapica classes
             ICAv2CWLPipelineAnalysis,
-            # Libicav2 Classes
-            CreateCwlAnalysis, Analysis
         )
+
+        from wrapica.libica_models import CreateCwlAnalysis, Analysis
 
         # Initialise an ICAv2CWLPipeline Analysis object
         cwl_analysis = ICAv2CWLPipelineAnalysis(
@@ -599,14 +612,14 @@ def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowA
         :linenos:
 
         from pathlib import Path
-        from wrapica.project_pipeline import (
+        from wrapica.project_pipelines import (
             # Functions
             launch_nextflow_workflow,
             # Wrapica classes
             ICAv2NextflowPipelineAnalysis,
-            # Libicav2 Classes
-            CreateNextflowAnalysis, Analysis
         )
+
+        from wrapica.libica_models import CreateNextflowAnalysis, Analysis
 
         # Initialise an ICAv2CWLPipeline Analysis object
         nextflow_analysis = ICAv2NextflowPipelineAnalysis(
@@ -646,7 +659,7 @@ def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowA
             nextflow_analysis
         )
     except ApiException as e:
-        logger.error("Exception when calling ProjectAnalysisApi->create_cwl_analysis: %s\n" % e)
+        logger.error("Exception when calling ProjectAnalysisApi->create_nextflow_analysis: %s\n" % e)
         raise ApiException
 
     return api_response
@@ -672,17 +685,16 @@ def get_project_pipeline_input_parameters(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipeline import (
+        from wrapica.project_pipelines import (
             # Functions
-            get_project_pipeline_input_parameters,
-            # Libicav2 Classes
-            InputParameter
+            get_project_pipeline_input_parameters
         )
+        from wrapica.libica_models import InputParameter
 
         project_id = "project-123"
         pipeline_id = "pipeline-123"
 
-        input_parameters = get_project_pipeline_input_parameters(project_id, pipeline_id)
+        input_parameters: List[InputParameter] = get_project_pipeline_input_parameters(project_id, pipeline_id)
 
         for input_parameter in input_parameters:
             print(input_parameter.code)
@@ -730,17 +742,17 @@ def get_project_pipeline_configuration_parameters(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipeline import (
-            # Functions
-            get_project_pipeline_configuration_parameters,
-            # Libicav2 Classes
-            PipelineConfigurationParameter
+        from wrapica.project_pipelines import (
+            get_project_pipeline_configuration_parameters
         )
+        from wrapica.libica_models import PipelineConfigurationParameter
 
         project_id = "project-123"
         pipeline_id = "pipeline-123"
 
-        configuration_parameters = get_project_pipeline_configuration_parameters(project_id, pipeline_id)
+        configuration_parameters: List[PipelineConfigurationParameter] = (
+            get_project_pipeline_configuration_parameters(project_id, pipeline_id)
+        )
 
         for configuration_parameter in configuration_parameters:
             print(configuration_parameter.code)
@@ -754,21 +766,73 @@ def get_project_pipeline_configuration_parameters(
         # true
         # boolean
     """
-    # Enter a context with an instance of the API client
-    with ApiClient(get_icav2_configuration()) as api_client:
-        # Create an instance of the API class
-        api_instance = ProjectPipelineApi(api_client)
+    # # Enter a context with an instance of the API client
+    # with ApiClient(get_icav2_configuration()) as api_client:
+    #     # Create an instance of the API class
+    #     api_instance = ProjectPipelineApi(api_client)
+    #
+    #     try:
+    #         # Retrieve input parameters for a project pipeline.
+    #         api_response: PipelineConfigurationParameterList = api_instance.get_project_pipeline_configuration_parameters(
+    #             project_id, pipeline_id
+    #         )
+    #     except ApiException as e:
+    #         logger.error("Exception when calling ProjectPipelineApi->get_project_pipeline_input_parameters: %s\n" % e)
+    #         raise ApiException
+    #
+    # return api_response.items
+    from subprocess import run
+    import json
 
-        try:
-            # Retrieve input parameters for a project pipeline.
-            api_response: PipelineConfigurationParameterList = api_instance.get_project_pipeline_configuration_parameters(
-                project_id, pipeline_id
-            )
-        except ApiException as e:
-            logger.error("Exception when calling ProjectPipelineApi->get_project_pipeline_input_parameters: %s\n" % e)
-            raise ApiException
+    def get_settings(
+      settings: typing.Any,
+      settings_type: str
+    ):
+        from libica.openapi.v2.model.option_settings import OptionSettings
+        from libica.openapi.v2.model.integer_settings import IntegerSettings
+        from libica.openapi.v2.model.string_settings import StringSettings
+        from libica.openapi.v2.model.settings import Settings
 
-    return api_response.items
+        if settings_type == 'options':
+            return OptionSettings(**settings)
+        elif settings_type == 'integer':
+            return IntegerSettings(**settings)
+        elif settings_type == 'string':
+            return StringSettings(**settings)
+        else:
+            return Settings(**settings)
+
+    get_project_pipeline_configuration_proc = run(
+        [
+            "curl", "--fail", "--location", "--show-error", "--silent",
+            "--request", "GET",
+            "--header", "Accept: application/vnd.illumina.v3+json",
+            "--header", f"Authorization: Bearer {get_icav2_configuration().access_token}",
+            f"{get_icav2_configuration().host}/api/projects/{project_id}/pipelines/{pipeline_id}/configurationParameters"
+        ],
+        capture_output=True
+    )
+
+    if get_project_pipeline_configuration_proc.returncode != 0:
+        logger.error(f"Stderr was {get_project_pipeline_configuration_proc.stderr.decode()}")
+        raise ApiException(f"Failed to get project pipeline configuration parameters for project {project_id} and pipeline {pipeline_id}")
+
+    # Collect the items
+    configuration_items = json.loads(get_project_pipeline_configuration_proc.stdout.decode()).get("items", [])
+
+    # Convert items to PipelineConfigurationParameter objects
+    return list(
+        map(
+            lambda configuration_dict_iter: PipelineConfigurationParameter(
+                code=configuration_dict_iter.get("code"),
+                required=configuration_dict_iter.get("required"),
+                multi_value=configuration_dict_iter.get("multiValue"),
+                type=configuration_dict_iter.get("type"),
+                settings=get_settings(configuration_dict_iter.get("settings"), configuration_dict_iter.get("type"))
+            ),
+            configuration_items
+        )
+    )
 
 
 def convert_icav2_uris_to_data_ids_from_cwl_input_json(
@@ -799,7 +863,7 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
 
     .. code-block:: python
 
-        from wrapica.project_pipeline import convert_icav2_uris_to_data_ids_from_cwl_input_json
+        from wrapica.project_pipelines import convert_icav2_uris_to_data_ids_from_cwl_input_json
 
         input_obj = {
             "input_file": {

@@ -29,7 +29,7 @@ from libica.openapi.v2.model.project_data import ProjectData
 
 # Local imports
 from ...utils import recursively_build_open_api_body_from_libica_item
-from ...utils.enums import AnalysisStorageSize, DataType
+from ...enums import AnalysisStorageSize, DataType
 from ...utils.globals import ICAv2AnalysisStorageSize
 from ...utils.miscell import sanitise_dict_keys
 from ...utils.logger import get_logger
@@ -240,7 +240,8 @@ class ICAv2EngineParameters:
         # Local import of functions from classes to avoid circular imports
         from ..functions.project_pipelines_functions import (
             get_default_analysis_storage_id_from_project_pipeline,
-            get_activation_id
+            get_activation_id,
+            get_analysis_storage_id_from_analysis_storage_size
         )
         # Check for project id
         if project_id is not None:
@@ -264,11 +265,15 @@ class ICAv2EngineParameters:
 
         # If analysis storage size is set, but analysis storage id is not set
         if self.analysis_storage_size is not None and self.analysis_storage_id is None:
+            self.analysis_storage_id = get_analysis_storage_id_from_analysis_storage_size(
+                self.analysis_storage_size
+            )
+
+        elif self.analysis_storage_size is None and self.analysis_storage_id is None:
             # Ensure that project_id and pipeline_id are set at this point
             if self.project_id is None or self.pipeline_id is None:
                 logger.error("Cannot get analysis storage id without project id and pipeline id")
                 raise ValueError
-
             # Get the default analysis storage id
             self.analysis_storage_id = get_default_analysis_storage_id_from_project_pipeline(
                 self.project_id,
@@ -324,7 +329,7 @@ class ICAv2EngineParameters:
         # Update output parent folder id with output parent folder path
         # Need to check if project_id has been set
         elif (
-                self.output_parent_folder_id is None or
+                self.output_parent_folder_id is None and
                 (
                     self.output_parent_folder_path is not None
                     or output_parent_folder_path is not None
@@ -465,7 +470,7 @@ class ICAv2PipelineAnalysis:
         self.engine_parameters: Optional[ICAv2EngineParameters] = None
 
         if self.analysis_output_uri is not None:
-            self.analysis_output: AnalysisOutputMapping = self.get_analysis_output_mapping_from_uri()
+            self.analysis_output: List[AnalysisOutputMapping] = [self.get_analysis_output_mapping_from_uri()]
         else:
             self.analysis_output = None
 
@@ -504,7 +509,7 @@ class ICAv2PipelineAnalysis:
 
         return AnalysisOutputMapping(
             source_path="out/",  # Hardcoded, all workflow outputs should be placed in the out folder,
-            type=DataType.FOLDER,  # Hardcoded, out directory is a folder
+            type=DataType.FOLDER.value,  # Hardcoded, out directory is a folder
             target_project_id=analysis_output_obj.project_id,
             target_path=analysis_output_obj.data.details.path
         )

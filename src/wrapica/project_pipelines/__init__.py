@@ -16,48 +16,28 @@ from .functions.project_pipelines_functions import (
     launch_nextflow_workflow,
     get_project_pipeline_input_parameters,
     get_project_pipeline_configuration_parameters,
-    convert_icav2_uris_to_data_ids_from_cwl_input_json,
-    # Libica classes
-    ActivationCodeDetail,
-    Analysis,
-    AnalysisInputDataMount,
-    AnalysisInputExternalData,
-    ProjectData,
-    ProjectPipeline,
-    ProjectPipelineList,
-    SearchMatchingActivationCodesForCwlAnalysis,
-    SearchMatchingActivationCodesForNextflowAnalysis
+    convert_icav2_uris_to_data_ids_from_cwl_input_json
 )
 
 from .classes.analysis import (
     # Wrapica classes
     ICAv2AnalysisInput,
     ICAv2PipelineAnalysisTags,
-    ICAv2EngineParameters,
-    # Libica classes
-    Analysis,
-    AnalysisOutputMapping,
-    AnalysisTag,
+    ICAv2EngineParameters
 )
 
 from .classes.cwl_analysis import (
     # Wrapica classes
     ICAv2CwlAnalysisJsonInput,
     ICAv2CWLEngineParameters,
-    ICAv2CWLPipelineAnalysis,
-    # Libica classes
-    CreateCwlAnalysis,
-    CwlAnalysisJsonInput
+    ICAv2CWLPipelineAnalysis
 )
 
 from .classes.nextflow_analysis import (
     # Wrapica classes
     ICAv2NextflowAnalysisInput,
     ICAv2NextflowEngineParameters,
-    ICAv2NextflowPipelineAnalysis,
-    # Libica classes
-    CreateNextflowAnalysis,
-    NextflowAnalysisInput
+    ICAv2NextflowPipelineAnalysis
 )
 
 __all__ = [
@@ -83,21 +63,5 @@ __all__ = [
     'ICAv2CWLPipelineAnalysis',
     'ICAv2NextflowAnalysisInput',
     'ICAv2NextflowEngineParameters',
-    'ICAv2NextflowPipelineAnalysis',
-    # Libica classes
-    'ActivationCodeDetail',
-    'Analysis',
-    'AnalysisInputDataMount',
-    'AnalysisInputExternalData',
-    'AnalysisOutputMapping',
-    'AnalysisTag',
-    'CreateCwlAnalysis',
-    'CreateNextflowAnalysis',
-    'CwlAnalysisJsonInput',
-    'NextflowAnalysisInput',
-    'ProjectData',
-    'ProjectPipeline',
-    'ProjectPipelineList',
-    'SearchMatchingActivationCodesForCwlAnalysis',
-    'SearchMatchingActivationCodesForNextflowAnalysis'
+    'ICAv2NextflowPipelineAnalysis'
 ]

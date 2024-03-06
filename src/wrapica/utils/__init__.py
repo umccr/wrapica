@@ -2,6 +2,7 @@
 import re
 from pathlib import Path
 from typing import Any, Union, Dict, List
+from datetime import datetime
 
 
 def recursively_build_open_api_body_from_libica_item(libica_item: Any) -> Union[Dict, Any]:
@@ -16,6 +17,8 @@ def recursively_build_open_api_body_from_libica_item(libica_item: Any) -> Union[
             ]
         elif isinstance(value, object) and hasattr(value, "_data_store"):
             output_value = recursively_build_open_api_body_from_libica_item(value)
+        elif isinstance(value, datetime):
+            output_value = value.isoformat(timespec="seconds").replace("+00:00", "Z")
         else:
             output_value = value
         open_api_body_dict[libica_item.attribute_map.get(key)] = output_value

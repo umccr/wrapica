@@ -5,7 +5,9 @@
 [![PyPI version][badge_fury_svg_url]][badge_fury_url]
 
 
-A suite of secondary / tertiary functions for running ICAv2 API calls
+A suite of secondary / tertiary functions for running ICAv2 API calls.  
+
+Please visit our [ReadTheDocs site][read_the_docs_url] for more information on installing and using wrapica.
 
 ## Installing wrapica
 
@@ -18,27 +20,35 @@ pip install wrapica
 ### Project Data
 
 ```python
+# Standard imports
 from pathlib import Path
-from wrapica.configuration import get_configuration
-from wrapica.project_data import get_data_obj_from_project_id_and_path, ProjectData
 
-my_project_folder_obj: ProjectData = get_data_obj_from_project_id_and_path(
-    project_id="my_project_id",  # Required value
+# Wrapica imports
+from wrapica.project import get_project_id_from_project_code
+from wrapica.enums import DataType
+from wrapica.libica_models import ProjectData
+from wrapica.project_data import (
+    # Functions
+    get_project_data_obj_from_project_id_and_path,
+    # Types
+    ProjectData, DataType
+)
+
+# Get project data object
+my_project_folder_obj: ProjectData = get_project_data_obj_from_project_id_and_path(
+    project_id=get_project_id_from_project_code("my_project_name"),
     # Required value
-    path=Path("/path/to/my/project/folder"),  
+    data_path=Path("/path/to/my/project/folder"),  
     # Optional FILE or FOLDER if not specified searches for both
-    data_type="FOLDER",  
+    data_type=DataType.FOLDER,  
     # Optional, default is True (cannot be created if data_type is not specified)
-    create_on_missing=False,
-    # Optional, can be used to override the default configuration
-    configuration=get_configuration()
+    create_data_if_not_found=False,
 )
 ```
 
 ### Project Pipeline
 
 ```
-
 from wrapica.configuration import get_configuration
 from wrapica.project_pipeline import get_project_pipeline_id_from_pipeline_code
 
@@ -54,17 +64,20 @@ my_pipeline_id = get_project_pipeline_id_from_pipeline_code(
 ### Project Analysis
 
 ```python
-from wrapica.configuration import get_configuration
-from wrapica.project_analysis import get_workflow_steps, AnalysisStep
 from typing import List
+
+from wrapica.project_analyses import get_workflow_steps
+from wrapica.libica_models import AnalysisStep
 
 workflow_steps: List[AnalysisStep] = get_workflow_steps(
     # Required values
     project_id="my_project_id",
     analysis_id="my_analysis_id",
-    # Optional, can be used to override the default configuration
-    configuration=get_configuration()
 )
+
+for workflow_step in workflow_steps:
+    print(workflow_step.name)
+    print(workflow_step.status)
 ```
 
 [read_the_docs_url]: https://wrapica.readthedocs.io/en/latest/?badge=latest

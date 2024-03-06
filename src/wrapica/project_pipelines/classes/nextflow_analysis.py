@@ -27,7 +27,7 @@ from .analysis import (
 )
 
 # Local imports
-from ...utils.enums import (
+from ...enums import (
     AnalysisStorageSize, WorkflowLanguage,
     StructuredInputParameterType, StructuredInputParameterTypeMapping
 )
@@ -112,9 +112,11 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
             if not input_parameter.multi_value:
                 if (
                     len(
-                        filter(
-                            lambda input_iter: input_iter.parameter_code == input_parameter.code,
-                            self.inputs
+                        list(
+                            filter(
+                                lambda input_iter: input_iter.parameter_code == input_parameter.code,
+                                self.inputs
+                            )
                         )
                     ) > 1
                 ):
@@ -128,7 +130,7 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
                 if not any(
                     list(
                         map(
-                            lambda parameter_iter: parameter_iter.parameter_code == configuration_parameter.code,
+                            lambda parameter_iter: parameter_iter.code == configuration_parameter.code,
                             self.parameters
                         )
                     )
@@ -140,9 +142,11 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
             if not configuration_parameter.multi_value:
                 if (
                     len(
-                        filter(
-                            lambda parameter_iter: parameter_iter.parameter_code == configuration_parameter.code,
-                            self.parameters
+                        list(
+                            filter(
+                                lambda parameter_iter: parameter_iter.code == configuration_parameter.code,
+                                self.parameters
+                            )
                         )
                     ) > 1
                 ):
@@ -151,20 +155,20 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
 
             # Check type of parameter matches the type in the configuration
             for parameter in self.parameters:
-                if parameter.parameter_code == configuration_parameter.code:
+                if parameter.code == configuration_parameter.code:
                     if not (
                         # Check if the parameter value is of the expected configuration parameter type
                         isinstance(
                             parameter.value,
                             StructuredInputParameterTypeMapping[
-                                StructuredInputParameterType[
+                                StructuredInputParameterType(
                                     configuration_parameter.type
-                                ].value
+                                ).name
                             ].value
                         )
                     ):
-                        logger.error(f"Parameter {parameter.parameter_code} is not of type {configuration_parameter.type}")
-                        errors_list.append(f"Parameter {parameter.parameter_code} is not of type {configuration_parameter.type}")
+                        logger.error(f"Parameter {parameter.code} is not of type {configuration_parameter.type}")
+                        errors_list.append(f"Parameter {parameter.code} is not of type {configuration_parameter.type}")
 
             if len(errors_list) == 0:
                 logger.info("Inputs validation passed")
@@ -196,42 +200,37 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
                 if len(value) == 0:
                     continue
                 if value[0].startswith("icav2://"):
-                    self.inputs.extend(
-                        list(
-                            map(
-                                lambda icav2_uri_iter: AnalysisDataInput(
-                                    parameter_code=key,
-                                    value=convert_icav2_uri_to_data_obj(icav2_uri_iter).data.id
-                                ),
-                                value
-                            )
-                        )
-                    )
-                else:
-                    self.parameters.extend(
-                        list(
-                            map(
-                                lambda value_iter: AnalysisParameterInput(
-                                    parameter_code=key,
-                                    value=value_iter,
-                                ),
-                                value
-                            )
-                        )
-                    )
-            else:
-                if value.startswith("icav2://"):
                     self.inputs.append(
                         AnalysisDataInput(
                             parameter_code=key,
-                            value=convert_icav2_uri_to_data_obj(value).data.id
+                            data_ids=list(
+                                map(
+                                    lambda icav2_uri_iter: convert_icav2_uri_to_data_obj(icav2_uri_iter).data.id,
+                                    value
+                                )
+                            )
                         )
                     )
                 else:
                     self.parameters.append(
                         AnalysisParameterInput(
+                            code=key,
+                            multi_value=value,
+                        )
+                    )
+            else:
+                if isinstance(value, str) and value.startswith("icav2://"):
+                    self.inputs.append(
+                        AnalysisDataInput(
                             parameter_code=key,
-                            value=value
+                            data_ids=[convert_icav2_uri_to_data_obj(value).data.id]
+                        )
+                    )
+                else:
+                    self.parameters.append(
+                        AnalysisParameterInput(
+                            code=key,
+                            value=str(value)
                         )
                     )
 
