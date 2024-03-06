@@ -1,8 +1,11 @@
 PyJWT >= 2.8.0, < 3
+beautifulsoup4 >= 4.10.0, < 5
 libica >= 2.3.0, < 3
 ruamel.base >= 1.0.0, < 2
 ruamel.yaml >= 0.18.0, < 0.19
 sphinx >= 7.2.6, < 8
 sphinx-rtd-theme >= 2.0.0, < 3
 sphinx_autodoc_typehints
+toml-to-requirements
 verboselogs >= 1.7, < 2
+websocket_client >= 1.4.2, < 2
