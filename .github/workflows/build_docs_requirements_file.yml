@@ -2,6 +2,10 @@ name: build_docs_requirements_file
 
 on:
   workflow_call:
+    inputs:
+      branch:
+        required: true
+        type: string
 
 jobs:
   build_docs_requirements_file:
@@ -9,6 +13,8 @@ jobs:
     steps:
       # Checkout
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
 
       # Used to host build wheel
       - uses: actions/setup-python@v5
@@ -32,7 +38,7 @@ jobs:
           mv requirements.txt docs/requirements.txt
 
       # Commit
-      - uses: endbug/add-and-commit@v7
+      - uses: endbug/add-and-commit@v9
         with:
           add: 'docs/requirements.txt'
           default_author: github_actions
