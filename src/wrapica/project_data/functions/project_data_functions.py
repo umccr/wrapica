@@ -1746,25 +1746,16 @@ def write_icav2_file_contents(
     :return:
     """
 
-    try:
-        _ = get_project_data_file_id_from_project_id_and_path(
-            project_id=project_id,
-            file_path=data_path,
-            create_file_if_not_found=False
-        )
-    except (ApiException, FileNotFoundError):
-        new_file_id = get_project_data_file_id_from_project_id_and_path(
-            project_id=project_id,
-            file_path=data_path,
-            create_file_if_not_found=False
-        )
-    else:
-        raise FileExistsError(f"File {data_path} already exists in project {project_id}")
+    # Generate a new file in the project
+    new_file_obj = create_file_in_project(
+        project_id=project_id,
+        file_path=data_path
+    )
 
     # Get the upload url
     upload_url = get_project_data_upload_url(
         project_id=project_id,
-        data_id=new_file_id
+        data_id=new_file_obj.data.id
     )
 
     if isinstance(file_stream_or_path, Path):
@@ -1775,6 +1766,9 @@ def write_icav2_file_contents(
 
     # Upload file contents with the requests package
     requests.put(upload_url, data=file_contents)
+
+    # Return the new file id
+    return new_file_obj.data.id
 
 
 def get_file_by_file_name_from_project_data_list(
