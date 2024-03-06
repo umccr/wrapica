@@ -1,0 +1,40 @@
+name: build_docs_requirements_file
+
+on:
+  workflow_call:
+
+jobs:
+  build_docs_requirements_file:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout
+      - uses: actions/checkout@v4
+
+      # Used to host build wheel
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Install Docs
+      - name: Install Build
+        run: pip install .[docs]
+
+      # Build requirements
+      - name: Build doc requirements
+        run: |
+          # Compile requirements
+          toml-to-req \
+            --toml-file pyproject.toml \
+            --include-optional \
+            --optional-lists docs
+          
+          # Move requirements
+          mv requirements.txt docs/requirements.txt
+
+      # Commit
+      - uses: endbug/add-and-commit@v7
+        with:
+          add: 'docs/requirements.txt'
+          default_author: github_actions
+          message: 'docs: Update requirements'
+          push: true

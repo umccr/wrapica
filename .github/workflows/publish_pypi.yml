@@ -1,0 +1,78 @@
+name: publish_pypi
+
+on:
+  workflow_call:
+    inputs:
+      git_tag:
+        required: true
+        type: string
+      pypi_repository:
+        required: true
+        type: string
+      pypi_repository_url:
+          required: true
+          type: string
+      is_pre_release:
+        required: true
+        type: string
+      dist_artifacts_name:
+        required: true
+        type: string
+      dist_artifacts_path:
+        required: true
+        type: string
+      environment:
+        required: true
+        type: string
+
+
+permissions:
+  id-token: write   # This is required for connecting to PYPI
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  deploy_to_pypi:
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repo
+      - uses: actions/checkout@v4
+
+      # Setup python
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Download wheels from artifacts dir
+      - name: Download Wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.dist_artifacts_name }}
+          path: ${{ inputs.dist_artifacts_path }}
+
+      # Install deployment dependencies
+      - name: Install Deployment deps
+        run: |
+          pip install .[deploy]
+
+      # Deploy to pypi
+      - name: Push to PyPi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ inputs.pypi_repository_url }}
+
+      # Wait for cache
+      - name: Sleep for Five Seconds
+        run: |
+          sleep 5
+
+      # Check successful deployment to pypi
+      - name: Check Successful Deployment
+        env:
+          WRAPICA_VERSION: ${{ inputs.git_tag }}
+        run: |
+          if [[ "${{ inputs.is_pre_release }}" == "true" ]]; then
+            make install_test_pypi
+          else
+            make install_pypi
+          fi

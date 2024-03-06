@@ -1,0 +1,71 @@
+name: build_release
+
+on:
+  workflow_call:
+    inputs:
+      git_tag:
+        required: true
+        type: string
+#      coverage_report_artifacts_name:
+#        required: true
+#        type: string
+#      coverage_report_artifacts_path:
+#        required: true
+#        type: string
+      dist_artifacts_name:
+        required: true
+        type: string
+      dist_artifacts_path:
+        required: true
+        type: string
+
+
+jobs:
+  build_release:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repo
+      - uses: actions/checkout@v4
+
+      # Download dist wheel and source dir
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.dist_artifacts_name }}
+          path: ${{ inputs.dist_artifacts_path }}
+
+#      # Download coverage report
+#      - uses: actions/download-artifact@v4
+#        with:
+#          name: ${{ inputs.coverage_report_artifacts_name }}
+
+      # Generate release notes
+      - name: Make Notes File for Release
+        run: |
+          # Generate notes using tests
+          echo "# ${{ inputs.git_tag }}" > notes.md
+#          echo "## Coverage Report" >> notes.md
+#          echo '```' >> notes.md  # Wrap report in code format - start
+#          cat "${{ inputs.coverage_report_artifacts_path }}" >> notes.md
+#          echo '```' >> notes.md  # Wrap report in code format - end
+
+      # Check if --prerelease arg should be set
+      - name: Check if prerelease
+        id: is_prerelease
+        run: |
+          if [[ " ${{ inputs.git_tag }} " =~ dev ]]; then
+            echo "is_prerelease=--prerelease" >> "${GITHUB_OUTPUT}"
+          else
+            echo "is_prerelease=" >> "${GITHUB_OUTPUT}"
+          fi
+
+      # Upload as gh release
+      - name: Push Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create \
+            "${{ inputs.git_tag }}" \
+            --notes-file notes.md \
+            --title "${{ inputs.git_tag }} release" \
+            ${{ steps.is_prerelease.outputs.is_prerelease }} \
+            ${{ inputs.dist_artifacts_path }}/*
