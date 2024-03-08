@@ -41,6 +41,7 @@ from libica.openapi.v2.model.search_matching_activation_codes_for_nextflow_analy
 )
 
 # Local imports
+from ...utils import recursively_build_open_api_body_from_libica_item
 from ...utils.logger import get_logger
 from ...utils.configuration import get_icav2_configuration
 from ...enums import AnalysisStorageSize, WorkflowLanguage, DataType
@@ -594,7 +595,7 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis) -> Ana
     return api_response
 
 
-def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis) -> Analysis:
+def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis) -> Union[Analysis, str]:
     """
     Launch a Nextflow Workflow in a specific project context
 
@@ -651,18 +652,29 @@ def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowA
         # Create an instance of the API class
         api_instance = ProjectAnalysisApi(api_client)
 
-    # example passing only required values which don't have defaults set
-    try:
-        # Create and start an analysis for a CWL pipeline.
-        api_response: Analysis = api_instance.create_nextflow_analysis(
-            project_id,
-            nextflow_analysis
-        )
-    except ApiException as e:
-        logger.error("Exception when calling ProjectAnalysisApi->create_nextflow_analysis: %s\n" % e)
-        raise ApiException
+    # # example passing only required values which don't have defaults set
+    # try:
+    #     # Create and start an analysis for a CWL pipeline.
+    #     api_response: Analysis = api_instance.create_nextflow_analysis(
+    #         project_id,
+    #         nextflow_analysis
+    #     )
+    # except ApiException as e:
+    #     logger.error("Exception when calling ProjectAnalysisApi->create_nextflow_analysis: %s\n" % e)
+    #     raise ApiException
 
-    return api_response
+    import requests
+    import json
+    analysis_req_obj = requests.post(
+        headers={
+            "Authorization": f"Bearer {get_icav2_configuration().access_token}",
+            "Content-Type": "application/vnd.illumina.v4+json"
+        },
+        url=get_icav2_configuration().host + f"/api/projects/{project_id}/analysis:nextflow",
+        data=json.dumps(recursively_build_open_api_body_from_libica_item(nextflow_analysis))
+    )
+
+    return analysis_req_obj.json().get("id")
 
 
 def get_project_pipeline_input_parameters(
