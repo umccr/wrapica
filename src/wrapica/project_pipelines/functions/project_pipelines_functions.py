@@ -766,73 +766,23 @@ def get_project_pipeline_configuration_parameters(
         # true
         # boolean
     """
-    # # Enter a context with an instance of the API client
-    # with ApiClient(get_icav2_configuration()) as api_client:
-    #     # Create an instance of the API class
-    #     api_instance = ProjectPipelineApi(api_client)
-    #
-    #     try:
-    #         # Retrieve input parameters for a project pipeline.
-    #         api_response: PipelineConfigurationParameterList = api_instance.get_project_pipeline_configuration_parameters(
-    #             project_id, pipeline_id
-    #         )
-    #     except ApiException as e:
-    #         logger.error("Exception when calling ProjectPipelineApi->get_project_pipeline_input_parameters: %s\n" % e)
-    #         raise ApiException
-    #
-    # return api_response.items
-    from subprocess import run
-    import json
 
-    def get_settings(
-      settings: typing.Any,
-      settings_type: str
-    ):
-        from libica.openapi.v2.model.option_settings import OptionSettings
-        from libica.openapi.v2.model.integer_settings import IntegerSettings
-        from libica.openapi.v2.model.string_settings import StringSettings
-        from libica.openapi.v2.model.settings import Settings
+    # Enter a context with an instance of the API client
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectPipelineApi(api_client)
 
-        if settings_type == 'options':
-            return OptionSettings(**settings)
-        elif settings_type == 'integer':
-            return IntegerSettings(**settings)
-        elif settings_type == 'string':
-            return StringSettings(**settings)
-        else:
-            return Settings(**settings)
+        try:
+            # Retrieve input parameters for a project pipeline.
+            api_response: PipelineConfigurationParameterList = api_instance.get_project_pipeline_configuration_parameters(
+                project_id, pipeline_id
+            )
+        except ApiException as e:
+            logger.error("Exception when calling ProjectPipelineApi->get_project_pipeline_input_parameters: %s\n" % e)
+            raise ApiException
 
-    get_project_pipeline_configuration_proc = run(
-        [
-            "curl", "--fail", "--location", "--show-error", "--silent",
-            "--request", "GET",
-            "--header", "Accept: application/vnd.illumina.v3+json",
-            "--header", f"Authorization: Bearer {get_icav2_configuration().access_token}",
-            f"{get_icav2_configuration().host}/api/projects/{project_id}/pipelines/{pipeline_id}/configurationParameters"
-        ],
-        capture_output=True
-    )
-
-    if get_project_pipeline_configuration_proc.returncode != 0:
-        logger.error(f"Stderr was {get_project_pipeline_configuration_proc.stderr.decode()}")
-        raise ApiException(f"Failed to get project pipeline configuration parameters for project {project_id} and pipeline {pipeline_id}")
-
-    # Collect the items
-    configuration_items = json.loads(get_project_pipeline_configuration_proc.stdout.decode()).get("items", [])
-
-    # Convert items to PipelineConfigurationParameter objects
-    return list(
-        map(
-            lambda configuration_dict_iter: PipelineConfigurationParameter(
-                code=configuration_dict_iter.get("code"),
-                required=configuration_dict_iter.get("required"),
-                multi_value=configuration_dict_iter.get("multiValue"),
-                type=configuration_dict_iter.get("type"),
-                settings=get_settings(configuration_dict_iter.get("settings"), configuration_dict_iter.get("type"))
-            ),
-            configuration_items
-        )
-    )
+    # return each of the items
+    return api_response.items
 
 
 def convert_icav2_uris_to_data_ids_from_cwl_input_json(
