@@ -479,7 +479,7 @@ class ICAv2PipelineAnalysis:
         # Set the analysis
         self.analysis: Optional[Union[CreateCwlAnalysis, CreateNextflowAnalysis]] = None
 
-    def __call__(self) -> Union[Analysis, str]:
+    def __call__(self) -> Analysis:
         """
         Fix up the engine parameters, and generate a CWL Analysis Object
         :return:

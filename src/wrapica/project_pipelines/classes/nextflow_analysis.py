@@ -6,7 +6,7 @@ Nextflow analysis
 
 # Imports
 from pathlib import Path
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional
 
 # Libica imports
 from libica.openapi.v2.model.analysis import Analysis
@@ -369,7 +369,7 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             analysis_output=self.engine_parameters.analysis_output
         )
 
-    def launch_analysis(self) -> Union[Analysis, str]:
+    def launch_analysis(self) -> Analysis:
         from ..functions.project_pipelines_functions import launch_nextflow_workflow
         return launch_nextflow_workflow(
             project_id=self.project_id,

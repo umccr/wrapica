@@ -21,6 +21,7 @@ from libica.openapi.v2.model.activation_code_detail import ActivationCodeDetail
 from libica.openapi.v2.model.analysis import Analysis
 from libica.openapi.v2.model.analysis_input_data_mount import AnalysisInputDataMount
 from libica.openapi.v2.model.analysis_input_external_data import AnalysisInputExternalData
+from libica.openapi.v2.model.analysis_v3 import AnalysisV3
 from libica.openapi.v2.model.create_cwl_analysis import CreateCwlAnalysis
 from libica.openapi.v2.model.create_nextflow_analysis import CreateNextflowAnalysis
 from libica.openapi.v2.model.cwl_analysis_json_input import CwlAnalysisJsonInput
@@ -595,7 +596,7 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis) -> Ana
     return api_response
 
 
-def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis) -> Union[Analysis, str]:
+def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis) -> AnalysisV3:
     """
     Launch a Nextflow Workflow in a specific project context
 
@@ -649,32 +650,36 @@ def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowA
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
+        # Force default headers to v3
+        # FIXME https://github.com/umccr-illumina/ica_v2/issues/173
+        api_client.set_default_header(
+            header_name="Content-Type",
+            header_value="application/vnd.illumina.v3+json"
+        )
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
+
         # Create an instance of the API class
         api_instance = ProjectAnalysisApi(api_client)
 
-    # # example passing only required values which don't have defaults set
-    # try:
-    #     # Create and start an analysis for a CWL pipeline.
-    #     api_response: Analysis = api_instance.create_nextflow_analysis(
-    #         project_id,
-    #         nextflow_analysis
-    #     )
-    # except ApiException as e:
-    #     logger.error("Exception when calling ProjectAnalysisApi->create_nextflow_analysis: %s\n" % e)
-    #     raise ApiException
+        # override endpoint settings response type to the version we want i.e. AnalysisV3 or Analysis
+        endpoint_settings = api_instance.create_nextflow_analysis_endpoint.settings
+        endpoint_settings['response_type'] = (AnalysisV3,)
 
-    import requests
-    import json
-    analysis_req_obj = requests.post(
-        headers={
-            "Authorization": f"Bearer {get_icav2_configuration().access_token}",
-            "Content-Type": "application/vnd.illumina.v4+json"
-        },
-        url=get_icav2_configuration().host + f"/api/projects/{project_id}/analysis:nextflow",
-        data=json.dumps(recursively_build_open_api_body_from_libica_item(nextflow_analysis))
-    )
+    # example passing only required values which don't have defaults set
+    try:
+        # Create and start an analysis for a CWL pipeline.
+        api_response: AnalysisV3 = api_instance.create_nextflow_analysis(
+            project_id,
+            nextflow_analysis
+        )
+    except ApiException as e:
+        logger.error("Exception when calling ProjectAnalysisApi->create_nextflow_analysis: %s\n" % e)
+        raise ApiException
 
-    return analysis_req_obj.json().get("id")
+    return api_response
 
 
 def get_project_pipeline_input_parameters(
