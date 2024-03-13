@@ -3,6 +3,7 @@
 """
 Models to easily import
 """
+from typing import Union
 
 from libica.openapi.v2 import ApiClient, ApiException
 from libica.openapi.v2.api.analysis_storage_api import AnalysisStorageApi
@@ -11,8 +12,8 @@ from libica.openapi.v2.api.project_analysis_api import ProjectAnalysisApi
 from libica.openapi.v2.api.project_pipeline_api import ProjectPipelineApi
 
 from libica.openapi.v2.model.activation_code_detail import ActivationCodeDetail
-from libica.openapi.v2.model.analysis import Analysis
-from libica.openapi.v2.model.analysis import Analysis
+from libica.openapi.v2.model.analysis_v3 import AnalysisV3
+from libica.openapi.v2.model.analysis_v4 import AnalysisV4
 from libica.openapi.v2.model.analysis_input import AnalysisInput
 from libica.openapi.v2.model.analysis_output import AnalysisOutput
 from libica.openapi.v2.model.analysis_data_input import AnalysisDataInput
@@ -28,7 +29,6 @@ from libica.openapi.v2.model.create_cwl_analysis import CreateCwlAnalysis
 from libica.openapi.v2.model.create_data import CreateData
 from libica.openapi.v2.model.create_nextflow_analysis import CreateNextflowAnalysis
 from libica.openapi.v2.model.create_temporary_credentials import CreateTemporaryCredentials
-from libica.openapi.v2.model.cwl_analysis_input import CwlAnalysisInput
 from libica.openapi.v2.model.cwl_analysis_json_input import CwlAnalysisJsonInput
 from libica.openapi.v2.model.cwl_analysis_structured_input import CwlAnalysisStructuredInput
 from libica.openapi.v2.model.data_id_or_path_list import DataIdOrPathList
@@ -47,3 +47,6 @@ from libica.openapi.v2.model.search_matching_activation_codes_for_cwl_analysis i
 from libica.openapi.v2.model.search_matching_activation_codes_for_nextflow_analysis import SearchMatchingActivationCodesForNextflowAnalysis
 from libica.openapi.v2.model.temp_credentials import TempCredentials
 from libica.openapi.v2.model.job import Job
+
+Analysis = Union[AnalysisV3, AnalysisV4]
+CwlAnalysisInput = Union[CwlAnalysisStructuredInput, CwlAnalysisJsonInput]

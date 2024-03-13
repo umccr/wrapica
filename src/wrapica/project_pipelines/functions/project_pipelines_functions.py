@@ -18,10 +18,12 @@ from libica.openapi.v2.api.entitlement_detail_api import EntitlementDetailApi
 from libica.openapi.v2.api.project_analysis_api import ProjectAnalysisApi
 from libica.openapi.v2.api.project_pipeline_api import ProjectPipelineApi
 from libica.openapi.v2.model.activation_code_detail import ActivationCodeDetail
-from libica.openapi.v2.model.analysis import Analysis
+
 from libica.openapi.v2.model.analysis_input_data_mount import AnalysisInputDataMount
 from libica.openapi.v2.model.analysis_input_external_data import AnalysisInputExternalData
 from libica.openapi.v2.model.analysis_v3 import AnalysisV3
+from libica.openapi.v2.model.analysis_v4 import AnalysisV4
+
 from libica.openapi.v2.model.create_cwl_analysis import CreateCwlAnalysis
 from libica.openapi.v2.model.create_nextflow_analysis import CreateNextflowAnalysis
 from libica.openapi.v2.model.cwl_analysis_json_input import CwlAnalysisJsonInput
@@ -42,7 +44,6 @@ from libica.openapi.v2.model.search_matching_activation_codes_for_nextflow_analy
 )
 
 # Local imports
-from ...utils import recursively_build_open_api_body_from_libica_item
 from ...utils.logger import get_logger
 from ...utils.configuration import get_icav2_configuration
 from ...enums import AnalysisStorageSize, WorkflowLanguage, DataType
@@ -53,6 +54,9 @@ if typing.TYPE_CHECKING:
     # Prevents circular imports
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis
     from ..classes.analysis import ICAv2PipelineAnalysisTags
+
+
+Analysis = Union[AnalysisV3, AnalysisV4]
 
 
 logger = get_logger()
@@ -596,7 +600,7 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis) -> Ana
     return api_response
 
 
-def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis) -> AnalysisV3:
+def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis) -> Analysis:
     """
     Launch a Nextflow Workflow in a specific project context
 
