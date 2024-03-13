@@ -579,8 +579,23 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis) -> Ana
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
+        # Force default headers to v3
+        # FIXME https://github.com/umccr-illumina/ica_v2/issues/173
+        api_client.set_default_header(
+            header_name="Content-Type",
+            header_value="application/vnd.illumina.v3+json"
+        )
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
+
         # Create an instance of the API class
         api_instance = ProjectAnalysisApi(api_client)
+
+        # override endpoint settings response type to the version we want i.e. AnalysisV3 or Analysis
+        endpoint_settings = api_instance.create_cwl_analysis_endpoint.settings
+        endpoint_settings['response_type'] = (AnalysisV3,)
 
     # example passing only required values which don't have defaults set
     try:
