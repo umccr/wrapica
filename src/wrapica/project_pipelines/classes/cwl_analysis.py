@@ -6,16 +6,19 @@ Generate a CWL analysis
 # Imports
 import json
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 
 # Libica imports
-from libica.openapi.v2.model.analysis import Analysis
+from libica.openapi.v2.model.analysis_v3 import AnalysisV3
+from libica.openapi.v2.model.analysis_v4 import AnalysisV4
 from libica.openapi.v2.model.analysis_input_data_mount import AnalysisInputDataMount
 from libica.openapi.v2.model.analysis_input_external_data import AnalysisInputExternalData
 from libica.openapi.v2.model.analysis_output_mapping import AnalysisOutputMapping
 from libica.openapi.v2.model.create_cwl_analysis import CreateCwlAnalysis
-from libica.openapi.v2.model.cwl_analysis_input import CwlAnalysisInput
+from libica.openapi.v2.model.cwl_analysis_structured_input import CwlAnalysisStructuredInput
 from libica.openapi.v2.model.cwl_analysis_json_input import CwlAnalysisJsonInput
+
+CwlAnalysisInput = Union[CwlAnalysisStructuredInput, CwlAnalysisJsonInput]
 
 # Local parent imports
 from .analysis import (
@@ -27,8 +30,9 @@ from .analysis import (
 
 # Local imports
 from ...enums import AnalysisStorageSize, WorkflowLanguage
-from ...utils.globals import ICAv2AnalysisStorageSize
 from ...utils.logger import get_logger
+
+Analysis = Union[AnalysisV3, AnalysisV4]
 
 # Set logger
 logger = get_logger()
@@ -81,7 +85,8 @@ class ICAv2CwlAnalysisJsonInput(ICAv2AnalysisInput):
             object_type=self.object_type,
             input_json=self.input_json_str,
             mounts=self.mount_paths_list,
-            external_data=self.external_mounts_list
+            external_data=self.external_mounts_list,
+            data_ids=self.data_ids
         )
 
     def deference_cwl_input_json(self):
@@ -90,6 +95,12 @@ class ICAv2CwlAnalysisJsonInput(ICAv2AnalysisInput):
         )
         self.input_json_deferenced_dict, self.mount_paths_list, self.external_mounts_list = convert_icav2_uris_to_data_ids_from_cwl_input_json(
               self.input_json
+        )
+        self.data_ids = list(
+            map(
+                lambda mount_path_iter: mount_path_iter.data_id,
+                self.mount_paths_list
+            )
         )
 
     def set_input_json(self):
@@ -113,7 +124,7 @@ class ICAv2CWLEngineParameters(ICAv2EngineParameters):
         analysis_input: Optional[CwlAnalysisInput] = None,
         tags: Optional[ICAv2PipelineAnalysisTags] = None,
         analysis_storage_id: Optional[str] = None,
-        analysis_storage_size: Optional[ICAv2AnalysisStorageSize] = None,
+        analysis_storage_size: Optional[AnalysisStorageSize] = None,
         activation_id: Optional[str] = None,
         cwltool_overrides: Optional[Dict] = None
     ):

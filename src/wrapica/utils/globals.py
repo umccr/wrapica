@@ -4,7 +4,7 @@
 List of globals to use for icav2 cli plugins
 """
 import re
-from enum import Enum
+from ..enums import AnalysisStorageSize
 
 DEFAULT_ICAV2_BASE_URL = "https://ica.illumina.com/ica/rest"
 
@@ -23,14 +23,7 @@ ICAV2_MAX_STEP_CHARACTERS = 23
 
 ICAV2_CLI_PLUGINS_HOME_ENV_VAR = "ICAV2_CLI_PLUGINS_HOME"
 
-
-class ICAv2AnalysisStorageSize(Enum):
-    SMALL = "Small"
-    MEDIUM = "Medium"
-    LARGE = "Large"
-
-
-ICAV2_DEFAULT_ANALYSIS_STORAGE_SIZE = ICAv2AnalysisStorageSize.SMALL
+ICAV2_DEFAULT_ANALYSIS_STORAGE_SIZE = AnalysisStorageSize.SMALL
 
 PARAMS_XML_FILE_NAME = "params.xml"
 

@@ -6,13 +6,14 @@ Nextflow analysis
 
 # Imports
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 
 # Libica imports
-from libica.openapi.v2.model.analysis import Analysis
 from libica.openapi.v2.model.analysis_data_input import AnalysisDataInput
 from libica.openapi.v2.model.analysis_output_mapping import AnalysisOutputMapping
 from libica.openapi.v2.model.analysis_parameter_input import AnalysisParameterInput
+from libica.openapi.v2.model.analysis_v3 import AnalysisV3
+from libica.openapi.v2.model.analysis_v4 import AnalysisV4
 from libica.openapi.v2.model.create_nextflow_analysis import CreateNextflowAnalysis
 from libica.openapi.v2.model.input_parameter import InputParameter
 from libica.openapi.v2.model.nextflow_analysis_input import NextflowAnalysisInput
@@ -31,8 +32,9 @@ from ...enums import (
     AnalysisStorageSize, WorkflowLanguage,
     StructuredInputParameterType, StructuredInputParameterTypeMapping
 )
-from ...utils.globals import ICAv2AnalysisStorageSize
 from ...utils.logger import get_logger
+
+Analysis = Union[AnalysisV3, AnalysisV4]
 
 # Set logger
 logger = get_logger()
@@ -252,7 +254,7 @@ class ICAv2NextflowEngineParameters(ICAv2EngineParameters):
         analysis_input: Optional[NextflowAnalysisInput] = None,
         tags: Optional[ICAv2PipelineAnalysisTags] = None,
         analysis_storage_id: Optional[str] = None,
-        analysis_storage_size: Optional[ICAv2AnalysisStorageSize] = None,
+        analysis_storage_size: Optional[AnalysisStorageSize] = None,
         activation_id: Optional[str] = None,
     ):
         # Initialise parameters

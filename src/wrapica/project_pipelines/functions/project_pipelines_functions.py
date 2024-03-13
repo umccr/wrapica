@@ -18,10 +18,12 @@ from libica.openapi.v2.api.entitlement_detail_api import EntitlementDetailApi
 from libica.openapi.v2.api.project_analysis_api import ProjectAnalysisApi
 from libica.openapi.v2.api.project_pipeline_api import ProjectPipelineApi
 from libica.openapi.v2.model.activation_code_detail import ActivationCodeDetail
-from libica.openapi.v2.model.analysis import Analysis
+
 from libica.openapi.v2.model.analysis_input_data_mount import AnalysisInputDataMount
 from libica.openapi.v2.model.analysis_input_external_data import AnalysisInputExternalData
 from libica.openapi.v2.model.analysis_v3 import AnalysisV3
+from libica.openapi.v2.model.analysis_v4 import AnalysisV4
+
 from libica.openapi.v2.model.create_cwl_analysis import CreateCwlAnalysis
 from libica.openapi.v2.model.create_nextflow_analysis import CreateNextflowAnalysis
 from libica.openapi.v2.model.cwl_analysis_json_input import CwlAnalysisJsonInput
@@ -42,7 +44,6 @@ from libica.openapi.v2.model.search_matching_activation_codes_for_nextflow_analy
 )
 
 # Local imports
-from ...utils import recursively_build_open_api_body_from_libica_item
 from ...utils.logger import get_logger
 from ...utils.configuration import get_icav2_configuration
 from ...enums import AnalysisStorageSize, WorkflowLanguage, DataType
@@ -53,6 +54,9 @@ if typing.TYPE_CHECKING:
     # Prevents circular imports
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis
     from ..classes.analysis import ICAv2PipelineAnalysisTags
+
+
+Analysis = Union[AnalysisV3, AnalysisV4]
 
 
 logger = get_logger()
@@ -579,8 +583,23 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis) -> Ana
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
+        # Force default headers to v3
+        # FIXME https://github.com/umccr-illumina/ica_v2/issues/173
+        api_client.set_default_header(
+            header_name="Content-Type",
+            header_value="application/vnd.illumina.v3+json"
+        )
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
+
         # Create an instance of the API class
         api_instance = ProjectAnalysisApi(api_client)
+
+        # override endpoint settings response type to the version we want i.e. AnalysisV3 or Analysis
+        endpoint_settings = api_instance.create_cwl_analysis_endpoint.settings
+        endpoint_settings['response_type'] = (AnalysisV3,)
 
     # example passing only required values which don't have defaults set
     try:
@@ -596,7 +615,7 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis) -> Ana
     return api_response
 
 
-def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis) -> AnalysisV3:
+def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis) -> Analysis:
     """
     Launch a Nextflow Workflow in a specific project context
 
@@ -964,7 +983,9 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
                     if data_type == DataType.FILE:
                         input_obj["location"] = create_download_url(owning_project_id, data_id)
                     elif data_type == DataType.FOLDER:
+                        # We need a basename for the directory now, not a location
                         input_obj["basename"] = get_project_data_obj_by_id(owning_project_id, data_id).data.details.name
+                        _ = input_obj.pop("location")
                         input_obj["listing"] = presign_cwl_directory(
                             owning_project_id, data_id
                         )
@@ -974,17 +995,21 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
                         external_data_list.append(
                             AnalysisInputExternalData(
                                 url=create_download_url(owning_project_id, data_id),
-                                location=input_obj.get("location")
+                                type="http",
+                                mount_path=input_obj.get("location")
                             )
                         )
                     elif data_type == DataType.FOLDER:
-                        input_obj["location"] = mount_path
+                        input_obj["basename"] = get_project_data_obj_by_id(owning_project_id, data_id).data.details.name
+                        # We need a basename for the directory, not a location
+                        _ = input_obj.pop("location")
                         external_data_list_new, input_obj["listing"] = presign_cwl_directory_with_external_data_mounts(
                             owning_project_id, data_id
                         )
                         external_data_list.extend(
                             external_data_list_new
                         )
+
                 else:
                     mount_list.append(
                         AnalysisInputDataMount(
@@ -992,7 +1017,6 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
                             mount_path=mount_path
                         )
                     )
-
                     input_obj["location"] = mount_path
             # Check for presigned urls in location, and check for 'stage' attribute
             elif input_obj.get("location", "").startswith("https://"):
@@ -1014,7 +1038,8 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
                     external_data_list.append(
                         AnalysisInputExternalData(
                             url=input_obj.get("location"),
-                            path=mount_path
+                            type="http",
+                            mount_path=mount_path
                         )
                     )
 
