@@ -1585,7 +1585,7 @@ def presign_cwl_directory_with_external_data_mounts(
         data_id = file_item_obj.get("data").get("id")
         basename = file_item_obj.get("data").get("details").get("name")
         if data_type == "FOLDER":
-            listing, external_data_mounts_new = presign_cwl_directory_with_external_data_mounts(
+            external_data_mounts_new, listing = presign_cwl_directory_with_external_data_mounts(
                 project_id,
                 data_id
             )
@@ -1612,7 +1612,7 @@ def presign_cwl_directory_with_external_data_mounts(
             external_data_mounts.append(
                 AnalysisInputExternalData(
                     url=presigned_url,
-                    type=DataType.FILE.value,
+                    type="http",
                     mount_path=mount_path
                 )
             )
