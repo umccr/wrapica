@@ -727,6 +727,9 @@ def list_project_data_non_recursively(
             data_type = DataType(data_type).value
 
     # Check sort
+    if sort == "":
+        sort = None
+
     if sort is not None:
         if isinstance(sort, ProjectDataSortParameters):
             sort = [sort]
@@ -764,20 +767,27 @@ def list_project_data_non_recursively(
         try:
             # Retrieve the list of project data
             api_response = api_instance.get_project_data_list(
-                project_id=project_id,
-                parent_folder_ids=parent_folder_id,
-                parent_folder_path=parent_folder_path,
-                page_size=str(page_size),
-                page_offset=str(page_offset),
-                page_token=page_token,
-                file_name=file_name,
-                status=status,
-                data_type=data_type,
-                creation_date_after=creation_date_after,
-                creation_date_before=creation_date_before,
-                status_date_after=status_date_after,
-                status_date_before=status_date_before,
-                sort=sort
+                **dict(
+                    filter(
+                        lambda x: x[1] is not None,
+                        {
+                            "status": status,
+                            "type": data_type,
+                            "project_id": project_id,
+                            "parent_folder_id": parent_folder_id,
+                            "parent_folder_path": parent_folder_path,
+                            "page_size": str(page_size),
+                            "page_offset": str(page_offset),
+                            "page_token": page_token,
+                            "filename": file_name,
+                            "creation_date_after": creation_date_after,
+                            "creation_date_before": creation_date_before,
+                            "status_date_after": status_date_after,
+                            "status_date_before": status_date_before,
+                            "sort": sort
+                        }.items()
+                    )
+                )
             )
         except ApiException as e:
             raise ValueError("Exception when calling ProjectDataApi->get_project_data_list: %s\n" % e)
@@ -792,7 +802,7 @@ def list_project_data_non_recursively(
             page_offset += page_size
         else:
             # Check if there is a next page
-            if api_response.next_page_token is None:
+            if api_response.next_page_token is None or api_response.next_page_token == "":
                 break
             page_token = api_response.next_page_token
 
