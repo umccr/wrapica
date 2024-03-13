@@ -81,7 +81,8 @@ class ICAv2CwlAnalysisJsonInput(ICAv2AnalysisInput):
             object_type=self.object_type,
             input_json=self.input_json_str,
             mounts=self.mount_paths_list,
-            external_data=self.external_mounts_list
+            external_data=self.external_mounts_list,
+            data_ids=self.data_ids
         )
 
     def deference_cwl_input_json(self):
@@ -90,6 +91,12 @@ class ICAv2CwlAnalysisJsonInput(ICAv2AnalysisInput):
         )
         self.input_json_deferenced_dict, self.mount_paths_list, self.external_mounts_list = convert_icav2_uris_to_data_ids_from_cwl_input_json(
               self.input_json
+        )
+        self.data_ids = list(
+            map(
+                lambda mount_path_iter: mount_path_iter.data_id,
+                self.mount_paths_list
+            )
         )
 
     def set_input_json(self):
