@@ -10,7 +10,8 @@ from typing import List, Union, Dict, Any, Optional
 # Libica imports
 from libica.openapi.v2 import ApiClient, ApiException
 from libica.openapi.v2.api.project_analysis_api import ProjectAnalysisApi
-from libica.openapi.v2.model.analysis import Analysis
+from libica.openapi.v2.model.analysis_v3 import AnalysisV3
+from libica.openapi.v2.model.analysis_v4 import AnalysisV4
 from libica.openapi.v2.model.analysis_input import AnalysisInput
 from libica.openapi.v2.model.analysis_output import AnalysisOutput
 from libica.openapi.v2.model.analysis_output_list import AnalysisOutputList
@@ -23,6 +24,8 @@ from libica.openapi.v2.api import project_analysis_api
 from ...utils.configuration import get_icav2_configuration
 from ...utils.websocket_helpers import write_websocket_to_file, convert_html_to_text
 from ...utils.logger import get_logger
+
+Analysis = Union[AnalysisV3, AnalysisV4]
 
 logger = get_logger()
 

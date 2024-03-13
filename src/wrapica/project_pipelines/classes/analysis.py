@@ -16,12 +16,12 @@ from datetime import datetime
 from uuid import uuid4
 
 # Libica imports
-from libica.openapi.v2.model.analysis import Analysis
+from libica.openapi.v2.model.analysis_v3 import AnalysisV3
+from libica.openapi.v2.model.analysis_v4 import AnalysisV4
 from libica.openapi.v2.model.analysis_output_mapping import AnalysisOutputMapping
 from libica.openapi.v2.model.analysis_tag import AnalysisTag
 from libica.openapi.v2.model.create_cwl_analysis import CreateCwlAnalysis
 from libica.openapi.v2.model.create_nextflow_analysis import CreateNextflowAnalysis
-from libica.openapi.v2.model.cwl_analysis_input import CwlAnalysisInput
 from libica.openapi.v2.model.cwl_analysis_json_input import CwlAnalysisJsonInput
 from libica.openapi.v2.model.cwl_analysis_structured_input import CwlAnalysisStructuredInput
 from libica.openapi.v2.model.nextflow_analysis_input import NextflowAnalysisInput
@@ -30,12 +30,15 @@ from libica.openapi.v2.model.project_data import ProjectData
 # Local imports
 from ...utils import recursively_build_open_api_body_from_libica_item
 from ...enums import AnalysisStorageSize, DataType
-from ...utils.globals import ICAv2AnalysisStorageSize
 from ...utils.miscell import sanitise_dict_keys
 from ...utils.logger import get_logger
 
 # Set logger
 logger = get_logger()
+
+
+Analysis = Union[AnalysisV3, AnalysisV4]
+CwlAnalysisInput = Union[CwlAnalysisJsonInput, CwlAnalysisStructuredInput]
 
 
 class ICAv2AnalysisInput:
@@ -180,7 +183,7 @@ class ICAv2EngineParameters:
             analysis_output: Optional[List[AnalysisOutputMapping]] = None,
             tags: Optional[ICAv2PipelineAnalysisTags] = None,
             analysis_storage_id: Optional[str] = None,
-            analysis_storage_size: Optional[ICAv2AnalysisStorageSize] = None,
+            analysis_storage_size: Optional[AnalysisStorageSize] = None,
             activation_id: Optional[str] = None,
     ):
         # Initialise parameters
@@ -189,7 +192,7 @@ class ICAv2EngineParameters:
         self.project_id: Optional[str] = project_id
         self.pipeline_id: Optional[str] = pipeline_id
         self.analysis_storage_id: Optional[str] = analysis_storage_id
-        self.analysis_storage_size: Optional[ICAv2AnalysisStorageSize] = analysis_storage_size
+        self.analysis_storage_size: Optional[AnalysisStorageSize] = analysis_storage_size
         self.activation_id: Optional[str] = activation_id
 
         # Output parameters
@@ -233,7 +236,7 @@ class ICAv2EngineParameters:
         project_id: Optional[str] = None,
         pipeline_id: Optional[str] = None,
         analysis_storage_id: Optional[str] = None,
-        analysis_storage_size: Optional[ICAv2AnalysisStorageSize] = None,
+        analysis_storage_size: Optional[AnalysisStorageSize] = None,
         activation_id: Optional[str] = None,
         analysis_input: Optional[Union[CwlAnalysisJsonInput, CwlAnalysisStructuredInput]] = None
     ):
