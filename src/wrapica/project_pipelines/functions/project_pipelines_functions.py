@@ -983,7 +983,9 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
                     if data_type == DataType.FILE:
                         input_obj["location"] = create_download_url(owning_project_id, data_id)
                     elif data_type == DataType.FOLDER:
+                        # We need a basename for the directory now, not a location
                         input_obj["basename"] = get_project_data_obj_by_id(owning_project_id, data_id).data.details.name
+                        _ = input_obj.pop("location")
                         input_obj["listing"] = presign_cwl_directory(
                             owning_project_id, data_id
                         )
@@ -993,17 +995,21 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
                         external_data_list.append(
                             AnalysisInputExternalData(
                                 url=create_download_url(owning_project_id, data_id),
-                                location=input_obj.get("location")
+                                type="http",
+                                mount_path=input_obj.get("location")
                             )
                         )
                     elif data_type == DataType.FOLDER:
-                        input_obj["location"] = mount_path
+                        input_obj["basename"] = get_project_data_obj_by_id(owning_project_id, data_id).data.details.name
+                        # We need a basename for the directory, not a location
+                        _ = input_obj.pop("location")
                         external_data_list_new, input_obj["listing"] = presign_cwl_directory_with_external_data_mounts(
                             owning_project_id, data_id
                         )
                         external_data_list.extend(
                             external_data_list_new
                         )
+
                 else:
                     mount_list.append(
                         AnalysisInputDataMount(
@@ -1011,7 +1017,6 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
                             mount_path=mount_path
                         )
                     )
-
                     input_obj["location"] = mount_path
             # Check for presigned urls in location, and check for 'stage' attribute
             elif input_obj.get("location", "").startswith("https://"):
@@ -1033,7 +1038,8 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
                     external_data_list.append(
                         AnalysisInputExternalData(
                             url=input_obj.get("location"),
-                            path=mount_path
+                            type="http",
+                            mount_path=mount_path
                         )
                     )
 
