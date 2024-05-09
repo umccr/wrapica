@@ -31,11 +31,8 @@ jobs:
           # Compile requirements
           toml-to-req \
             --toml-file pyproject.toml \
-            --include-optional \
-            --optional-lists docs
-          
-          # Move requirements
-          mv requirements.txt docs/requirements.txt
+            --optional-lists docs \
+            --requirements-file docs/requirements.txt
 
       # Commit
       - uses: endbug/add-and-commit@v9
