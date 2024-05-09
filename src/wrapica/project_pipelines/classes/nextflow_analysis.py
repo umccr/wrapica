@@ -304,6 +304,7 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
         output_parent_folder_id: Optional[str] = None,
         output_parent_folder_path: Optional[str] = None,
         analysis_output_uri: Optional[str] = None,
+        ica_logs_uri: Optional[str] = None,
         # Meta parameters
         tags: Optional[ICAv2PipelineAnalysisTags] = None,
         # CWL Specific parameters
@@ -321,6 +322,7 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
         :param output_parent_folder_id
         :param output_parent_folder_path
         :param analysis_output_uri
+        :param ica_logs_uri
         :param tags
         :param cwltool_overrides
         """
@@ -342,6 +344,7 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             output_parent_folder_id=output_parent_folder_id,
             output_parent_folder_path=output_parent_folder_path,
             analysis_output_uri=analysis_output_uri,
+            ica_logs_uri=ica_logs_uri,
             tags=tags
         )
 
