@@ -437,6 +437,7 @@ class ICAv2PipelineAnalysis:
         output_parent_folder_id: Optional[str] = None,
         output_parent_folder_path: Optional[str] = None,
         analysis_output_uri: Optional[str] = None,
+        ica_logs_uri: Optional[str] = None,
         # Meta parameters
         tags: Optional[ICAv2PipelineAnalysisTags] = None
     ):
@@ -463,6 +464,7 @@ class ICAv2PipelineAnalysis:
         self.output_parent_folder_id = output_parent_folder_id
         self.output_parent_folder_path = output_parent_folder_path
         self.analysis_output_uri = analysis_output_uri
+        self.ica_logs_uri = ica_logs_uri
 
         # Meta parameters
         self.tags = tags
@@ -476,6 +478,11 @@ class ICAv2PipelineAnalysis:
             self.analysis_output: List[AnalysisOutputMapping] = [self.get_analysis_output_mapping_from_uri()]
         else:
             self.analysis_output = None
+
+        if self.ica_logs_uri is not None:
+            self.ica_logs: List[AnalysisOutputMapping] = [self.get_ica_logs_mapping_from_uri()]
+        else:
+            self.ica_logs = None
 
         self.set_engine_parameters()
 
@@ -515,6 +522,24 @@ class ICAv2PipelineAnalysis:
             type=DataType.FOLDER.value,  # Hardcoded, out directory is a folder
             target_project_id=analysis_output_obj.project_id,
             target_path=analysis_output_obj.data.details.path
+        )
+
+    def get_ica_logs_mapping_from_uri(self) -> AnalysisOutputMapping:
+        from ...project_data import convert_icav2_uri_to_data_obj
+        # Ensure that the path attribute of analysis_output_uri ends with /
+        if not urlparse(self.ica_logs_uri).path.endswith("/"):
+            raise ValueError("The analysis output uri must end with a /")
+
+        ica_logs_project_data_obj: ProjectData = convert_icav2_uri_to_data_obj(
+            self.ica_logs_uri,
+            create_data_if_not_found=True
+        )
+
+        return AnalysisOutputMapping(
+            source_path="ica_logs/",  # Hardcoded, all logs should be placed in the ica_logs folder,
+            type=DataType.FOLDER.value,  # Hardcoded, out directory is a folder
+            target_project_id=ica_logs_project_data_obj.project_id,
+            target_path=ica_logs_project_data_obj.data.details.path
         )
 
     def set_engine_parameters(self):
