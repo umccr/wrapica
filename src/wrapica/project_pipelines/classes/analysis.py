@@ -479,11 +479,12 @@ class ICAv2PipelineAnalysis:
         else:
             self.analysis_output = None
 
-        if self.ica_logs_uri is not None:
-            if self.analysis_output is not None:
-                self.analysis_output.append(self.get_ica_logs_mapping_from_uri())
-            else:
-                self.analysis_output = self.get_ica_logs_mapping_from_uri()
+        # Deprecated until https://github.com/umccr-illumina/ica_v2/issues/184 is resolved
+        # if self.ica_logs_uri is not None:
+        #     if self.analysis_output is not None:
+        #         self.analysis_output.append(self.get_ica_logs_mapping_from_uri())
+        #     else:
+        #         self.analysis_output = self.get_ica_logs_mapping_from_uri()
 
         self.set_engine_parameters()
 
