@@ -885,7 +885,7 @@ def find_project_data_recursively(
     if min_depth is None or min_depth <= 1:
         for data_item in data_items:
             data_item_match = name_regex_obj.match(data_item.data.details.name)
-            if data_type is not None and not data_item.data.details.data_type == data_type:
+            if data_type is not None and not DataType[data_item.data.details.data_type] == data_type:
                 continue
             if data_item_match is not None:
                 matched_data_items.append(data_item)
