@@ -7,10 +7,12 @@ from .functions.project_analyses_functions import (
     get_analysis_input_object_from_analysis_code,
     get_outputs_object_from_analysis_id,
     get_analysis_output_object_from_analysis_code,
+    get_cwl_outputs_json_from_analysis_id,
     get_analysis_obj,
     get_analysis_steps,
     get_analysis_log_from_analysis_step,
-    write_analysis_step_logs
+    write_analysis_step_logs,
+    abort_analysis
 )
 
 __all__ = [
@@ -19,8 +21,10 @@ __all__ = [
     'get_analysis_input_object_from_analysis_code',
     'get_outputs_object_from_analysis_id',
     'get_analysis_output_object_from_analysis_code',
+    'get_cwl_outputs_json_from_analysis_id',
     'get_analysis_obj',
     'get_analysis_steps',
     'get_analysis_log_from_analysis_step',
-    'write_analysis_step_logs'
+    'write_analysis_step_logs',
+    'abort_analysis'
 ]

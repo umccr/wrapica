@@ -510,3 +510,49 @@ def write_analysis_step_logs(
             )
     else:
         read_icav2_file_contents(project_id, log_data_id, output_path)
+
+
+def abort_analysis(
+    project_id: str,
+    analysis_id: str,
+) -> None:
+    """
+    Abort an analysis
+
+    :param project_id: The project id the analysis was run in
+    :param analysis_id: The analysis id to abort
+
+    :raises: ApiException
+
+    :return: None
+    :rtype: None
+
+    :Examples:
+
+    .. code-block:: python
+
+        :linenos:
+        from pathlib import Path
+        from wrapica.project_analysis import abort_analysis
+
+        # Set params
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+        project_id = "project_id"
+        analysis_id = "analysis_id"
+    """
+    # Get the configuration
+    configuration = get_icav2_configuration()
+
+    # Enter a context with an instance of the API client
+    with ApiClient(configuration) as api_client:
+        # Create an instance of the API class
+        api_instance = project_analysis_api.ProjectAnalysisApi(api_client)
+
+    # example passing only required values which don't have defaults set
+    try:
+        # Abort an analysis.
+        api_instance.abort_analysis(project_id, analysis_id)
+    except ApiException as e:
+        logger.error("Exception when calling ProjectAnalysisApi->abort_analysis: %s\n" % e)
+        raise ApiException
