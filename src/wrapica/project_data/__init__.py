@@ -31,7 +31,8 @@ from .functions.project_data_functions import (
     get_project_data_upload_url,
     write_icav2_file_contents,
     get_file_by_file_name_from_project_data_list,
-    project_data_copy_batch_handler
+    project_data_copy_batch_handler,
+    delete_project_data
 )
 
 __all__ = [
@@ -64,5 +65,6 @@ __all__ = [
     'get_project_data_upload_url',
     'write_icav2_file_contents',
     'get_file_by_file_name_from_project_data_list',
-    'project_data_copy_batch_handler'
+    'project_data_copy_batch_handler',
+    'delete_project_data'
 ]

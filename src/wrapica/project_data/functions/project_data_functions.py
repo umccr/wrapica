@@ -885,7 +885,7 @@ def find_project_data_recursively(
     if min_depth is None or min_depth <= 1:
         for data_item in data_items:
             data_item_match = name_regex_obj.match(data_item.data.details.name)
-            if data_type is not None and not data_item.data.details.data_type == data_type:
+            if data_type is not None and not DataType[data_item.data.details.data_type] == data_type:
                 continue
             if data_item_match is not None:
                 matched_data_items.append(data_item)
@@ -1881,3 +1881,46 @@ def project_data_copy_batch_handler(
 
     # Return the job ID for the project data copy batch
     return api_response.job
+
+
+def delete_project_data(project_id: str, data_id: str):
+    """
+    Delete a project data item using the projectData:delete endpoint
+
+    :param project_id: The project id the data belongs to
+    :param data_id: The data id we want to delete
+
+    :return: None
+    :rtype: None
+
+    :raises: ValueError, ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        from wrapica.project_data import delete_project_data
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        delete_project_data(
+            project_id="abcd-1234-efab-5678",
+            data_id="fol.abcdef1234567890"
+        )
+    """
+    # Get the configuration
+    configuration = get_icav2_configuration()
+
+    # Enter a context with an instance of the API client
+    with ApiClient(configuration) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectDataApi(api_client)
+
+    # example passing only required values which don't have defaults set
+    try:
+        # Schedule this data for deletion.
+        api_instance.delete_data(project_id, data_id)
+    except ApiException as e:
+        logger.error("Exception when calling ProjectDataApi->delete_data: %s\n" % e)
+        raise ApiException
