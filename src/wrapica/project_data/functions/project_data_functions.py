@@ -811,10 +811,10 @@ def list_project_data_non_recursively(
 
 def find_project_data_recursively(
         project_id: str,
-        parent_folder_id: str,
-        parent_folder_path: Path,
-        name: str,
-        data_type: DataType,
+        parent_folder_id: Optional[str] = None,
+        parent_folder_path: Optional[Path] = None,
+        name: Optional[str] = None,
+        data_type: Optional[DataType] = None,
         min_depth: Optional[int] = None,
         max_depth: Optional[int] = None
 ) -> List[ProjectData]:
@@ -871,6 +871,9 @@ def find_project_data_recursively(
 
     # Matched data items thing we return
     matched_data_items: List[ProjectData] = []
+
+    if name is not None:
+        name = '.*'
     name_regex_obj = re.compile(name)
 
     # Get top level items
@@ -1218,7 +1221,7 @@ def convert_project_data_obj_to_icav2_uri(
         urlunparse((
             "icav2",
             project_data.project_id,
-            project_data.data.details.path + ("/" if project_data.data.details.data_type == "FOLDER" else ""),
+            project_data.data.details.path.rstrip("/") + ("/" if project_data.data.details.data_type == "FOLDER" else ""),
             None, None, None
         ))
     )
@@ -1914,6 +1917,15 @@ def delete_project_data(project_id: str, data_id: str):
 
     # Enter a context with an instance of the API client
     with ApiClient(configuration) as api_client:
+        # Force default headers for endpoints with a ':' in the name
+        api_client.set_default_header(
+            header_name="Content-Type",
+            header_value="application/vnd.illumina.v3+json"
+        )
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
         # Create an instance of the API class
         api_instance = ProjectDataApi(api_client)
 
