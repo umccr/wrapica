@@ -546,6 +546,15 @@ def abort_analysis(
 
     # Enter a context with an instance of the API client
     with ApiClient(configuration) as api_client:
+        # Force default headers for endpoints with a ':' in the name
+        api_client.set_default_header(
+            header_name="Content-Type",
+            header_value="application/vnd.illumina.v3+json"
+        )
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
         # Create an instance of the API class
         api_instance = project_analysis_api.ProjectAnalysisApi(api_client)
 
