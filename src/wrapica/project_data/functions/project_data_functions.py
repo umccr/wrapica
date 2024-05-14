@@ -1221,7 +1221,7 @@ def convert_project_data_obj_to_icav2_uri(
         urlunparse((
             "icav2",
             project_data.project_id,
-            project_data.data.details.path + ("/" if project_data.data.details.data_type == "FOLDER" else ""),
+            project_data.data.details.path.rstrip("/") + ("/" if project_data.data.details.data_type == "FOLDER" else ""),
             None, None, None
         ))
     )
