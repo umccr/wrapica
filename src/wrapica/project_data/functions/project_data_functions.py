@@ -811,10 +811,10 @@ def list_project_data_non_recursively(
 
 def find_project_data_recursively(
         project_id: str,
-        parent_folder_id: str,
-        parent_folder_path: Path,
-        name: str,
-        data_type: DataType,
+        parent_folder_id: Optional[str] = None,
+        parent_folder_path: Optional[Path] = None,
+        name: Optional[str] = None,
+        data_type: Optional[DataType] = None,
         min_depth: Optional[int] = None,
         max_depth: Optional[int] = None
 ) -> List[ProjectData]:
@@ -871,6 +871,9 @@ def find_project_data_recursively(
 
     # Matched data items thing we return
     matched_data_items: List[ProjectData] = []
+
+    if name is not None:
+        name = '.*'
     name_regex_obj = re.compile(name)
 
     # Get top level items
