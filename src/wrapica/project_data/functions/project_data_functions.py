@@ -795,6 +795,7 @@ def list_project_data_non_recursively(
         # Extend items list
         data_ids.extend(api_response.items)
 
+        # Determine page iteration method by if we have a 'sort' parameter
         if sort is not None:
             # Check page offset and page size against total item count
             if page_offset + page_size > api_response.total_item_count:

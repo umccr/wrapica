@@ -2,14 +2,17 @@
 
 # Standard imports
 import json
+from datetime import datetime
 from io import TextIOWrapper
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import List, Union, Dict, Any, Optional
+import re
 
 # Libica imports
 from libica.openapi.v2 import ApiClient, ApiException
 from libica.openapi.v2.api.project_analysis_api import ProjectAnalysisApi
+from libica.openapi.v2.model.analysis_query_parameters import AnalysisQueryParameters
 from libica.openapi.v2.model.analysis_v3 import AnalysisV3
 from libica.openapi.v2.model.analysis_v4 import AnalysisV4
 from libica.openapi.v2.model.analysis_input import AnalysisInput
@@ -19,7 +22,9 @@ from libica.openapi.v2.model.analysis_step import AnalysisStep
 from libica.openapi.v2.model.analysis_step_logs import AnalysisStepLogs
 from libica.openapi.v2.model.cwl_analysis_output_json import CwlAnalysisOutputJson
 from libica.openapi.v2.api import project_analysis_api
+from wrapica.utils.globals import LIBICAV2_DEFAULT_PAGE_SIZE
 
+from ...enums import ProjectAnalysisStatusValues, ProjectAnalysisSortParameters
 # Util imports
 from ...utils.configuration import get_icav2_configuration
 from ...utils.websocket_helpers import write_websocket_to_file, convert_html_to_text
@@ -565,3 +570,182 @@ def abort_analysis(
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->abort_analysis: %s\n" % e)
         raise ApiException
+
+
+def list_analyses(
+    project_id: str,
+    pipeline_id: Optional[str],
+    user_reference_regex: Optional[str] = None,
+    status: Optional[Union[ProjectAnalysisStatusValues, List[ProjectAnalysisStatusValues]]] = None,
+    creation_date_before: Optional[datetime] = None,
+    creation_date_after: Optional[datetime] = None,
+    modification_date_before: Optional[datetime] = None,
+    modification_date_after: Optional[datetime] = None,
+    sort: Optional[Union[ProjectAnalysisSortParameters, List[ProjectAnalysisSortParameters]]] = None
+) -> List[AnalysisV4]:
+    """
+    List analyses
+
+    :param project_id: The project id
+    :param pipeline_id: The pipeline id
+    :param user_reference_regex: The user reference regex (as a string)
+    :param status: The status of the analysis
+    :param creation_date_before: Return only analyses created before this date
+    :param creation_date_after: Return only analyses created after this date
+    :param modification_date_before: Return only analyses modified before this date
+    :param modification_date_after: Return only analyses modified after this date
+    :param sort: A parameter, or list of parameters to sort by
+
+    :raises: ApiException
+
+    :return: List of analyses
+    :rtype: `List[Analysis] <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisV4/>`_
+
+    :Examples:
+
+    .. code-block:: python
+
+        :linenos:
+        from pathlib import Path
+        from wrapica.project_analysis import list_analyses
+
+        # Set params
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+        project_id = "project_id"
+
+        analysis_list = list_analyses(project_id)
+    """
+
+    # Get the configuration
+    configuration = get_icav2_configuration()
+
+    # Check parameters
+    if user_reference_regex is not None:
+        user_reference_regex = re.compile(user_reference_regex)
+
+    if isinstance(status, ProjectAnalysisStatusValues):
+        status = [status]
+
+    if sort is not None:
+        if isinstance(sort, ProjectAnalysisSortParameters):
+            sort = [sort]
+        elif isinstance(sort, str):
+            sort = [ProjectAnalysisSortParameters(sort)]
+
+        # Complete a comma join of the sort parameters
+        sort = ",".join([sort_param.value for sort_param in sort])
+
+    # AnalysisQueryParameters
+    if status is not None:
+        analysis_query_parameters = AnalysisQueryParameters(
+            status=status,
+        )
+    else:
+        analysis_query_parameters = AnalysisQueryParameters(
+            status=status
+        )
+
+    # Enter a context with an instance of the API client
+    with ApiClient(configuration) as api_client:
+        # Force default headers for endpoints with a ':' in the name
+        api_client.set_default_header(
+            header_name="Content-Type",
+            header_value="application/vnd.illumina.v3+json"
+        )
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
+        # Create an instance of the API class
+        api_instance = project_analysis_api.ProjectAnalysisApi(api_client)
+
+    # Set other parameters
+    page_size = LIBICAV2_DEFAULT_PAGE_SIZE
+    page_token = ""
+    # We use page tokens if sort is None, otherwise we use page offsets
+    if sort is not None:
+        page_offset = 0
+    else:
+        page_offset = ""
+
+    # Initialise list
+    analysis_list: List[AnalysisV4] = []
+
+    # Loop through the pages
+    while True:
+        # Attempt to collect all analyses
+        try:
+            api_response = api_instance.search_analyses(
+                **dict(
+                    filter(
+                        lambda x: x[1] is not None,
+                        {
+                            "status": status,
+                            "project_id": project_id,
+                            "page_size": str(page_size),
+                            "page_offset": str(page_offset),
+                            "page_token": page_token,
+                            "analysis_query_parameters": analysis_query_parameters,
+                            "sort": sort
+                        }.items()
+                    )
+                )
+            )
+        except ApiException as e:
+            raise ValueError("Exception when calling ProjectDataApi->get_project_data_list: %s\n" % e)
+
+        # Extend items list
+        analysis_list.extend(api_response.items)
+
+        # Determine page iteration method by if we have a 'sort' parameter
+        if sort is not None:
+            # Check page offset and page size against total item count
+            if page_offset + page_size > api_response.total_item_count:
+                break
+            page_offset += page_size
+        else:
+            # Check if there is a next page
+            if api_response.next_page_token is None or api_response.next_page_token == "":
+                break
+            page_token = api_response.next_page_token
+
+    # Before we return the list, we filter
+    # pipeline_id
+    # creation_date_after
+    # creation_date_before
+    # modification_date_after
+    # modification_date_before
+    analysis_list = list(
+        filter(
+            lambda analysis_iter: (
+                (
+                    pipeline_id is None or
+                    analysis_iter.pipeline.id == pipeline_id
+                ) and
+                (
+                    user_reference_regex is None or
+                    user_reference_regex.match(analysis_iter.user_reference) is not None
+                ) and
+                (
+                    creation_date_after is None or
+                    analysis_iter.creation_date >= creation_date_after
+                ) and
+                (
+                    creation_date_before is None or
+                    analysis_iter.creation_date <= creation_date_before
+                ) and
+                (
+                    modification_date_after is None or
+                    analysis_iter.modification_date >= modification_date_after
+                ) and
+                (
+                    modification_date_before is None or
+                    analysis_iter.modification_date <= modification_date_before
+                )
+            ),
+            analysis_list
+        )
+    )
+
+    return analysis_list

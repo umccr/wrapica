@@ -33,6 +33,7 @@ from libica.openapi.v2.model.input_parameter_list import InputParameterList
 from libica.openapi.v2.model.nextflow_analysis_input import NextflowAnalysisInput
 from libica.openapi.v2.model.pipeline_configuration_parameter import PipelineConfigurationParameter
 from libica.openapi.v2.model.pipeline_configuration_parameter_list import PipelineConfigurationParameterList
+from libica.openapi.v2.model.project import Project
 from libica.openapi.v2.model.project_data import ProjectData
 from libica.openapi.v2.model.project_pipeline import ProjectPipeline
 from libica.openapi.v2.model.project_pipeline_list import ProjectPipelineList
@@ -42,6 +43,7 @@ from libica.openapi.v2.model.search_matching_activation_codes_for_cwl_analysis i
 from libica.openapi.v2.model.search_matching_activation_codes_for_nextflow_analysis import (
     SearchMatchingActivationCodesForNextflowAnalysis
 )
+from wrapica.utils.miscell import is_uuid_format
 
 # Local imports
 from ...utils.logger import get_logger
@@ -148,6 +150,40 @@ def get_project_pipeline_id_from_pipeline_code(project_id: str, pipeline_code: s
     except StopIteration:
         logger.error(f"Could not find pipeline '{pipeline_code}' in project {project_id}")
         raise ValueError
+
+
+def coerce_pipeline_id_or_code_to_pipeline_id(project_id: str, pipeline_id_or_code: str) -> str:
+    """
+    Given either a pipeline id or code, check if the input value is a uuid4 format,
+    If so, assume it is a pipeline id. Otherwise, assume it is a pipeline code and
+    call get_project_pipeline_id_from_pipeline_code to get the pipeline id
+
+    :param project_id:             The project id that the pipeline exists in
+    :param pipeline_id_or_code:    The pipeline id or code to retrieve
+    :return: The pipeline id       The pipeline id
+    :rtype: str
+
+    :raises: ValueError: If the pipeline cannot be found
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_pipelines import coerce_pipeline_id_or_code_to_pipeline_id
+
+        project_id = "project-123"
+        pipeline_code = "pipeline-123"
+
+        pipeline_id = coerce_pipeline_id_or_code_to_pipeline_id(project_id, pipeline_code)
+    """
+
+    # Check uuid format
+    if is_uuid_format(pipeline_id_or_code):
+        return pipeline_id_or_code
+
+    # If not uuid format, assume it is a pipeline code
+    return get_project_pipeline_id_from_pipeline_code(project_id, pipeline_id_or_code)
 
 
 def get_default_analysis_storage_id_from_project_pipeline(project_id: str, pipeline_id: str) -> str:
@@ -1059,3 +1095,43 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
                 mount_list.extend(mount_list_new)
                 external_data_list.extend(external_data_list_new)
             return input_obj_dict, mount_list, external_data_list
+
+
+def list_projects_with_pipeline(pipeline_id: str, include_bundle_linked: bool, include_hidden_projects: bool) -> List[Project]:
+    """
+    Given a pipeline id, return a list of projects that the pipeline is linked to
+
+    :param pipeline_id:
+    :param include_bundle_linked:
+    :param include_hidden_projects:
+
+    :return: The list of projects
+    :rtype: :rtype: List[`Project <https://umccr-illumina.github.io/libica/openapi/v2/docs/Project/>`_]
+    :raises: ValueError, ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        from wrapica.project_pipelines import list_projects_with_pipeline
+
+        project_list = list_projects(
+
+        print(input_obj_new)
+        # Output: {
+        #   "input_file": {
+        #     "class": "File",
+        #     "location": "path/to/mount/file.txt"
+        #   }
+        # }
+
+        print(mount_list)
+        # Output: [
+        #   AnalysisInputDataMount(
+        #     data_id="fil.1234567890",
+        #     mount_path="path/to/mount/file.txt"
+        #   )
+
+        print(external_data_list)
+        # Output: []
+    """

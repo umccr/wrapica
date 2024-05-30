@@ -73,4 +73,3 @@ def get_project_id_from_project_name(
         )
     except StopIteration:
         raise ValueError(f"Project with name {project_name} not found")
-
