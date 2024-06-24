@@ -207,7 +207,7 @@ def get_default_analysis_storage_obj_from_project_pipeline(project_id: str, pipe
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Return the analysis storage
-    return project_pipeline_obj.pipeline.analysis_storage
+    return project_pipeline_obj.pipeline.analysis_storage_obj
 
 
 def get_default_analysis_storage_id_from_project_pipeline(project_id: str, pipeline_id: str) -> str:
@@ -241,7 +241,7 @@ def get_default_analysis_storage_id_from_project_pipeline(project_id: str, pipel
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Return the analysis storage id
-    return project_pipeline_obj.pipeline.analysis_storage.id
+    return project_pipeline_obj.pipeline.analysis_storage_obj.id
 
 
 def get_project_pipeline_description_from_pipeline_id(project_id: str, pipeline_id: str) -> str:
@@ -1831,8 +1831,12 @@ def create_cwl_workflow_from_zip(
     with (TemporaryDirectory() as temp_dir, ZipFile(zip_path, 'r') as zip_h):
         zip_h.extractall(temp_dir)
 
+        # Get the subdirectory of the zip paths
+        zip_dir = Path(temp_dir) / zip_path..stem
+
         # Get the workflow and tool paths
-        workflow_path = Path(temp_dir) / "workflow.cwl"
+        workflow_path = Path(zip_dir) / "workflow.cwl"
+
         # Check the workflow path
         if not workflow_path.is_file():
             logger.error("Cannot create cwl workflow from zip, expected a file named 'workflow.cwl'")
@@ -1844,12 +1848,12 @@ def create_cwl_workflow_from_zip(
                     tool_path_iter.is_file() and
                     tool_path_iter.name not in ['workflow.cwl', 'params.xml']
                 ),
-                Path(temp_dir).rglob("*")
+                Path(zip_dir).rglob("*")
             )
         )
 
         # Get the params xml file
-        params_xml_file = Path(temp_dir) / "params.xml"
+        params_xml_file = Path(zip_dir) / "params.xml"
 
         # Check the params xml file
         if not params_xml_file.is_file():
@@ -1886,7 +1890,7 @@ def create_nextflow_pipeline_from_zip(
         zip_h.extractall(temp_dir)
 
         # Get the subdirectory of the zip paths
-        zip_dir = Path(temp_dir) / zip_path.with_suffix("").name
+        zip_dir = Path(temp_dir) / zip_path.stem
 
         # Get the main.nf file
         main_nf_path = zip_dir / "main.nf"
