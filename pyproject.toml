@@ -12,7 +12,7 @@ authors = [
 ]
 description = "Secondary level functions for ICAv2 based off libica"
 readme = "Readme.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -26,6 +26,8 @@ dependencies = [
     "verboselogs >= 1.7, < 2",
     "websocket_client >= 1.4.2, < 2",
     "beautifulsoup4 >= 4.10.0, < 5",
+    "cwl_utils >= 0.33, < 1",
+    "pandas >= 2.2.2"
 ]
 
 [project.urls]

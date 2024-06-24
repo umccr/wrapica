@@ -5,20 +5,19 @@ Generate a CWL analysis
 """
 # Imports
 import json
-from pathlib import Path
 from typing import List, Dict, Optional, Union
 
 # Libica imports
-from libica.openapi.v2.model.analysis_v3 import AnalysisV3
-from libica.openapi.v2.model.analysis_v4 import AnalysisV4
-from libica.openapi.v2.model.analysis_input_data_mount import AnalysisInputDataMount
-from libica.openapi.v2.model.analysis_input_external_data import AnalysisInputExternalData
-from libica.openapi.v2.model.analysis_output_mapping import AnalysisOutputMapping
-from libica.openapi.v2.model.create_cwl_analysis import CreateCwlAnalysis
-from libica.openapi.v2.model.cwl_analysis_structured_input import CwlAnalysisStructuredInput
-from libica.openapi.v2.model.cwl_analysis_json_input import CwlAnalysisJsonInput
-
-CwlAnalysisInput = Union[CwlAnalysisStructuredInput, CwlAnalysisJsonInput]
+from libica.openapi.v2.models import (
+    AnalysisV3,
+    AnalysisV4,
+    AnalysisInputDataMount,
+    AnalysisInputExternalData,
+    AnalysisOutputMapping,
+    CreateCwlAnalysis,
+    CwlAnalysisStructuredInput,
+    CwlAnalysisJsonInput
+)
 
 # Local parent imports
 from .analysis import (
@@ -33,6 +32,7 @@ from ...enums import AnalysisStorageSize, WorkflowLanguage
 from ...utils.logger import get_logger
 
 Analysis = Union[AnalysisV3, AnalysisV4]
+CwlAnalysisInput = Union[CwlAnalysisStructuredInput, CwlAnalysisJsonInput]
 
 # Set logger
 logger = get_logger()
@@ -118,8 +118,6 @@ class ICAv2CWLEngineParameters(ICAv2EngineParameters):
         self,
         project_id: Optional[str] = None,
         pipeline_id: Optional[str] = None,
-        output_parent_folder_id: Optional[str] = None,
-        output_parent_folder_path: Optional[Path] = None,
         analysis_output: Optional[List[AnalysisOutputMapping]] = None,
         analysis_input: Optional[CwlAnalysisInput] = None,
         tags: Optional[ICAv2PipelineAnalysisTags] = None,
@@ -132,8 +130,6 @@ class ICAv2CWLEngineParameters(ICAv2EngineParameters):
         super().__init__(
             project_id=project_id,
             pipeline_id=pipeline_id,
-            output_parent_folder_id=output_parent_folder_id,
-            output_parent_folder_path=output_parent_folder_path,
             analysis_output=analysis_output,
             analysis_input=analysis_input,
             tags=tags,
@@ -215,8 +211,6 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
         analysis_storage_size: Optional[AnalysisStorageSize] = None,
         activation_id: Optional[str] = None,
         # Output parameters
-        output_parent_folder_id: Optional[str] = None,
-        output_parent_folder_path: Optional[str] = None,
         analysis_output_uri: Optional[str] = None,
         ica_logs_uri: Optional[str] = None,
         # Meta parameters
@@ -233,8 +227,6 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
         :param analysis_storage_id
         :param analysis_storage_size
         :param activation_id
-        :param output_parent_folder_id
-        :param output_parent_folder_path
         :param analysis_output_uri
         :param ica_logs_uri
         :param tags
@@ -255,8 +247,6 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
             analysis_storage_id=analysis_storage_id,
             analysis_storage_size=analysis_storage_size,
             activation_id=activation_id,
-            output_parent_folder_id=output_parent_folder_id,
-            output_parent_folder_path=output_parent_folder_path,
             analysis_output_uri=analysis_output_uri,
             ica_logs_uri=ica_logs_uri,
             tags=tags
@@ -266,8 +256,6 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
         self.engine_parameters = ICAv2CWLEngineParameters(
             project_id=self.project_id,
             pipeline_id=self.pipeline_id,
-            output_parent_folder_id=self.output_parent_folder_id,
-            output_parent_folder_path=self.output_parent_folder_path,
             analysis_output=self.analysis_output,
             analysis_input=self.analysis_input,
             tags=self.tags,
@@ -285,7 +273,6 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
             activation_code_detail_id=self.engine_parameters.activation_id,
             analysis_input=self.analysis_input,
             analysis_storage_id=self.engine_parameters.analysis_storage_id,
-            output_parent_folder_id=self.engine_parameters.output_parent_folder_id,
             analysis_output=self.engine_parameters.analysis_output
         )
 

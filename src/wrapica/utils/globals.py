@@ -42,3 +42,21 @@ GITHUB_RELEASE_DESCRIPTION_REGEX_MATCH = re.compile(
 GITHUB_RELEASE_REPO_TAG_REGEX_MATCH = re.compile(
     r"/(.*)/releases/tag/(.*)"
 )
+
+# Is the string a REGEX STRING?
+# See 'matching characters' in https://docs.python.org/3/howto/regex.html
+IS_REGEX_MATCH = re.compile('.*[%s].*' % re.escape(r'.^$*+?{}[]\|()'))
+
+NEXTFLOW_TASK_POD_MAPPING = {
+    "single": "standard-small",
+    "low": "standard-medium",
+    "medium": "standard-large",
+    "high": "standard-xlarge",
+    "high_memory": "himem-large"
+}
+
+NEXTFLOW_PROCESS_LABEL_RE_OBJ = re.compile(r"withLabel:process_(\w+) \{")
+
+# NEXTFLOW_VERSION = "24.04.2"
+NEXTFLOW_VERSION = "22.04.3"
+NEXTFLOW_VERSION_UUID = "b1585d18-f88c-4ca0-8d47-34f6c01eb6f3"

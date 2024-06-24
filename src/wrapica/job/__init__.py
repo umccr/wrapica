@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+# Model imports
+from libica.openapi.v2.models import (
+    Job
+)
+
 # Import everything
 from .functions.job_functions import (
     # Job functions
@@ -7,6 +12,8 @@ from .functions.job_functions import (
 )
 
 __all__ = [
+    # Models
+    'Job',
     # Functions
     'get_job'
 ]
