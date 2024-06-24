@@ -1832,7 +1832,7 @@ def create_cwl_workflow_from_zip(
         zip_h.extractall(temp_dir)
 
         # Get the subdirectory of the zip paths
-        zip_dir = Path(temp_dir) / zip_path..stem
+        zip_dir = Path(temp_dir) / zip_path.stem
 
         # Get the workflow and tool paths
         workflow_path = Path(zip_dir) / "workflow.cwl"
