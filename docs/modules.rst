@@ -11,3 +11,15 @@ Modules
     wrapica/project_pipelines
 
     wrapica/project_analysis
+
+    wrapica/data
+
+    wrapica/bundle
+
+    wrapica/pipelines
+
+    wrapica/region
+
+    wrapica/user
+
+    wrapica/job

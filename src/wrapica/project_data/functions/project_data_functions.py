@@ -13,31 +13,36 @@ from tempfile import NamedTemporaryFile
 from typing import Dict, List, Union, Optional, Any, Tuple
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse
-
 import requests
-# Libica imports
+
+# Libica Api imports
 from libica.openapi.v2 import ApiClient, ApiException
 from libica.openapi.v2.api.project_data_api import ProjectDataApi
 from libica.openapi.v2.api.project_data_copy_batch_api import ProjectDataCopyBatchApi
-from libica.openapi.v2.model.analysis_input_external_data import AnalysisInputExternalData
-from libica.openapi.v2.model.aws_temp_credentials import AwsTempCredentials
-from libica.openapi.v2.model.create_data import CreateData
-from libica.openapi.v2.model.create_project_data_copy_batch import CreateProjectDataCopyBatch
-from libica.openapi.v2.model.create_project_data_copy_batch_item import CreateProjectDataCopyBatchItem
-from libica.openapi.v2.model.create_temporary_credentials import CreateTemporaryCredentials
-from libica.openapi.v2.model.data_id_or_path_list import DataIdOrPathList
-from libica.openapi.v2.model.data_url_with_path import DataUrlWithPath
-from libica.openapi.v2.model.download import Download
-from libica.openapi.v2.model.job import Job
-from libica.openapi.v2.model.project_data import ProjectData
-from libica.openapi.v2.model.project_data_copy_batch import ProjectDataCopyBatch
-from libica.openapi.v2.model.temp_credentials import TempCredentials
-from libica.openapi.v2.model.upload import Upload
+
+# Libica model imports
+from libica.openapi.v2.models import (
+    AnalysisInputExternalData,
+    AwsTempCredentials,
+    CreateData,
+    CreateProjectDataCopyBatch,
+    CreateProjectDataCopyBatchItem,
+    CreateTemporaryCredentials,
+    DataIdOrPathList,
+    DataUrlWithPath,
+    Download,
+    Job,
+    ProjectData,
+    ProjectDataCopyBatch,
+    TempCredentials,
+    Upload
+)
+
 
 # Local imports
-from ...enums import DataType, ProjectDataSortParameters, ProjectDataStatusValues
+from ...enums import DataType, ProjectDataSortParameter, ProjectDataStatusValues
 from ...utils.configuration import get_icav2_configuration, logger
-from ...utils.globals import LIBICAV2_DEFAULT_PAGE_SIZE
+from ...utils.globals import LIBICAV2_DEFAULT_PAGE_SIZE, IS_REGEX_MATCH
 from ...utils.miscell import is_uuid_format
 
 
@@ -624,7 +629,7 @@ def list_project_data_non_recursively(
         creation_date_before: Optional[datetime] = None,
         status_date_after: Optional[datetime] = None,
         status_date_before: Optional[datetime] = None,
-        sort: Optional[Union[ProjectDataSortParameters, List[ProjectDataSortParameters]]] = ""
+        sort: Optional[Union[ProjectDataSortParameter, List[ProjectDataSortParameter]]] = ""
 ) -> List[ProjectData]:
     """
     Given a project id and parent folder id or path,
@@ -731,10 +736,10 @@ def list_project_data_non_recursively(
         sort = None
 
     if sort is not None:
-        if isinstance(sort, ProjectDataSortParameters):
+        if isinstance(sort, ProjectDataSortParameter):
             sort = [sort]
         elif isinstance(sort, str):
-            sort = [ProjectDataSortParameters(sort)]
+            sort = [ProjectDataSortParameter(sort)]
         # Complete a comma join of the sort parameters
         sort = ", ".join(
             list(
@@ -795,9 +800,10 @@ def list_project_data_non_recursively(
         # Extend items list
         data_ids.extend(api_response.items)
 
+        # Determine page iteration method by if we have a 'sort' parameter
         if sort is not None:
             # Check page offset and page size against total item count
-            if page_offset + page_size > api_response.total_item_count:
+            if page_offset + page_size >= api_response.total_item_count:
                 break
             page_offset += page_size
         else:
@@ -826,7 +832,7 @@ def find_project_data_recursively(
     :param project_id: The project id to search in
     :param parent_folder_id: The parent folder id (alternative to parent_folder_path)
     :param parent_folder_path: The path to the parent folder (alternative to parent_folder_id)
-    :param name: The name of the file or directory to look for, may also use * as a wildcard
+    :param name: The name of the file or directory to look for, may also use a regex pattern
     :param data_type: The type of the data, one of DataType.FILE, DataType.FOLDER
     :param min_depth: The minimum depth to search
     :param max_depth: The maximum depth to search
@@ -872,42 +878,58 @@ def find_project_data_recursively(
     # Matched data items thing we return
     matched_data_items: List[ProjectData] = []
 
-    if name is not None:
-        name = '.*'
-    name_regex_obj = re.compile(name)
+    if name is not None and IS_REGEX_MATCH.match(name):
+        name_regex_obj = re.compile(name)
+        name = None
+    else:
+        name_regex_obj = None
 
     # Get top level items
     data_items: List[ProjectData] = list_project_data_non_recursively(
         project_id=project_id,
         parent_folder_id=parent_folder_id,
         parent_folder_path=parent_folder_path,
-        data_type=data_type
+        data_type=data_type,
+        file_name=name
     )
 
     # Check if we can pull out any items in the top directory
     if min_depth is None or min_depth <= 1:
         for data_item in data_items:
-            data_item_match = name_regex_obj.match(data_item.data.details.name)
-            if data_type is not None and not DataType[data_item.data.details.data_type] == data_type:
+            # Check data type
+            if data_type is not None and not DataType(data_item.data.details.data_type) == data_type:
                 continue
-            if data_item_match is not None:
+            # Check if we have regex name to match on
+            if name_regex_obj is not None and name_regex_obj.match(data_item.data.details.name) is not None:
+                matched_data_items.append(data_item)
+            else:
                 matched_data_items.append(data_item)
 
     # Otherwise look recursively
     if max_depth is None or not max_depth <= 1:
         # Listing sub folders
-        subfolders = list(
-            filter(
-                lambda x: x.data.details.data_type == "FOLDER",
-                data_items
+        # If we didn't specify the datatype as FILE,
+        # or a name / name regex, all the subfolders should be in the data items
+        if not data_type == DataType.FILE and name is None and name_regex_obj is None:
+            subfolders = list(
+                filter(
+                    lambda x: x.data.details.data_type == "FOLDER",
+                    data_items
+                )
             )
-        )
+        # Otherwise we will need to regather them
+        else:
+            subfolders = list_project_data_non_recursively(
+                project_id=project_id,
+                parent_folder_id=parent_folder_id,
+                parent_folder_path=parent_folder_path,
+                data_type=data_type.FOLDER,
+            )
         for subfolder in subfolders:
             matched_data_items.extend(
                 find_project_data_recursively(
                     project_id=project_id,
                     parent_folder_id=subfolder.data.id,
-                    parent_folder_path=subfolder.data.details.path,
                     name=name,
                     data_type=data_type,
                     min_depth=min_depth - 1 if min_depth is not None else None,
@@ -915,7 +937,7 @@ def find_project_data_recursively(
                 )
             )
 
-        return matched_data_items
+    return matched_data_items
 
 
 def find_project_data_bulk(
@@ -1139,6 +1161,10 @@ def create_download_urls(
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
         api_instance = ProjectDataApi(api_client)
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
 
     # example passing only required values which don't have defaults set
     try:
@@ -1153,6 +1179,17 @@ def create_download_urls(
 
 
 def convert_icav2_uri_to_data_obj(
+        data_uri: str,
+        create_data_if_not_found: bool = False
+) -> ProjectData:
+    DeprecationWarning(
+        "Please use convert_icav2_uri_to_project_data_obj or use "
+        "convert_icav2_uri_to_data_obj from wrapica.data instead."
+    )
+    return convert_icav2_uri_to_project_data_obj(data_uri, create_data_if_not_found)
+
+
+def convert_icav2_uri_to_project_data_obj(
         data_uri: str,
         create_data_if_not_found: bool = False
 ) -> ProjectData:
@@ -1208,7 +1245,7 @@ def convert_icav2_uri_to_data_obj(
 
 
 def convert_project_data_obj_to_icav2_uri(
-    project_data: ProjectData
+        project_data: ProjectData
 ) -> str:
     """
     Return the file object as an icav2:// uri
@@ -1221,16 +1258,17 @@ def convert_project_data_obj_to_icav2_uri(
         urlunparse((
             "icav2",
             project_data.project_id,
-            project_data.data.details.path.rstrip("/") + ("/" if project_data.data.details.data_type == "FOLDER" else ""),
+            project_data.data.details.path.rstrip("/") + (
+                "/" if project_data.data.details.data_type == "FOLDER" else ""),
             None, None, None
         ))
     )
 
 
 def convert_project_id_and_data_path_to_icav2_uri(
-    project_id: str,
-    data_path: Path,
-    data_type: DataType
+        project_id: str,
+        data_path: Path,
+        data_type: DataType
 ) -> str:
     """
     Given a project_id and a data_id, return the icav2:// uri
@@ -1271,10 +1309,133 @@ def convert_project_id_and_data_path_to_icav2_uri(
     )
 
 
+def unpack_icav2_uri(uri: str) -> Tuple[str, str]:
+    """
+    Unpack an icav2 uri
+
+    :param uri: The icav2 uri in the format of 'icav2://project_id/path/to/file.txt' or 'icav2://project_id/path/to/dir/'
+
+    :return: Tuple with project_id and data_path
+
+    :rtype: Tuple[str, str]
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import unpack_icav2_uri
+
+        project_id, data_path = unpack_icav2_uri("icav2://project_id/path/to/dir")
+    """
+    from wrapica.project.functions.project_functions import get_project_id_from_project_name
+    # Parse obj
+    uri_obj = urlparse(uri)
+
+    # Confirm that this uri starts with icav2
+    if not uri_obj.scheme == "icav2":
+        logger.error(f"Cannot unpack {uri} as it does not start with icav2://")
+        raise ValueError
+
+    # Get project name or id
+    project_name_or_id = uri_obj.netloc
+
+    # Get data path
+    data_path = uri_obj.path
+
+    # Get project id
+    if is_uuid_format(project_name_or_id):
+        project_id = project_name_or_id
+    else:
+        project_id = get_project_id_from_project_name(project_name_or_id)
+
+    return project_id, data_path
+
+
+def coerce_data_id_or_icav2_uri_to_project_data_obj(
+        data_id_or_uri: str,
+        create_data_if_not_found: bool = False
+) -> ProjectData:
+    """
+    Given a data id or a uri, return a tuple of project id and data id
+
+    :param data_id_or_uri:  The data id or uri
+    :param create_data_if_not_found:  If uri_or_id is in uri format, and the data is not found, and create is True, create the data
+    :return:
+    """
+    from ...data import get_project_data_obj_from_data_id
+    if is_data_id_format(
+        data_id=data_id_or_uri
+    ):
+        return get_project_data_obj_from_data_id(
+            data_id=data_id_or_uri
+        )
+    return convert_icav2_uri_to_project_data_obj(
+        data_uri=data_id_or_uri,
+        create_data_if_not_found=create_data_if_not_found
+    )
+
+
+def coerce_data_id_icav2_uri_or_path_to_project_data_obj(
+        data_id_path_or_uri: str,
+        create_data_if_not_found: bool = False
+) -> Optional[ProjectData]:
+    """
+    Coerce a data id, uri, path to a project data object
+
+    :param data_id_path_or_uri:
+    :param create_data_if_not_found:
+
+    :return: A ProjectData object
+    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+
+    :raises: ValueError, ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import coerce_data_id_icav2_uri_or_path_to_project_data_obj
+
+        project_data_obj = coerce_data_id_icav2_uri_or_path_to_project_data_obj(
+            data_id_path_or_uri="icav2://project-name/path/to/data/"
+        )
+    """
+    from ...project import get_project_id
+    if is_data_id_format(data_id_path_or_uri):
+        # Data ID, easy to convert across
+        return get_project_data_obj_by_id(
+            project_id=get_project_id(),
+            data_id=data_id_path_or_uri
+        )
+    elif urlparse(data_id_path_or_uri).scheme == "icav2":
+        # ICAv2 URI, convert to data object
+        return convert_icav2_uri_to_data_obj(
+            data_uri=data_id_path_or_uri,
+            create_data_if_not_found=create_data_if_not_found
+        )
+    else:
+        # Data Path, convert to data object
+        # Not as straight forward, need to first find this data, then convert to data object
+        project_id = get_project_id()
+        if Path(data_id_path_or_uri) == Path("/"):
+            # There is no data id for the root directory (nor can we create one), we return none
+            return None
+
+        project_data_obj = get_project_data_obj_from_project_id_and_path(
+            project_id=project_id,
+            data_path=Path(data_id_path_or_uri),
+            data_type=DataType.FOLDER if data_id_path_or_uri.endswith("/") else DataType.FILE,
+            create_data_if_not_found=create_data_if_not_found
+        )
+        return project_data_obj
+
+
 def get_aws_credentials_access_for_project_folder(
         project_id: str,
-        folder_id: Optional[str],
-        folder_path: Optional[Path]
+        folder_id: Optional[str] = None,
+        folder_path: Optional[Path] = None
 ) -> AwsTempCredentials:
     """
     Given a project_id and a folder_id or folder_path, collect the AWS Access Credentials for downloading this data.
@@ -1348,6 +1509,10 @@ def get_aws_credentials_access_for_project_folder(
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
         api_instance = ProjectDataApi(api_client)
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
 
     create_temporary_credentials = CreateTemporaryCredentials()
 
@@ -1364,7 +1529,9 @@ def get_aws_credentials_access_for_project_folder(
     return api_response.aws_temp_credentials
 
 
-def is_folder_id_format(folder_id_str: str) -> bool:
+def is_folder_id_format(
+        folder_id_str: str
+) -> bool:
     """
     Does this string look like a folder id?
 
@@ -1386,7 +1553,9 @@ def is_folder_id_format(folder_id_str: str) -> bool:
     return re.match("fol.[0-9a-f]{32}", folder_id_str) is not None
 
 
-def is_file_id_format(file_id_str: str) -> bool:
+def is_file_id_format(
+        file_id_str: str
+) -> bool:
     """
     Does this string look like a folder id?
 
@@ -1398,7 +1567,7 @@ def is_file_id_format(file_id_str: str) -> bool:
     :Examples:
 
     .. code-block:: python
-    :linenos:
+        :linenos:
 
         from wrapica.project_data import is_file_id_format
 
@@ -1409,7 +1578,9 @@ def is_file_id_format(file_id_str: str) -> bool:
     return re.match("fil.[0-9a-f]{32}", file_id_str) is not None
 
 
-def is_data_id(data_id: str) -> bool:
+def is_data_id_format(
+        data_id: str
+) -> bool:
     """
     Check if data id is a data id
 
@@ -1422,13 +1593,163 @@ def is_data_id(data_id: str) -> bool:
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
-    from wrapica.project_data import is_data_id
+        from wrapica.project_data import is_data_id
 
-    print(is_data_id("fil.abcdef1234567890"))
-    # True
+        print(is_data_id("fil.abcdef1234567890"))
+        # True
     """
     return is_file_id_format(data_id) or is_folder_id_format(data_id)
+
+
+def check_folder_exists(
+        project_id: str,
+        folder_path: Path
+) -> bool:
+    """
+    Check folder path is a folder on icav2
+
+    :param project_id:  The owning project id of the folder
+    :param folder_path: The folder path
+
+    :return: True if folder exists, otherwise false
+
+    :rtype:  bool
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        # Imports
+        from wrapica.project_data import check_folder_exists
+
+        # Check if a folder exists
+        print(check_folder_exists("abcdef1234567890", Path("/path/to/folder/")))
+
+    """
+    try:
+        # Try to get data object from project id and path
+        get_project_data_obj_from_project_id_and_path(project_id, folder_path, data_type=DataType.FOLDER)
+    except (ValueError, FileNotFoundError):
+        return False
+    else:
+        return True
+
+
+def check_file_exists(
+        project_id: str,
+        file_path: Path
+) -> bool:
+    """
+    Check if a file exists in a project
+
+    :param project_id:  The owning project id of the file
+    :param file_path:   The file path
+
+    :return: True if file exists, otherwise false
+    :rtype:  bool
+
+    :Examples:
+
+    .. code-block:: python
+
+        # Imports
+        from wrapica.project_data import check_file_exists
+
+        # Check if a file exists
+        print(check_file_exists("abcdef1234567890", Path("/path/to/file.txt")))
+    """
+    try:
+        # Try to get data object from project id and path
+        get_project_data_obj_from_project_id_and_path(project_id, file_path, data_type=DataType.FILE)
+    except (ValueError, FileNotFoundError):
+        return False
+    else:
+        return True
+
+
+def check_uri_exists(
+        data_uri: str
+) -> bool:
+    """
+
+    Given a uri, check if the uri exists
+
+    :param data_uri:
+
+    :return: True if the uri exists, otherwise false
+
+    :rtype: bool
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import check_uri_exists
+
+        print(check_uri_exists("icav2://project-name/path/to/file.txt"))
+    """
+
+    project_id, data_path = unpack_icav2_uri(data_uri)
+
+    if data_path.endswith("/"):
+        return check_folder_exists(project_id, Path(data_path))
+    else:
+        return check_file_exists(project_id, Path(data_path))
+
+
+def presign_folder(
+        project_id: str,
+        folder_path: Optional[Path] = None,
+        folder_id: Optional[str] = None
+) -> List[DataUrlWithPath]:
+    """
+    Presign a folder recursively
+
+    Given a project_id and a folder_path or folder_id, return a list of presigned urls for the folder
+
+    :param project_id:  The owning project id of the folder
+    :param folder_path:  The folder path
+    :param folder_id:  The folder id
+
+    :return: List of presigned urls
+    :rtype: List[`DataUrlWithPath <https://umccr-illumina.github.io/libica/openapi/v2/docs/DataUrlWithPathList/>`_]
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        # Imports
+        from wrapica.project_data import presign_folder
+
+        # Presign a folder
+        presigned_urls_list = list(
+            map(
+                lambda data_uri_iter: data_uri_iter.url,
+                presign_folder(
+                    project_id="abcdef1234567890",
+                    folder_path="/path/to/folder/"
+                )
+            )
+        )
+    """
+
+    if folder_id is None:
+        folder_id = get_project_data_id_from_project_id_and_path(
+            project_id=project_id,
+            data_path=folder_path,
+            data_type=DataType.FOLDER
+        )
+
+    return create_download_urls(
+        project_id=project_id,
+        folder_id=folder_id,
+        recursive=True
+    )
 
 
 def presign_cwl_directory(
@@ -1518,8 +1839,8 @@ def presign_cwl_directory(
 
 
 def presign_cwl_directory_with_external_data_mounts(
-    project_id: str,
-    data_id: str
+        project_id: str,
+        data_id: str
 ) -> Tuple[
     # External data mounts
     List[AnalysisInputExternalData],
@@ -1643,19 +1964,40 @@ def presign_cwl_directory_with_external_data_mounts(
 
 
 def read_icav2_file_contents(
-    project_id: str,
-    data_id: str,
-    output_path: Union[Path, TextIOWrapper]
-):
+        project_id: str,
+        data_id: str,
+        output_path: Optional[Union[Path, TextIOWrapper]] = None
+) -> str:
     """
     Write icav2 file contents to a path
 
-    :param project_id:
-    :param data_id:
-    :param output_path:
-    :return:
+    :param project_id: The project id
+    :param data_id: The data id
+    :param output_path: The output path to write the file contents to
+
+    :return: The file contents as a string if output_path is None
+    :rtype: Optional[str]
+
+    :raises: NotADirectoryError, ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        :linenos:
+
+        # Imports
+        from wrapica.project_data import read_icav2_file_contents
+
+        # Read icav2 file contents to a file
+        with open("foo.txt", "w") as f:
+            read_icav2_file_contents(
+                project_id="abcd-1234-efab-5678",
+                data_id="fil.abcdef1234567890",
+                output_path=f
+            )
     """
-    if isinstance(output_path, Path):
+    if output_path is not None and isinstance(output_path, Path):
         # Ensure parent directory exists
         if not output_path.parent.exists():
             logger.error(f"Could not write to output path {output_path} as the parent directory does not exist")
@@ -1667,7 +2009,9 @@ def read_icav2_file_contents(
     # Get the file contents with the requests package
     r = requests.get(presigned_url)
 
-    if isinstance(output_path, Path):
+    if output_path is None:
+        return r.content.decode()
+    elif isinstance(output_path, Path):
         # Write the file contents to the output path
         with open(output_path, "wb") as f:
             f.write(r.content)
@@ -1677,8 +2021,8 @@ def read_icav2_file_contents(
 
 
 def read_icav2_file_contents_to_string(
-    project_id: str,
-    data_id: str
+        project_id: str,
+        data_id: str
 ) -> str:
     """
 
@@ -1723,11 +2067,45 @@ def read_icav2_file_contents_to_string(
 
 
 def get_project_data_upload_url(
-    project_id: str,
-    data_id: str
-):
-    # The client must configure the authentication and authorization parameters
-    # in accordance with the API server security policy.
+        project_id: str,
+        data_id: str
+) -> str:
+    """
+    Get upload url for project data object
+
+    This can only be used for a file that has been created but not yet written to.
+
+    :param project_id:  The owning project id of the data
+    :param data_id:  The data id
+
+    :return: The upload url
+    :rtype: str
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        # Imports
+        from wrapica.project_data import (
+            get_project_data_upload_url,
+            create_file_in_project
+        )
+
+        # Create a file in a project
+        new_file_obj = create_file_in_project(
+            project_id="abcd-1234-efab-5678",
+            file_path=Path("/path/to/file.txt")
+        )
+
+        # Get the upload url for the new file
+        upload_url = get_project_data_upload_url(
+            project_id="abcd-1234-efab-5678",
+            data_id=new_file_obj.data.id
+        )
+    """
 
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -1746,17 +2124,36 @@ def get_project_data_upload_url(
 
 
 def write_icav2_file_contents(
-    project_id: str,
-    data_path: Path,
-    file_stream_or_path: Union[Path, TextIOWrapper]
-):
+        project_id: str,
+        data_path: Path,
+        file_stream_or_path: Union[Path, TextIOWrapper]
+) -> str:
     """
-    Write icav2 file contents to a path
+    Write data to an icav2 file
 
-    :param project_id:
-    :param data_path:
-    :param file_stream_or_path:
-    :return:
+    :param project_id:  The owning project id of the file
+    :param data_path:  The file path
+    :param file_stream_or_path:  The file stream or path to write to
+
+    :return:  The new file id
+
+    :rtype:  str
+
+    :raises:  ValueError, ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        # Imports
+        from wrapica.project_data import write_icav2_file_contents
+
+        write_icav2_file_contents(
+            project_id="abcd-1234-efab-5678",
+            data_path=Path("/path/to/file.txt"),
+            file_stream_or_path=Path("/path/to/local/file.txt")
+        )
     """
 
     # Generate a new file in the project
@@ -1785,8 +2182,8 @@ def write_icav2_file_contents(
 
 
 def get_file_by_file_name_from_project_data_list(
-    file_name: str,
-    project_data_list: List[ProjectData]
+        file_name: str,
+        project_data_list: List[ProjectData]
 ) -> ProjectData:
     """
     Useful for collecting a file object from an analysis output object
@@ -1825,8 +2222,8 @@ def get_file_by_file_name_from_project_data_list(
         return next(
             filter(
                 lambda file_iter: (
-                    file_iter.data.details.name == file_name and
-                    file_iter.data.details.data_type == DataType.FILE.value
+                        file_iter.data.details.name == file_name and
+                        file_iter.data.details.data_type == DataType.FILE.value
                 ),
                 project_data_list
             )
@@ -1837,12 +2234,40 @@ def get_file_by_file_name_from_project_data_list(
 
 
 def project_data_copy_batch_handler(
-    source_data_ids: List[str],
-    destination_project_id: str,
-    destination_folder_path: Path
+        source_data_ids: List[str],
+        destination_project_id: str,
+        destination_folder_path: Path
 ) -> Job:
     """
     Copy a batch of files from one project to another
+
+    :param source_data_ids: The list of source data ids
+    :param destination_project_id: The destination project id
+    :param destination_folder_path: The destination folder path
+
+    :return: The job id for the project data copy batch
+    :rtype: `Job <https://umccr-illumina.github.io/libica/openapi/v2/docs/Job/>`_
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import project_data_copy_batch_handler
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        job_id: str = project_data_copy_batch_handler(
+            source_data_ids=[
+                "fil.abcdef1234567890",
+                "fil.abcdef1234567891"
+            ],
+            destination_project_id="abcd-1234-efab-5678",
+            destination_folder_path=Path("/path/to/folder/")
+        )
     """
 
     # Get the configuration

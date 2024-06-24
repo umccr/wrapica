@@ -17,7 +17,8 @@ from libica.openapi.v2 import Configuration
 
 # Local imports
 from .globals import ICAV2_CONFIG_FILE_PATH, ICAV2_CONFIG_FILE_SERVER_URL_KEY, DEFAULT_ICAV2_BASE_URL, \
-    ICAV2_ACCESS_TOKEN_AUDIENCE, ICAV2_SESSION_FILE_PATH, ICAV2_SESSION_FILE_ACCESS_TOKEN_KEY
+    ICAV2_ACCESS_TOKEN_AUDIENCE, ICAV2_SESSION_FILE_PATH, ICAV2_SESSION_FILE_ACCESS_TOKEN_KEY, \
+    ICAV2_SESSION_FILE_PROJECT_ID_KEY
 from .logger import get_logger
 from .subprocess_handler import run_subprocess_proc
 
@@ -50,14 +51,15 @@ def read_config_file() -> OrderedDict:
     Get the contents of the session file (~/.icav2/config.ica.yaml)
     :return:
     """
-
-    logger.debug("Reading in the config file")
-    yaml = YAML()
-
-    with open(get_config_file_path(), "r") as file_h:
-        data = yaml.load(file_h)
-
-    return data
+    logger.error("Wrapica cannot read the user's config.ica.yaml file, please use ICAV2_ACCESS_TOKEN and ICAV2_BASE_URL instead")
+    raise NotImplementedError
+    # logger.debug("Reading in the config file")
+    # yaml = YAML()
+    #
+    # with open(get_config_file_path(), "r") as file_h:
+    #     data = yaml.load(file_h)
+    #
+    # return data
 
 
 # Set the icav2 environment variables
@@ -137,14 +139,8 @@ def read_session_file() -> OrderedDict:
     Get the contents of the session file (~/.icav2/.session.ica.yaml)
     :return:
     """
-
-    logger.debug("Reading in the session file")
-    yaml = YAML()
-
-    with open(get_session_file_path(), "r") as file_h:
-        data = yaml.load(file_h)
-
-    return data
+    logger.error("Wrapica requires user to have set the environment variables, rather than rely on session files")
+    raise NotImplementedError
 
 
 def get_access_token_from_session_file(refresh: bool = True) -> str:
@@ -168,6 +164,18 @@ def get_access_token_from_session_file(refresh: bool = True) -> str:
             access_token = refresh_access_token()
 
     return access_token
+
+
+def get_project_id_from_session_file() -> str:
+    session_data: OrderedDict = read_session_file()
+
+    project_id: str = session_data.get(ICAV2_SESSION_FILE_PROJECT_ID_KEY, None)
+
+    if project_id is None:
+        logger.error("Could not get project id from session file")
+        raise KeyError
+
+    return project_id
 
 
 def get_icav2_access_token() -> str:
@@ -222,3 +230,32 @@ def get_jwt_token_obj(jwt_token, audience):
 
     return token_object
 
+
+def get_project_id_from_env_var() -> str:
+    """
+    Collect ICAV2_PROJECT_ID from the environment variable
+
+    :return: The project id
+    :rtype: str
+
+    :raises EnvironmentError
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+        from wrapica.project import get_project_id_from_env_var
+
+        project_id = get_project_id_from_env_var()
+
+        print(project_id)
+        # "1234-5678-9012-3456"
+    """
+
+    project_id = environ.get("ICAV2_PROJECT_ID", None)
+
+    if project_id is None:
+        logger.error("ICAV2_PROJECT_ID environment variable not set")
+        raise EnvironmentError
+
+    return project_id

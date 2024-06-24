@@ -1,13 +1,29 @@
 #!/usr/bin/env python3
 
-
+# Libica API imports
 from libica.openapi.v2 import ApiClient, ApiException
 from libica.openapi.v2.api.job_api import JobApi
-from libica.openapi.v2.model.job import Job
+
+# Libica model imports
+from libica.openapi.v2.models import Job
+
+# Util imports
 from ...utils.configuration import get_icav2_configuration
 
 
-def get_job(job_id: str) -> Job:
+def get_job(
+    job_id: str
+) -> Job:
+    """
+    Get a job (such as a copy job)
+
+    :param job_id:
+
+    :return: The job object
+    :rtype: `Job <https://umccr-illumina.github.io/libica/openapi/v2/docs/Job/>`_
+
+    """
+
     configuration = get_icav2_configuration()
 
     with ApiClient(configuration) as api_client:

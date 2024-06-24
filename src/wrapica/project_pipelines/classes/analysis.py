@@ -16,16 +16,18 @@ from datetime import datetime
 from uuid import uuid4
 
 # Libica imports
-from libica.openapi.v2.model.analysis_v3 import AnalysisV3
-from libica.openapi.v2.model.analysis_v4 import AnalysisV4
-from libica.openapi.v2.model.analysis_output_mapping import AnalysisOutputMapping
-from libica.openapi.v2.model.analysis_tag import AnalysisTag
-from libica.openapi.v2.model.create_cwl_analysis import CreateCwlAnalysis
-from libica.openapi.v2.model.create_nextflow_analysis import CreateNextflowAnalysis
-from libica.openapi.v2.model.cwl_analysis_json_input import CwlAnalysisJsonInput
-from libica.openapi.v2.model.cwl_analysis_structured_input import CwlAnalysisStructuredInput
-from libica.openapi.v2.model.nextflow_analysis_input import NextflowAnalysisInput
-from libica.openapi.v2.model.project_data import ProjectData
+from libica.openapi.v2.models import (
+    AnalysisV3,
+    AnalysisV4,
+    AnalysisOutputMapping,
+    AnalysisTag,
+    CreateCwlAnalysis,
+    CreateNextflowAnalysis,
+    CwlAnalysisJsonInput,
+    CwlAnalysisStructuredInput,
+    NextflowAnalysisInput,
+    ProjectData
+)
 
 # Local imports
 from ...utils import recursively_build_open_api_body_from_libica_item
@@ -35,7 +37,6 @@ from ...utils.logger import get_logger
 
 # Set logger
 logger = get_logger()
-
 
 Analysis = Union[AnalysisV3, AnalysisV4]
 CwlAnalysisInput = Union[CwlAnalysisJsonInput, CwlAnalysisStructuredInput]
@@ -52,7 +53,14 @@ class ICAv2AnalysisInput:
         # Set the object type
         self.object_type = object_type
 
-    def __call__(self) -> Union[CwlAnalysisInput, CwlAnalysisJsonInput, CwlAnalysisStructuredInput, NextflowAnalysisInput]:
+    def __call__(
+            self
+    ) -> Union[
+        CwlAnalysisInput,
+        CwlAnalysisJsonInput,
+        CwlAnalysisStructuredInput,
+        NextflowAnalysisInput
+    ]:
         """
         Create the analysis input
         :return:
@@ -177,8 +185,6 @@ class ICAv2EngineParameters:
             self,
             project_id: Optional[str] = None,
             pipeline_id: Optional[str] = None,
-            output_parent_folder_id: Optional[str] = None,
-            output_parent_folder_path: Optional[Path] = None,
             analysis_input: Optional[Union[CwlAnalysisInput, NextflowAnalysisInput]] = None,
             analysis_output: Optional[List[AnalysisOutputMapping]] = None,
             tags: Optional[ICAv2PipelineAnalysisTags] = None,
@@ -196,8 +202,6 @@ class ICAv2EngineParameters:
         self.activation_id: Optional[str] = activation_id
 
         # Output parameters
-        self.output_parent_folder_id: Optional[str] = output_parent_folder_id
-        self.output_parent_folder_path: Optional[Path] = output_parent_folder_path
         self.analysis_output: Optional[List[AnalysisOutputMapping]] = analysis_output
         self.analysis_input: Optional[Union[CwlAnalysisInput, NextflowAnalysisInput]] = analysis_input
 
@@ -313,67 +317,26 @@ class ICAv2EngineParameters:
 
     def set_output_parameters(
         self,
-        output_parent_folder_id: Optional[str] = None,
-        output_parent_folder_path: Optional[Path] = None,
         analysis_output: Optional[List[AnalysisOutputMapping]] = None
     ):
         """
-        Select one of output parent folder id, output parent folder path or analysis output
-        :param output_parent_folder_id:
-        :param output_parent_folder_path:
+        Set analysis output
         :param analysis_output:
         :return:
         """
-        from ...project_data import get_project_data_folder_id_from_project_id_and_path
-
-        # Just set the id if it is not None
-        if output_parent_folder_id is not None:
-            self.output_parent_folder_id = output_parent_folder_id
-        # Update output parent folder id with output parent folder path
-        # Need to check if project_id has been set
-        elif (
-                self.output_parent_folder_id is None and
-                (
-                    self.output_parent_folder_path is not None
-                    or output_parent_folder_path is not None
-                )
-        ):
-            # Need to check if project_id has been set
-            if self.project_id is None:
-                logger.error(
-                    "project_id has not been set, cannot set output_parent_folder_id from folder path "
-                    "without project_id"
-                )
-                raise ValueError
-
-            # Override existing with output in here
-            if output_parent_folder_path is not None:
-                self.output_parent_folder_path = output_parent_folder_path
-
-            # Populate placeholders in the output path
-            self.output_parent_folder_path = self.populate_placeholders_in_output_path(self.output_parent_folder_path)
-
-            self.output_parent_folder_id = get_project_data_folder_id_from_project_id_and_path(
-                project_id=self.project_id,
-                folder_path=self.output_parent_folder_path,
-                create_folder_if_not_found=True
-            )
-
-        # Use the analysis output instead
-        elif analysis_output is not None:
-            self.analysis_output = analysis_output
+        self.analysis_output = analysis_output
 
     def check_output_parameters(self):
         """
-        Ensure that at least one of output_parent_folder_id and analysis_output is set
+        Ensure that at analysis_output is set
         :return:
         """
-        # Ensure that at least one of output_parent_folder_id and analysis_output is set
+        # Ensure that at analysis_output is set
         if (
-            self.output_parent_folder_id is None and self.analysis_output is None
+            self.analysis_output is None
         ):
             # Needed to specify one of the inputs
-            logger.error("Not one of output_parent_folder_id and analysis_output is set")
+            logger.error("analysis_output is not set")
             raise ValueError
 
     def set_meta_parameters(
@@ -433,9 +396,6 @@ class ICAv2PipelineAnalysis:
         analysis_storage_id: Optional[str] = None,
         analysis_storage_size: Optional[AnalysisStorageSize] = None,
         activation_id: Optional[str] = None,
-        # Output parameters
-        output_parent_folder_id: Optional[str] = None,
-        output_parent_folder_path: Optional[str] = None,
         analysis_output_uri: Optional[str] = None,
         ica_logs_uri: Optional[str] = None,
         # Meta parameters
@@ -461,8 +421,6 @@ class ICAv2PipelineAnalysis:
         self.project_id = project_id
         self.pipeline_id = pipeline_id
         self.activation_id = activation_id
-        self.output_parent_folder_id = output_parent_folder_id
-        self.output_parent_folder_path = output_parent_folder_path
         self.analysis_output_uri = analysis_output_uri
         self.ica_logs_uri = ica_logs_uri
 
@@ -509,12 +467,12 @@ class ICAv2PipelineAnalysis:
         Convert the analysis output to a mapping
         :return:
         """
-        from ...project_data import convert_icav2_uri_to_data_obj
+        from ...project_data import convert_icav2_uri_to_project_data_obj
         # Ensure that the path attribute of analysis_output_uri ends with /
         if not urlparse(self.analysis_output_uri).path.endswith("/"):
             raise ValueError("The analysis output uri must end with a /")
 
-        analysis_output_obj: ProjectData = convert_icav2_uri_to_data_obj(
+        analysis_output_obj: ProjectData = convert_icav2_uri_to_project_data_obj(
             self.analysis_output_uri,
             create_data_if_not_found=True
         )
@@ -527,12 +485,12 @@ class ICAv2PipelineAnalysis:
         )
 
     def get_ica_logs_mapping_from_uri(self) -> AnalysisOutputMapping:
-        from ...project_data import convert_icav2_uri_to_data_obj
+        from ...project_data import convert_icav2_uri_to_project_data_obj
         # Ensure that the path attribute of analysis_output_uri ends with /
         if not urlparse(self.ica_logs_uri).path.endswith("/"):
             raise ValueError("The analysis output uri must end with a /")
 
-        ica_logs_project_data_obj: ProjectData = convert_icav2_uri_to_data_obj(
+        ica_logs_project_data_obj: ProjectData = convert_icav2_uri_to_project_data_obj(
             self.ica_logs_uri,
             create_data_if_not_found=True
         )
