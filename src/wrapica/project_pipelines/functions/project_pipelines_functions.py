@@ -1764,7 +1764,7 @@ def create_cwl_project_pipeline(
                         str(
                             # Collect the tool path relative to the workflow path
                             tool_path.parent.absolute().resolve().relative_to(
-                                workflow_path.absolute().resolve()
+                                workflow_path.parent.absolute().resolve()
                             ).joinpath(
                                 tool_path.name
                             )
