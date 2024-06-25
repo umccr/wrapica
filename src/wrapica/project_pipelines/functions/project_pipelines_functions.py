@@ -1790,8 +1790,7 @@ def create_cwl_project_pipeline(
         response = requests.post(
             headers={
                 "Authorization": f"Bearer {configuration.access_token}",
-                "Accept": "application/vnd.illumina.v3+json",
-                "Content-Type": "multipart/form-data",
+                "Accept": "application/vnd.illumina.v3+json"
             },
             url=f"{configuration.host}/api/projects/{project_id}/pipelines:createCwlPipeline",
             files=file_list
@@ -1815,7 +1814,7 @@ def create_cwl_workflow_from_zip(
         analysis_storage: Optional[AnalysisStorage] = None,
         workflow_description: Optional[str] = None,
         html_documentation_path: Optional[Path] = None,
-):
+) -> ProjectPipeline:
     """
     Create a CWL project pipeline from a zip file containing the workflow and tools
 
