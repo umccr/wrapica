@@ -1440,7 +1440,7 @@ def release_project_pipeline(project_id: str, pipeline_id: str):
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Confirm pipeline is in draft status
-    if not PipelineStatus(project_pipeline_obj.status) == PipelineStatus.DRAFT:
+    if not PipelineStatus(project_pipeline_obj.pipeline.status) == PipelineStatus.DRAFT:
         logger.error("Pipeline is not in draft status, cannot release already released pipeline")
         raise ValueError
 
@@ -1505,7 +1505,7 @@ def update_pipeline_file(project_id: str, pipeline_id: str, file_id: str, file_p
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Confirm pipeline is in draft status
-    if not PipelineStatus(project_pipeline_obj.status) == PipelineStatus.DRAFT:
+    if not PipelineStatus(project_pipeline_obj.pipeline.status) == PipelineStatus.DRAFT:
         logger.error("Pipeline is not in draft status, cannot update a pipeline file if it has been released")
         raise ValueError
 
@@ -1587,7 +1587,7 @@ def delete_pipeline_file(project_id: str, pipeline_id: str, file_id: str):
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Confirm pipeline is in draft status
-    if not PipelineStatus(project_pipeline_obj.status) == PipelineStatus.DRAFT:
+    if not PipelineStatus(project_pipeline_obj.pipeline.status) == PipelineStatus.DRAFT:
         logger.error("Pipeline is not in draft status, cannot delete a pipeline file if it has been released")
         raise ValueError
 
@@ -1658,7 +1658,7 @@ def add_pipeline_file(project_id: str, pipeline_id: str, file_path: Path) -> Pip
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Confirm pipeline is in draft status
-    if not PipelineStatus(project_pipeline_obj.status) == PipelineStatus.DRAFT:
+    if not PipelineStatus(project_pipeline_obj.pipeline.status) == PipelineStatus.DRAFT:
         logger.error("Pipeline is not in draft status, cannot add a pipeline file if it has been released")
         raise ValueError
 
