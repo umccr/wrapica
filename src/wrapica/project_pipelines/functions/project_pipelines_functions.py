@@ -16,7 +16,7 @@ import requests
 from cwl_utils.parser import load_document_by_uri
 from libica.openapi.v2.model.analysis_storage_v3 import AnalysisStorageV3
 from libica.openapi.v2.model.analysis_storage_v4 import AnalysisStorageV4
-from requests import HTTPError
+from requests import HTTPError, Response
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 # Libica imports
@@ -1751,7 +1751,7 @@ def create_cwl_project_pipeline(
         params_xml_file = Path(params_xml_temp_file_obj.name)
         create_blank_params_xml(output_file_path=params_xml_file)
     file_list.append(
-        ('parametersXmlFile', ('params.xml', open(params_xml_file, 'rb')), 'text/xml')
+        ('parametersXmlFile', ('params.xml', open(params_xml_file, 'rb')))
     )
 
     # Add tool paths to the file list
@@ -1777,7 +1777,7 @@ def create_cwl_project_pipeline(
     # Add the html documentation file to the file list
     if workflow_html_documentation is not None:
         file_list.append(
-            ('htmlDocumentation', (str(workflow_html_documentation), open(params_xml_file, 'rb')), 'text/html')
+            ('htmlDocumentation', (str(workflow_html_documentation), open(params_xml_file, 'rb')))
         )
 
     # Add code, description and analysis storage id to the forms
@@ -2158,7 +2158,7 @@ def create_nextflow_project_pipeline(
 
     # Check response
     try:
-        response = requests.post(
+        response: Response = requests.post(
             headers={
                 "Authorization": f"Bearer {configuration.access_token}",
                 "Accept": "application/vnd.illumina.v3+json"
