@@ -217,6 +217,21 @@ def list_projects(include_hidden_projects: bool = False) -> List[Project]:
     return project_list
 
 
+def coerce_project_id_or_name_to_project_obj(project_id_or_name: str) -> Project:
+    """
+    Given a project id or name, coerce to a project object
+
+    :param project_id_or_name: The project id or name
+
+    :return: The project object
+    """
+    # Check if the input is in uuid format
+    if is_uuid_format(project_id_or_name):
+        return get_project_obj_from_project_id(project_id_or_name)
+
+    return get_project_obj_from_project_name(project_id_or_name)
+
+
 def coerce_project_id_or_name_to_project_id(project_id_or_name: str) -> str:
     """
     Given a project id or name, return the project id

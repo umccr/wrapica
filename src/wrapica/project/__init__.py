@@ -7,6 +7,7 @@ from libica.openapi.v2.models import Project
 # Import local functions
 from .functions.project_functions import (
     # Project functions
+    coerce_project_id_or_name_to_project_obj,
     get_project_obj_from_project_id,
     get_project_obj_from_project_name,
     get_project_id_from_project_name,
@@ -20,6 +21,7 @@ __all__ = [
     # Libica models
     'Project',
     # Functions
+    'coerce_project_id_or_name_to_project_obj',
     'get_project_obj_from_project_id',
     'get_project_obj_from_project_name',
     'get_project_id_from_project_name',
