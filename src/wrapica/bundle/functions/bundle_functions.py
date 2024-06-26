@@ -399,6 +399,10 @@ def add_data_to_bundle(
     # Initialise the API client
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
         api_instance = BundleDataApi(api_client)
 
     try:
