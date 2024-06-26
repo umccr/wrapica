@@ -260,7 +260,7 @@ def add_pipeline_to_bundle(
 
     # Check Pipeline Status
     pipeline_obj = get_pipeline_obj_from_pipeline_id(pipeline_id)
-    if not pipeline_obj.status == PipelineStatus.RELEASED:
+    if not PipelineStatus(pipeline_obj.status) == PipelineStatus.RELEASED:
         logger.warning(
             f"Pipeline '{pipeline_id}' is not released. Please release the pipeline before adding it to a bundle")
         return False
