@@ -19,8 +19,8 @@ from libica.openapi.v2.models import (
     AnalysisStorageV4
 )
 
-Analysis = Union[AnalysisV3, AnalysisV4]
-AnalysisStorage = Union[AnalysisStorageV3, AnalysisStorageV4]
+AnalysisType = Union[AnalysisV3, AnalysisV4]
+AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
 
 # Import everything
 from .functions.project_analysis_functions import (
@@ -47,7 +47,9 @@ from .functions.project_analysis_functions import (
 __all__ = [
     # Models
     'AnalysisQueryParameters',
-    'Analysis',
+    'AnalysisType',
+    'AnalysisV3',
+    'AnalysisV4',
     'AnalysisInput',
     'AnalysisOutput',
     'AnalysisOutputList',
@@ -55,7 +57,9 @@ __all__ = [
     'AnalysisStepLogs',
     'CwlAnalysisInputJson',
     'CwlAnalysisOutputJson',
-    'AnalysisStorage',
+    'AnalysisStorageType',
+    'AnalysisStorageV3',
+    'AnalysisStorageV4',
     # Functions
     'get_project_analysis_inputs',
     'get_analysis_input_object_from_analysis_input_code',

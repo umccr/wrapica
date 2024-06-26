@@ -90,7 +90,7 @@ from .classes.nextflow_analysis import (
 )
 
 Analysis = Union[AnalysisV3, AnalysisV4]
-AnalysisStorage = Union[AnalysisStorageV3, AnalysisStorageV4]
+AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
 
 __all__ = [
     # Libica models
@@ -98,7 +98,7 @@ __all__ = [
     'AnalysisInputDataMount',
     'AnalysisInputExternalData',
     'Analysis',
-    'AnalysisStorage',
+    'AnalysisStorageType',
     'CreateCwlAnalysis',
     'CreateNextflowAnalysis',
     'CwlAnalysisJsonInput',

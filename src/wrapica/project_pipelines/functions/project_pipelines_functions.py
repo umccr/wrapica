@@ -67,8 +67,8 @@ if typing.TYPE_CHECKING:
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis
     from ..classes.analysis import ICAv2PipelineAnalysisTags
 
-Analysis = Union[AnalysisV3, AnalysisV4]
-AnalysisStorage = Union[AnalysisStorageV3, AnalysisStorageV4]
+AnalysisType = Union[AnalysisV3, AnalysisV4]
+AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
 
 logger = get_logger()
 
@@ -175,7 +175,7 @@ def get_project_pipeline_id_from_pipeline_code(project_id: str, pipeline_code: s
     return get_project_pipeline_obj_from_pipeline_code(project_id, pipeline_code).pipeline.id
 
 
-def get_default_analysis_storage_obj_from_project_pipeline(project_id: str, pipeline_id: str) -> AnalysisStorage:
+def get_default_analysis_storage_obj_from_project_pipeline(project_id: str, pipeline_id: str) -> AnalysisStorageType:
     """
     Given a project id and pipeline id, return the default analysis storage object for that pipeline
 
@@ -350,7 +350,7 @@ def coerce_pipeline_id_or_code_to_project_pipeline_obj(pipeline_id_or_code: str)
     return get_project_pipeline_obj_from_pipeline_code(project_id, pipeline_id_or_code)
 
 
-def get_analysis_storage_from_analysis_storage_id(analysis_storage_id: str) -> AnalysisStorage:
+def get_analysis_storage_from_analysis_storage_id(analysis_storage_id: str) -> AnalysisStorageType:
     """
     Given an analysis storage id, return the analysis storage object
     :param analysis_storage_id:
@@ -385,7 +385,7 @@ def get_analysis_storage_from_analysis_storage_id(analysis_storage_id: str) -> A
         raise ValueError
 
 
-def get_analysis_storage_from_analysis_storage_size(analysis_storage_size: AnalysisStorageSize) -> AnalysisStorage:
+def get_analysis_storage_from_analysis_storage_size(analysis_storage_size: AnalysisStorageSize) -> AnalysisStorageType:
     """
     Given an analysis storage size, return the analysis storage object
 
@@ -417,7 +417,7 @@ def get_analysis_storage_from_analysis_storage_size(analysis_storage_size: Analy
         raise ValueError
 
 
-def coerce_analysis_storage_id_or_size_to_analysis_storage(analysis_storage_id_or_size: Union[str, AnalysisStorageSize]) -> AnalysisStorage:
+def coerce_analysis_storage_id_or_size_to_analysis_storage(analysis_storage_id_or_size: Union[str, AnalysisStorageSize]) -> AnalysisStorageType:
     """
     Given either an analysis storage id or analysis storage size, return the analysis storage id
 
@@ -701,7 +701,7 @@ def create_cwl_input_json_analysis_obj(
     return cwl_analysis
 
 
-def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis, idempotency_key=None) -> Analysis:
+def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis, idempotency_key=None) -> AnalysisType:
     """
     Launch a CWL Workflow in a specific project context
 
@@ -781,7 +781,7 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis, idempo
     # example passing only required values which don't have defaults set
     try:
         # Create and start an analysis for a CWL pipeline.
-        api_response: Analysis = api_instance.create_cwl_analysis(
+        api_response: AnalysisType = api_instance.create_cwl_analysis(
             project_id,
             cwl_analysis,
             **analysis_kwargs
@@ -793,7 +793,7 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis, idempo
     return api_response
 
 
-def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis) -> Analysis:
+def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis) -> AnalysisType:
     """
     Launch a Nextflow Workflow in a specific project context
 
@@ -1718,7 +1718,7 @@ def create_cwl_project_pipeline(
     tool_paths: Optional[List[Path]] = None,
     workflow_description: Optional[str] = None,
     params_xml_file: Optional[Path] = None,
-    analysis_storage: Optional[AnalysisStorage] = None,
+    analysis_storage: Optional[AnalysisStorageType] = None,
     workflow_html_documentation: Optional[Path] = None,
 ):
     """
@@ -1748,7 +1748,7 @@ def create_cwl_project_pipeline(
 
     # Check analysis storage
     if analysis_storage is None:
-        analysis_storage: AnalysisStorage = get_analysis_storage_from_analysis_storage_size(AnalysisStorageSize.SMALL)
+        analysis_storage: AnalysisStorageType = get_analysis_storage_from_analysis_storage_size(AnalysisStorageSize.SMALL)
 
     # Add params xml file to the file list
     if params_xml_file is None:
@@ -1816,7 +1816,7 @@ def create_cwl_workflow_from_zip(
         project_id: str,
         pipeline_code: str,
         zip_path: Path,
-        analysis_storage: Optional[AnalysisStorage] = None,
+        analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_description: Optional[str] = None,
         html_documentation_path: Optional[Path] = None,
 ) -> ProjectPipeline:
@@ -2085,7 +2085,7 @@ def create_nextflow_project_pipeline(
         other_nextflow_files: List[Path],
         workflow_description: Optional[str] = None,
         params_xml_file: Optional[Path] = None,
-        analysis_storage: Optional[AnalysisStorage] = None,
+        analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
 ):
     """
@@ -2117,7 +2117,7 @@ def create_nextflow_project_pipeline(
 
     # Check analysis storage
     if analysis_storage is None:
-        analysis_storage: AnalysisStorage = get_analysis_storage_from_analysis_storage_size(AnalysisStorageSize.SMALL)
+        analysis_storage: AnalysisStorageType = get_analysis_storage_from_analysis_storage_size(AnalysisStorageSize.SMALL)
 
     # Add params xml file to the file list
     if params_xml_file is None:

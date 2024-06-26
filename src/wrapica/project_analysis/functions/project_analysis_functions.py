@@ -40,7 +40,7 @@ from ...utils.miscell import is_uuid_format
 from ...utils.websocket_helpers import write_websocket_to_file, convert_html_to_text
 from ...utils.logger import get_logger
 
-Analysis = Union[AnalysisV3, AnalysisV4]
+AnalysisType = Union[AnalysisV3, AnalysisV4]
 
 logger = get_logger()
 
@@ -299,7 +299,7 @@ def get_cwl_outputs_json_from_analysis_id(
 def get_analysis_obj_from_analysis_id(
     project_id: str,
     analysis_id: str
-) -> Analysis:
+) -> AnalysisType:
     """
     Get an analysis object given a project id and analysis id
 
@@ -332,7 +332,7 @@ def get_analysis_obj_from_analysis_id(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve an analysis.
-        api_response: Analysis = api_instance.get_analysis(project_id, analysis_id)
+        api_response: AnalysisType = api_instance.get_analysis(project_id, analysis_id)
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->get_analysis: %s\n" % e)
         raise ApiException
@@ -908,7 +908,7 @@ def analysis_step_to_dict(analysis_step: AnalysisStep) -> Dict:
 def get_analysis_obj_from_user_reference(
     project_id: str,
     user_reference: str
-) -> Analysis:
+) -> AnalysisType:
     """
     Given a user reference, get the analysis object
 
@@ -944,7 +944,7 @@ def get_analysis_obj_from_user_reference(
 def coerce_analysis_id_or_user_reference_to_analysis_obj(
     project_id: str,
     analysis_id_or_user_reference: str
-) -> Analysis:
+) -> AnalysisType:
     """
     Given either an analysis id or user reference, coerce to an analysis object
 

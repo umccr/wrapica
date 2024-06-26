@@ -23,7 +23,7 @@ from ...utils.cwl_typing_helpers import WorkflowType
 from ...utils.logger import get_logger
 from ...utils.miscell import is_uuid_format
 
-Pipeline = Union[PipelineV3, PipelineV4]
+PipelineType = Union[PipelineV3, PipelineV4]
 
 # Logger
 logger = get_logger()
@@ -31,7 +31,7 @@ logger = get_logger()
 
 def get_pipeline_obj_from_pipeline_id(
     pipeline_id: str
-) -> Pipeline:
+) -> PipelineType:
     """
     Get the pipeline object from the pipeline id
 
@@ -64,7 +64,7 @@ def get_pipeline_obj_from_pipeline_id(
     # example, this endpoint has no required or optional parameters
     try:
         # Retrieve a list of pipelines.
-        api_response: Pipeline = api_instance.get_pipeline(pipeline_id)
+        api_response: PipelineV3 = api_instance.get_pipeline(pipeline_id)
     except ApiException as e:
         logger.error("Exception when calling PipelineApi->get_pipelines: %s\n" % e)
         raise ApiException
@@ -74,7 +74,7 @@ def get_pipeline_obj_from_pipeline_id(
 
 def get_pipeline_obj_from_pipeline_code(
     pipeline_code: str
-) -> Pipeline:
+) -> PipelineType:
     """
     Get the pipeline object from the pipeline code
 
@@ -117,7 +117,7 @@ def get_pipeline_obj_from_pipeline_code(
         raise StopIteration
 
 
-def coerce_pipeline_id_or_code_to_pipeline_obj(pipeline_id_or_code: str) -> Pipeline:
+def coerce_pipeline_id_or_code_to_pipeline_obj(pipeline_id_or_code: str) -> PipelineType:
     """
     Given either a pipeline id or code, check if the input value is uuid4 format,
 
@@ -183,7 +183,7 @@ def coerce_pipeline_id_or_code_to_pipeline_id(pipeline_id_or_code: str) -> str:
     return get_pipeline_obj_from_pipeline_code(pipeline_id_or_code).id
 
 
-def list_all_pipelines() -> List[Pipeline]:
+def list_all_pipelines() -> List[PipelineType]:
     """
     List all pipelines available to a user through the pipelines/ endpoint
 
@@ -211,7 +211,7 @@ def list_all_pipelines() -> List[Pipeline]:
     # No page token required
     try:
         # Retrieve a list of pipelines.
-        pipelines: List[Pipeline] = api_instance.get_pipelines().items
+        pipelines: List[PipelineV3] = api_instance.get_pipelines().items
     except ApiException as e:
         logger.error("Could not get pipeline list")
         raise ApiException

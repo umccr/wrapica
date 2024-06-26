@@ -21,11 +21,13 @@ from .functions.pipelines_functions import (
     get_cwl_obj_from_pipeline_id
 )
 
-Pipeline = Union[PipelineV3, PipelineV4]
+PipelineType = Union[PipelineV3, PipelineV4]
 
 __all__ = [
     # Libica imports
-    'Pipeline',
+    'PipelineType',
+    'PipelineV3',
+    'PipelineV4',
     'PipelineFile',
     # Local functions
     'get_pipeline_obj_from_pipeline_id',
