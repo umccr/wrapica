@@ -26,7 +26,7 @@ from libica.openapi.v2.models import (
 # Local imports
 from ...enums import PipelineStatus, DataType, BundleStatus
 from ...pipelines.functions.pipelines_functions import get_pipeline_obj_from_pipeline_id
-from ...utils.configuration import get_icav2_configuration, get_project_id_from_env_var
+from ...utils.configuration import get_icav2_configuration
 from ...utils.globals import LIBICAV2_DEFAULT_PAGE_SIZE
 
 # Set logger
@@ -463,6 +463,7 @@ def release_bundle(
 
 def filter_bundles(
     bundle_name: Optional[str] = None,
+    project_id: Optional[str] = None,
     region_id: Optional[str] = None,
     status: Optional[BundleStatus] = None,
     creator_id: Optional[str] = None
@@ -505,41 +506,45 @@ def filter_bundles(
         )
     """
 
-    # Enter a context with an instance of the API client
-    with ApiClient(get_icav2_configuration()) as api_client:
-        # Create an instance of the API class
-        api_instance = BundleApi(api_client)
+    if project_id is not None:
+        # Use the project/bundle endpoint instead
+        bundle_list = list_bundles_in_project(project_id)
+    else:
+        # Enter a context with an instance of the API client
+        with ApiClient(get_icav2_configuration()) as api_client:
+            # Create an instance of the API class
+            api_instance = BundleApi(api_client)
 
-    # example passing only required values which don't have defaults set
-    bundle_list = []
-    page_size = LIBICAV2_DEFAULT_PAGE_SIZE
-    page_offset = 0
+        # example passing only required values which don't have defaults set
+        bundle_list = []
+        page_size = LIBICAV2_DEFAULT_PAGE_SIZE
+        page_offset = 0
 
-    try:
-        while True:
-            # Retrieve a bundle.
-            api_response: BundlePagedList = api_instance.get_bundles(
-                page_size=str(page_size),
-                page_offset=str(page_offset)
-            )
-            bundle_list.extend(api_response.items)
+        try:
+            while True:
+                # Retrieve a bundle.
+                api_response: BundlePagedList = api_instance.get_bundles(
+                    page_size=str(page_size),
+                    page_offset=str(page_offset)
+                )
+                bundle_list.extend(api_response.items)
 
-            if page_offset + page_size >= api_response.total_item_count:
-                break
-            page_offset += page_size
+                if page_offset + page_size >= api_response.total_item_count:
+                    break
+                page_offset += page_size
 
-    except ApiException as e:
-        logger.error("Exception when calling BundleApi->get_bundle: %s\n" % e)
-        raise ApiException
+        except ApiException as e:
+            logger.error("Exception when calling BundleApi->get_bundle: %s\n" % e)
+            raise ApiException
 
-    # Get each bundle by id
-    # Must do this manually due to
-    # bundle_obj_list = []
-    # for bundle in bundle_list:
-    #     try:
-    #         bundle_obj_list.append(get_bundle_obj_from_bundle_id(bundle.get("id")))
-    #     except TypeError:
-    #         logger.warning(f"Could not convert into bundle obj from id {bundle.get('id')} ")
+        # Get each bundle by id
+        # Must do this manually due to
+        # bundle_obj_list = []
+        # for bundle in bundle_list:
+        #     try:
+        #         bundle_obj_list.append(get_bundle_obj_from_bundle_id(bundle.get("id")))
+        #     except TypeError:
+        #         logger.warning(f"Could not convert into bundle obj from id {bundle.get('id')} ")
 
     bundle: Bundle
     returned_bundle_list: List[Bundle] = []
@@ -762,7 +767,7 @@ def list_pipelines_in_bundle(
 
 
 def list_bundles_in_project(
-    project_id: Optional[str] = None
+    project_id: str = None
 ) -> List[Bundle]:
     """
     List bundles in a project
@@ -784,12 +789,6 @@ def list_bundles_in_project(
 
         list_bundles_in_project(project_id='abcdef-1234')    
     """
-    from ...project import get_project_id
-
-    # Check if project id is set
-    if project_id is None:
-        project_id = get_project_id()
-
     # while True: no iterator for bundles list
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
@@ -807,8 +806,8 @@ def list_bundles_in_project(
 
 
 def link_bundle_to_project(
-    project_id: Optional[str] = None,
-    bundle_id: Optional[str] = None
+    project_id: str,
+    bundle_id: str
 ):
     """
     Link bundle to project
@@ -833,16 +832,6 @@ def link_bundle_to_project(
         # Link bundle to project
         link_bundle_to_project(project_id, bundle_id)
     """
-    from ...project import get_project_id
-
-    # Check if project id is set
-    if project_id is None:
-        project_id = get_project_id()
-
-    if bundle_id is None:
-        logger.error("bundle_id parameter not set")
-        raise ValueError
-
     # Check bundle list
     existing_bundles: List[Bundle] = list_bundles_in_project(project_id)
 
@@ -860,10 +849,108 @@ def link_bundle_to_project(
         # Link bundle to project
         api_response = api_instance.link_project_bundle(project_id, bundle_id)
     except ApiException as e:
-        logger.error("Exception when calling ProjectApi->get_project_bundles: %s\n" % e)
+        logger.error("Exception when calling ProjectApi->link_project_bundle: %s\n" % e)
         raise ApiException
 
     logger.info(f"Successfully linked bundle {bundle_id} to project {project_id}")
+
+
+def unlink_bundle_from_project(
+        project_id: Optional[str] = None,
+        bundle_id: Optional[str] = None
+):
+    """
+    Remove the bundle from the project
+
+    :param project_id:  The project id
+    :param bundle_id:   The bundle id
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        # Imports
+        from wrapica.bundle import unlink_bundle_from_project
+
+        # Set vars
+        project_id = "abcdef-1234"
+        bundle_id = "abcdef-1234"
+
+        # Unlink bundle to project
+        unlink_bundle_from_project(project_id, bundle_id)
+    """
+    # Check bundle list
+    existing_bundles: List[Bundle] = list_bundles_in_project(project_id)
+
+    # Map bundle id to bundle object
+    if not any(map(lambda x: x.id == bundle_id, existing_bundles)):
+        logger.error(f"Bundle '{bundle_id}' is not in this project '{project_id}'")
+        raise ValueError
+
+    # while True: no iterator for bundles list
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # DELETE endpoint needs accept header set
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
+        # Create an instance of the API class
+        api_instance = ProjectApi(api_client)
+
+    # example passing only required values which don't have defaults set
+    try:
+        # Link bundle to project
+        api_response = api_instance.unlink_project_bundle(project_id, bundle_id)
+    except ApiException as e:
+        logger.error("Exception when calling ProjectApi->unlink_project_bundle: %s\n" % e)
+        raise ApiException
+
+    logger.info(f"Successfully unlinked bundle {bundle_id} from project {project_id}")
+
+
+def deprecate_bundle(
+        bundle_id: str
+):
+    """
+    Given a bundle id, deprecate the bundle
+
+    :param bundle_id:
+    :return:
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        # Imports
+        from wrapica.bundle import deprecate_bundle
+
+        # Set vars
+        bundle_id = "abcdef-1234"
+
+        # Deprecate the bundle
+        deprecate_bundle(bundle_id)
+    """
+    with ApiClient(get_icav2_configuration()) as api_client:
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
+        api_instance = BundleApi(api_client)
+
+    try:
+        # Deprecate a bundle
+        api_instance.deprecate_bundle(bundle_id)
+    except ApiException as e:
+        logger.error("Exception when calling BundleApi->deprecate_bundle: %s\n" % e)
+        raise ApiException
+
+    logger.info(f"Successfully deprecated '{bundle_id}'")
 
 
 def coerce_bundle_id_or_name_to_bundle_obj(

@@ -22,6 +22,8 @@ from .functions.bundle_functions import (
     list_pipelines_in_bundle,
     list_bundles_in_project,
     link_bundle_to_project,
+    unlink_bundle_from_project,
+    deprecate_bundle,
     coerce_bundle_id_or_name_to_bundle_obj,
     coerce_bundle_id_or_name_to_bundle_id
 )
@@ -49,6 +51,8 @@ __all__ = [
     'list_pipelines_in_bundle',
     'list_bundles_in_project',
     'link_bundle_to_project',
+    'unlink_bundle_from_project',
+    'deprecate_bundle',
     'coerce_bundle_id_or_name_to_bundle_obj',
     'coerce_bundle_id_or_name_to_bundle_id'
 ]

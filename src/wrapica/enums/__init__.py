@@ -10,6 +10,7 @@ from enum import Enum
 class BundleStatus(Enum):
     DRAFT = "DRAFT"
     RELEASED = "RELEASED"
+    DEPRECATED = "DEPRECATED"
 
 
 class DataType(Enum):
