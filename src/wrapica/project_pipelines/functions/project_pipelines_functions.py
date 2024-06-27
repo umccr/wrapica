@@ -1764,7 +1764,7 @@ def create_cwl_project_pipeline(
         for tool_path in tool_paths:
             file_list.append(
                 (
-                    'toolFiles',
+                    'toolCwlFiles',
                     (
                         str(
                             # Collect the tool path relative to the workflow path
