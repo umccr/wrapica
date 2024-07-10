@@ -923,7 +923,7 @@ def find_project_data_recursively(
                 project_id=project_id,
                 parent_folder_id=parent_folder_id,
                 parent_folder_path=parent_folder_path,
-                data_type=data_type.FOLDER,
+                data_type=DataType.FOLDER,
             )
         for subfolder in subfolders:
             matched_data_items.extend(
