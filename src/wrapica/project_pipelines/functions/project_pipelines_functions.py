@@ -207,7 +207,7 @@ def get_default_analysis_storage_obj_from_project_pipeline(project_id: str, pipe
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Return the analysis storage
-    return project_pipeline_obj.pipeline.analysis_storage_obj
+    return project_pipeline_obj.pipeline.analysis_storage
 
 
 def get_default_analysis_storage_id_from_project_pipeline(project_id: str, pipeline_id: str) -> str:
@@ -241,7 +241,7 @@ def get_default_analysis_storage_id_from_project_pipeline(project_id: str, pipel
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Return the analysis storage id
-    return project_pipeline_obj.pipeline.analysis_storage_obj.id
+    return project_pipeline_obj.pipeline.analysis_storage.id
 
 
 def get_project_pipeline_description_from_pipeline_id(project_id: str, pipeline_id: str) -> str:
