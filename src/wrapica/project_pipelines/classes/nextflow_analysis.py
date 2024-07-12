@@ -5,19 +5,19 @@ Nextflow analysis
 """
 
 # Imports
-from pathlib import Path
 from typing import List, Dict, Optional, Union
 
 # Libica imports
-from libica.openapi.v2.model.analysis_data_input import AnalysisDataInput
-from libica.openapi.v2.model.analysis_output_mapping import AnalysisOutputMapping
-from libica.openapi.v2.model.analysis_parameter_input import AnalysisParameterInput
-from libica.openapi.v2.model.analysis_v3 import AnalysisV3
-from libica.openapi.v2.model.analysis_v4 import AnalysisV4
-from libica.openapi.v2.model.create_nextflow_analysis import CreateNextflowAnalysis
-from libica.openapi.v2.model.input_parameter import InputParameter
-from libica.openapi.v2.model.nextflow_analysis_input import NextflowAnalysisInput
-from libica.openapi.v2.model.pipeline_configuration_parameter import PipelineConfigurationParameter
+from libica.openapi.v2.models import (
+    AnalysisDataInput,
+    AnalysisOutputMapping,
+    AnalysisParameterInput,
+    AnalysisV3,
+    AnalysisV4,
+    CreateNextflowAnalysis,
+    InputParameter,
+    NextflowAnalysisInput,
+)
 
 # Local parent imports
 from .analysis import (
@@ -87,7 +87,8 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
         )
 
         # Get the pipeline configuration parameters
-        pipeline_configuration_parameters: List[PipelineConfigurationParameter] = (
+        #pipeline_configuration_parameters: List[PipelineConfigurationParameter] = (
+        pipeline_configuration_parameters: List[Dict] = (
             get_project_pipeline_configuration_parameters(
                 project_id=self.project_id,
                 pipeline_id=self.pipeline_id
@@ -128,49 +129,49 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
         # Iterate through configuration parameters
         for configuration_parameter in pipeline_configuration_parameters:
             # Check if required parameter is in configuration list
-            if configuration_parameter.required:
+            if configuration_parameter.get('required'):
                 if not any(
                     list(
                         map(
-                            lambda parameter_iter: parameter_iter.code == configuration_parameter.code,
+                            lambda parameter_iter: parameter_iter.code == configuration_parameter.get("code"),
                             self.parameters
                         )
                     )
                 ):
-                    logger.error(f"Required configuration parameter {configuration_parameter.code} not found in input json")
-                    errors_list.append(f"Required configuration parameter {configuration_parameter.code} not found in input json")
+                    logger.error(f"Required configuration parameter {configuration_parameter.get('code')} not found in input json")
+                    errors_list.append(f"Required configuration parameter {configuration_parameter.get('code')} not found in input json")
 
             # Check if any multi-values allow for multiple values
-            if not configuration_parameter.multi_value:
+            if not configuration_parameter.get("multi_value"):
                 if (
                     len(
                         list(
                             filter(
-                                lambda parameter_iter: parameter_iter.code == configuration_parameter.code,
+                                lambda parameter_iter: parameter_iter.code == configuration_parameter.get("code"),
                                 self.parameters
                             )
                         )
                     ) > 1
                 ):
-                    logger.error(f"non-multiple configuration parameter {configuration_parameter.code} specified multiple times")
-                    errors_list.append(f"non-multiple configuration parameter {configuration_parameter.code} specified multiple times")
+                    logger.error(f"non-multiple configuration parameter {configuration_parameter.get('code')} specified multiple times")
+                    errors_list.append(f"non-multiple configuration parameter {configuration_parameter.get('code')} specified multiple times")
 
             # Check type of parameter matches the type in the configuration
             for parameter in self.parameters:
-                if parameter.code == configuration_parameter.code:
+                if parameter.code == configuration_parameter.get("code"):
                     if not (
                         # Check if the parameter value is of the expected configuration parameter type
                         isinstance(
                             parameter.value,
                             StructuredInputParameterTypeMapping[
                                 StructuredInputParameterType(
-                                    configuration_parameter.type
+                                    configuration_parameter.get("type")
                                 ).name
                             ].value
                         )
                     ):
-                        logger.error(f"Parameter {parameter.code} is not of type {configuration_parameter.type}")
-                        errors_list.append(f"Parameter {parameter.code} is not of type {configuration_parameter.type}")
+                        logger.error(f"Parameter {parameter.code} is not of type {configuration_parameter.get('type')}")
+                        errors_list.append(f"Parameter {parameter.code} is not of type {configuration_parameter.get('type')}")
 
             if len(errors_list) == 0:
                 logger.info("Inputs validation passed")
@@ -195,7 +196,7 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
 
     def split_input_json_by_inputs_and_parameters(self):
         # Local imports for functions
-        from ...project_data import convert_icav2_uri_to_data_obj
+        from ...project_data import convert_icav2_uri_to_project_data_obj
         for key, value in self.input_json.items():
 
             if isinstance(value, List):
@@ -207,7 +208,7 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
                             parameter_code=key,
                             data_ids=list(
                                 map(
-                                    lambda icav2_uri_iter: convert_icav2_uri_to_data_obj(icav2_uri_iter).data.id,
+                                    lambda icav2_uri_iter: convert_icav2_uri_to_project_data_obj(icav2_uri_iter).data.id,
                                     value
                                 )
                             )
@@ -225,7 +226,7 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
                     self.inputs.append(
                         AnalysisDataInput(
                             parameter_code=key,
-                            data_ids=[convert_icav2_uri_to_data_obj(value).data.id]
+                            data_ids=[convert_icav2_uri_to_project_data_obj(value).data.id]
                         )
                     )
                 else:
@@ -248,8 +249,6 @@ class ICAv2NextflowEngineParameters(ICAv2EngineParameters):
         self,
         project_id: Optional[str] = None,
         pipeline_id: Optional[str] = None,
-        output_parent_folder_id: Optional[str] = None,
-        output_parent_folder_path: Optional[Path] = None,
         analysis_output: Optional[List[AnalysisOutputMapping]] = None,
         analysis_input: Optional[NextflowAnalysisInput] = None,
         tags: Optional[ICAv2PipelineAnalysisTags] = None,
@@ -261,8 +260,6 @@ class ICAv2NextflowEngineParameters(ICAv2EngineParameters):
         super().__init__(
             project_id=project_id,
             pipeline_id=pipeline_id,
-            output_parent_folder_id=output_parent_folder_id,
-            output_parent_folder_path=output_parent_folder_path,
             analysis_output=analysis_output,
             analysis_input=analysis_input,
             tags=tags,
@@ -301,14 +298,10 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
         analysis_storage_size: Optional[AnalysisStorageSize] = None,
         activation_id: Optional[str] = None,
         # Output parameters
-        output_parent_folder_id: Optional[str] = None,
-        output_parent_folder_path: Optional[str] = None,
         analysis_output_uri: Optional[str] = None,
         ica_logs_uri: Optional[str] = None,
         # Meta parameters
         tags: Optional[ICAv2PipelineAnalysisTags] = None,
-        # CWL Specific parameters
-        cwltool_overrides: Optional[Dict] = None
     ):
         """
         Initialise input
@@ -319,16 +312,10 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
         :param analysis_storage_id
         :param analysis_storage_size
         :param activation_id
-        :param output_parent_folder_id
-        :param output_parent_folder_path
         :param analysis_output_uri
         :param ica_logs_uri
         :param tags
-        :param cwltool_overrides
         """
-        # Initialise any cwl specific parameters first before calling the parent class
-        # Set cwl specific inputs
-        self.cwltool_overrides: Optional[Dict] = cwltool_overrides
         # Set under parent init script through set_engine_parameters
         self.engine_parameters: Optional[ICAv2NextflowEngineParameters] = None
 
@@ -341,8 +328,6 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             analysis_storage_id=analysis_storage_id,
             analysis_storage_size=analysis_storage_size,
             activation_id=activation_id,
-            output_parent_folder_id=output_parent_folder_id,
-            output_parent_folder_path=output_parent_folder_path,
             analysis_output_uri=analysis_output_uri,
             ica_logs_uri=ica_logs_uri,
             tags=tags
@@ -352,8 +337,6 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
         self.engine_parameters = ICAv2NextflowEngineParameters(
             project_id=self.project_id,
             pipeline_id=self.pipeline_id,
-            output_parent_folder_id=self.output_parent_folder_id,
-            output_parent_folder_path=self.output_parent_folder_path,
             analysis_output=self.analysis_output,
             analysis_input=self.analysis_input,
             tags=self.tags,
@@ -370,7 +353,6 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             activation_code_detail_id=self.engine_parameters.activation_id,
             analysis_input=self.analysis_input,
             analysis_storage_id=self.engine_parameters.analysis_storage_id,
-            output_parent_folder_id=self.engine_parameters.output_parent_folder_id,
             analysis_output=self.engine_parameters.analysis_output
         )
 
