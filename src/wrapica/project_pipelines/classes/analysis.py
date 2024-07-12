@@ -324,7 +324,8 @@ class ICAv2EngineParameters:
         :param analysis_output:
         :return:
         """
-        self.analysis_output = analysis_output
+        if analysis_output is not None:
+            self.analysis_output = analysis_output
 
     def check_output_parameters(self):
         """
