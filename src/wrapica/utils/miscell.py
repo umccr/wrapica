@@ -5,7 +5,7 @@ Functions that don't quite do anywhere else
 """
 # Standard imports
 import re
-from typing import Dict, Any, Union, List
+from typing import Dict, Any, Union, List, Type
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -76,3 +76,34 @@ def build_curl_body_from_libica_item(libica_item: Any) -> Union[Dict, Any]:
             output_value = value
         open_api_body_dict[libica_item.attribute_map.get(key)] = output_value
     return open_api_body_dict
+
+
+def is_str_type_representation(value: str, type: Type) -> bool:
+    """
+    Check if the string 'value' can be represented as the type 'type'
+
+    :param value:
+    :param type:
+    :return:
+    """
+
+    try:
+        type(value)
+        return True
+    except ValueError:
+        return False
+
+
+def nextflow_parameter_to_str(parameter: Any) -> str:
+    """
+    Coerce the parameter to a string representation of the type
+
+    This is easy for ints + floats, for Boolean types we make sure the string is lowercase
+
+    :param parameter:
+    :param type:
+    :return:
+    """
+    if type(parameter) == bool:
+        return str(parameter).lower()
+    return str(parameter)
