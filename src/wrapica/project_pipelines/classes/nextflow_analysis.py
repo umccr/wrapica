@@ -33,6 +33,7 @@ from ...enums import (
     StructuredInputParameterType, StructuredInputParameterTypeMapping
 )
 from ...utils.logger import get_logger
+from ...utils.miscell import is_str_type_representation, nextflow_parameter_to_str
 
 Analysis = Union[AnalysisV3, AnalysisV4]
 
@@ -161,7 +162,7 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
                 if parameter.code == configuration_parameter.get("code"):
                     if not (
                         # Check if the parameter value is of the expected configuration parameter type
-                        isinstance(
+                        is_str_type_representation(
                             parameter.value,
                             StructuredInputParameterTypeMapping[
                                 StructuredInputParameterType(
@@ -218,7 +219,7 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
                     self.parameters.append(
                         AnalysisParameterInput(
                             code=key,
-                            multi_value=value,
+                            multi_value=map(nextflow_parameter_to_str, value)
                         )
                     )
             else:
@@ -233,7 +234,7 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
                     self.parameters.append(
                         AnalysisParameterInput(
                             code=key,
-                            value=str(value)
+                            value=nextflow_parameter_to_str(value)
                         )
                     )
 
