@@ -119,6 +119,7 @@ class StructuredInputParameterType(Enum):
     STRING = "string"
     INTEGER = "integer"
     OPTION = "options"
+    FLOAT = "float"
 
 
 class StructuredInputParameterTypeMapping(Enum):
@@ -126,6 +127,7 @@ class StructuredInputParameterTypeMapping(Enum):
     STRING = str
     INTEGER = int
     OPTION = str
+    FLOAT = float
 
 
 class AnalysisLogStreamName(Enum):
