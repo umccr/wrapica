@@ -879,9 +879,14 @@ def find_project_data_recursively(
     matched_data_items: List[ProjectData] = []
 
     if name is not None and IS_REGEX_MATCH.match(name):
-        name_regex_obj = re.compile(name)
+        name_recursive = name  # What we parse to this function recursively
+        # If there are any * without a '.' before them, we need to add a '.' before them
+        name = re.sub(r"(?<!\.)\*", ".*", name)
+
+        name_regex_obj = re.compile(fr"{name}")
         name = None
     else:
+        name_recursive = None
         name_regex_obj = None
 
     # Get top level items
@@ -900,9 +905,9 @@ def find_project_data_recursively(
             if data_type is not None and not DataType(data_item.data.details.data_type) == data_type:
                 continue
             # Check if we have regex name to match on
-            if name_regex_obj is not None and name_regex_obj.match(data_item.data.details.name) is not None:
+            if name_regex_obj is None:
                 matched_data_items.append(data_item)
-            else:
+            elif name_regex_obj.fullmatch(data_item.data.details.name) is not None:
                 matched_data_items.append(data_item)
 
     # Otherwise look recursively
@@ -913,7 +918,7 @@ def find_project_data_recursively(
         if not data_type == DataType.FILE and name is None and name_regex_obj is None:
             subfolders = list(
                 filter(
-                    lambda x: x.data.details.data_type == "FOLDER",
+                    lambda x: DataType(x.data.details.data_type) == DataType.FOLDER,
                     data_items
                 )
             )
@@ -926,11 +931,12 @@ def find_project_data_recursively(
                 data_type=DataType.FOLDER,
             )
         for subfolder in subfolders:
+
             matched_data_items.extend(
                 find_project_data_recursively(
                     project_id=project_id,
                     parent_folder_id=subfolder.data.id,
-                    name=name,
+                    name=name_recursive,
                     data_type=data_type,
                     min_depth=min_depth - 1 if min_depth is not None else None,
                     max_depth=max_depth - 1 if max_depth is not None else None
