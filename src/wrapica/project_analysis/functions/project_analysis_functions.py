@@ -704,7 +704,6 @@ def list_analyses(
                     filter(
                         lambda x: x[1] is not None,
                         {
-                            "status": status,
                             "project_id": project_id,
                             "page_size": str(page_size),
                             "page_offset": str(page_offset),
