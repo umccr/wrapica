@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Standard imports
+from time import sleep
+
 # Libica API imports
 from libica.openapi.v2 import ApiClient, ApiException
 from libica.openapi.v2.api.job_api import JobApi
@@ -9,6 +12,7 @@ from libica.openapi.v2.models import Job
 
 # Util imports
 from ...utils.configuration import get_icav2_configuration
+from ...enums import JobStatus
 
 
 def get_job(
@@ -38,3 +42,27 @@ def get_job(
         raise ApiException("Exception when calling JobApi->get_job: %s\n" % e)
 
     return api_response
+
+
+def wait_for_job_completion(
+        job_id: str,
+        raise_on_failure: bool = True
+) -> JobStatus:
+
+    while True:
+        # Get the job objects
+        job_obj = get_job(job_id)
+
+        # Get the job status
+        job_status = JobStatus(job_obj.status)
+
+        if job_status in [JobStatus.SUCCEEDED]:
+            return job_status
+        elif job_status in [JobStatus.FAILED, JobStatus.PARTIALLY_SUCCEEDED, JobStatus.STOPPED]:
+            if raise_on_failure:
+                raise Exception(f"Job {job_id} failed with status {job_status}")
+            else:
+                return job_status
+
+        sleep(5)
+

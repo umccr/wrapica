@@ -58,7 +58,8 @@ from .functions.project_data_functions import (
     write_icav2_file_contents,
     get_file_by_file_name_from_project_data_list,
     project_data_copy_batch_handler,
-    delete_project_data
+    delete_project_data,
+    move_project_data
 )
 
 __all__ = [
@@ -115,5 +116,6 @@ __all__ = [
     'write_icav2_file_contents',
     'get_file_by_file_name_from_project_data_list',
     'project_data_copy_batch_handler',
-    'delete_project_data'
+    'delete_project_data',
+    'move_project_data'
 ]

@@ -4,7 +4,7 @@
 List of available functions:
 
 """
-
+import json
 # Standard imports
 import re
 from io import TextIOWrapper
@@ -37,7 +37,7 @@ from libica.openapi.v2.models import (
     TempCredentials,
     Upload
 )
-
+from requests import RequestException
 
 # Local imports
 from ...enums import DataType, ProjectDataSortParameter, ProjectDataStatusValues
@@ -931,7 +931,6 @@ def find_project_data_recursively(
                 data_type=DataType.FOLDER,
             )
         for subfolder in subfolders:
-
             matched_data_items.extend(
                 find_project_data_recursively(
                     project_id=project_id,
@@ -1371,7 +1370,7 @@ def coerce_data_id_or_icav2_uri_to_project_data_obj(
     """
     from ...data import get_project_data_obj_from_data_id
     if is_data_id_format(
-        data_id=data_id_or_uri
+            data_id=data_id_or_uri
     ):
         return get_project_data_obj_from_data_id(
             data_id=data_id_or_uri
@@ -2367,3 +2366,71 @@ def delete_project_data(project_id: str, data_id: str):
     except ApiException as e:
         logger.error("Exception when calling ProjectDataApi->delete_data: %s\n" % e)
         raise ApiException
+
+
+def move_project_data(dest_project_id: str, dest_folder_id: str, src_data_list: List[str]) -> Job:
+    """
+    Move a list of data ids to a destination project
+    :param dest_project_id:
+    :param dest_folder_id:
+    :param src_data_list:
+
+    :return:
+
+    :rtype: Job
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        from wrapica.project_data import move_data
+
+        job = move_data(
+            dest_project_id="abcd-1234-efab-5678",
+            dest_folder_id="fol.abcdef1234567890",
+            src_data_list=[
+                "fil.abcdef1234567890",
+                "fil.abcdef1234567891"
+            ]
+        )
+
+    """
+    from ...job import get_job
+    configuration = get_icav2_configuration()
+
+    header = {
+        'Accept': 'application/vnd.illumina.v3+json',
+        'Content-Type': 'application/vnd.illumina.v3+json',
+        'Authorization': f'Bearer {configuration.access_token}'
+    }
+
+    data = {
+        "items": list(
+            map(
+                lambda src_data_iter: {
+                    "dataId": src_data_iter
+                },
+                src_data_list
+            )
+        ),
+        "destinationFolderId": dest_folder_id
+    }
+
+    try:
+        response = requests.post(
+            f"{configuration.host}/api/projects/{dest_project_id}/dataMoveBatch",
+            headers=header,
+            data=json.dumps(data),
+        )
+
+        # Get job from job id
+        response.raise_for_status()
+    except RequestException as e:
+        logger.error(f"Error moving data: {e}")
+        logger.error(response.json())
+        raise ApiException
+
+    # Get job from job id
+    return get_job(response.json().get("job").get("id"))
