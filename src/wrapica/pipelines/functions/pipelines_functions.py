@@ -428,7 +428,7 @@ def get_cwl_obj_from_pipeline_id(
     """
 
     # Create a temp directory
-    pipeline_tmp_dir_obj = TemporaryDirectory()
+    pipeline_tmp_dir_obj = TemporaryDirectory(delete=False)
     pipeline_tmp_dir_path = Path(pipeline_tmp_dir_obj.name)
 
     # Download pipeline to directory
