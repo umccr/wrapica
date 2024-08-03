@@ -4,7 +4,7 @@
 List of available functions:
 
 """
-
+import json
 # Standard imports
 import re
 from io import TextIOWrapper
@@ -37,10 +37,10 @@ from libica.openapi.v2.models import (
     TempCredentials,
     Upload
 )
-
+from requests import RequestException
 
 # Local imports
-from ...enums import DataType, ProjectDataSortParameter, ProjectDataStatusValues
+from ...enums import DataType, ProjectDataSortParameter, ProjectDataStatusValues, UriType
 from ...utils.configuration import get_icav2_configuration, logger
 from ...utils.globals import LIBICAV2_DEFAULT_PAGE_SIZE, IS_REGEX_MATCH
 from ...utils.miscell import is_uuid_format
@@ -931,7 +931,6 @@ def find_project_data_recursively(
                 data_type=DataType.FOLDER,
             )
         for subfolder in subfolders:
-
             matched_data_items.extend(
                 find_project_data_recursively(
                     project_id=project_id,
@@ -1189,16 +1188,26 @@ def convert_icav2_uri_to_data_obj(
         create_data_if_not_found: bool = False
 ) -> ProjectData:
     DeprecationWarning(
-        "Please use convert_icav2_uri_to_project_data_obj or use "
-        "convert_icav2_uri_to_data_obj from wrapica.data instead."
+        "Please use convert_uri_to_project_data_obj or use "
+        "convert_uri_to_data_obj from wrapica.data instead."
     )
-    return convert_icav2_uri_to_project_data_obj(data_uri, create_data_if_not_found)
+    return convert_uri_to_project_data_obj(data_uri, create_data_if_not_found)
 
 
 def convert_icav2_uri_to_project_data_obj(
         data_uri: str,
         create_data_if_not_found: bool = False
 ) -> ProjectData:
+    DeprecationWarning(
+        "Please use convert_uri_to_project_data_obj instead."
+    )
+    return convert_uri_to_project_data_obj(data_uri, create_data_if_not_found)
+
+
+def convert_uri_to_project_data_obj(
+        data_uri: str,
+        create_data_if_not_found: bool = False
+):
     """
     Given an ICAv2 URI, return a project data object
 
@@ -1215,9 +1224,9 @@ def convert_icav2_uri_to_project_data_obj(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import convert_icav2_uri_to_data_obj, ProjectData
+        from wrapica.project_data import convert_uri_to_project_data_obj, ProjectData
 
-        project_data_object: ProjectData = convert_icav2_uri_to_data_obj(
+        project_data_object: ProjectData = convert_uri_to_project_data_obj(
             "icav2://project-name/path/to/data/"
         )
 
@@ -1235,11 +1244,18 @@ def convert_icav2_uri_to_project_data_obj(
     else:
         data_type = DataType.FILE
 
-    # Check if the project is in project id format
-    if is_uuid_format(data_uri_obj.netloc):
-        project_id = data_uri_obj.netloc
+    if UriType(data_uri_obj.scheme) == UriType.ICAV2:
+        # Check if the project is in project id format
+        if is_uuid_format(data_uri_obj.netloc):
+            project_id = data_uri_obj.netloc
+        else:
+            project_id = get_project_id_from_project_name(data_uri_obj.netloc)
+    elif UriType(data_uri_obj.scheme) == UriType.S3:
+        # If the uri is an s3 uri, we need to convert it to an icav2 uri
+        project_id, _ = unpack_uri(data_uri)
     else:
-        project_id = get_project_id_from_project_name(data_uri_obj.netloc)
+        logger.error(f"Could not convert uri to project data object, scheme {data_uri_obj.scheme} not recognised")
+        raise ValueError
 
     # Return the data object
     return get_project_data_obj_from_project_id_and_path(
@@ -1260,21 +1276,64 @@ def convert_project_data_obj_to_icav2_uri(
 
     :return: The icav2:// uri string
     """
-    return str(
-        urlunparse((
-            "icav2",
-            project_data.project_id,
-            project_data.data.details.path.rstrip("/") + (
-                "/" if project_data.data.details.data_type == "FOLDER" else ""),
-            None, None, None
-        ))
+    DeprecationWarning(
+        "Please use convert_project_data_obj_to_uri instead."
     )
+    return convert_project_data_obj_to_uri(project_data, uri_type=UriType.ICAV2)
+
+
+def convert_project_data_obj_to_uri(
+        project_data: ProjectData,
+        uri_type: UriType = UriType.ICAV2
+) -> str:
+    """
+    Return the file object as an icav2:// uri
+
+    :param project_data: The ProjectData object
+    :param uri_type: One of UriType.ICAV2, UriType.S3
+
+    :return: The icav2:// uri string
+    """
+    from ...storage_configuration import convert_project_data_obj_to_s3_uri
+    if uri_type == UriType.ICAV2:
+        return str(
+            urlunparse((
+                uri_type.value,
+                project_data.project_id,
+                project_data.data.details.path.rstrip("/") + (
+                    "/" if project_data.data.details.data_type == "FOLDER" else ""),
+                None, None, None
+            ))
+        )
+    elif uri_type == UriType.S3:
+        convert_project_data_obj_to_s3_uri(project_data_obj=project_data)
+    else:
+        logger.error(
+            f"Uri type {uri_type} not recognised, please use one of UriType.ICAV2, UriType.S3"
+        )
+        raise ValueError
 
 
 def convert_project_id_and_data_path_to_icav2_uri(
         project_id: str,
         data_path: Path,
         data_type: DataType
+) -> str:
+    DeprecationWarning(
+        "Please use convert_project_id_and_data_path_to_uri instead."
+    )
+    return convert_project_id_and_data_path_to_uri(
+        project_id=project_id,
+        data_path=data_path,
+        data_type=data_type
+    )
+
+
+def convert_project_id_and_data_path_to_uri(
+        project_id: str,
+        data_path: Path,
+        data_type: DataType,
+        uri_type: UriType = UriType.ICAV2
 ) -> str:
     """
     Given a project_id and a data_id, return the icav2:// uri
@@ -1286,6 +1345,7 @@ def convert_project_id_and_data_path_to_icav2_uri(
     :param project_id: The project id to search in
     :param data_path: The path to the data in the project
     :param data_type: The data_type, one of DataType.FILE, DataType.FOLDER
+    :param uri_type: One of UriType.ICAV2, UriType.S3
 
     :return: The icav2:// uri string
     :rtype: str
@@ -1295,7 +1355,7 @@ def convert_project_id_and_data_path_to_icav2_uri(
     .. code-block:: python
 
         :linenos:
-        from wrapica.project_data import convert_project_id_and_data_path_to_icav2_uri
+        from wrapica.project_data import convert_project_id_and_data_path_to_uri
         from wrapica.enums import DataType
 
         icav2_uri: str = convert_project_id_and_data_path_to_icav2_uri(
@@ -1304,20 +1364,42 @@ def convert_project_id_and_data_path_to_icav2_uri(
             data_type=DataType.FOLDER
         )
     """
-
-    return str(
-        urlunparse((
-            "icav2",
-            project_id,
-            str(data_path) + ("/" if data_type == DataType.FOLDER else ""),
-            None, None, None
-        ))
-    )
+    from ...storage_configuration import get_s3_key_prefix_by_project_id
+    if uri_type == UriType.ICAV2:
+        return str(
+            urlunparse((
+                UriType.ICAV2.value,
+                project_id,
+                str(data_path) + ("/" if data_type == DataType.FOLDER else ""),
+                None, None, None
+            ))
+        )
+    elif uri_type == UriType.S3:
+        return str(
+            urlunparse((
+                UriType.S3.value,
+                project_id,
+                str(
+                    Path(get_s3_key_prefix_by_project_id(project_id)) / data_path
+                ) + ("/" if data_type == DataType.FOLDER else ""),
+                None, None, None
+            ))
+        )
+    else:
+        logger.error("Error! Could not convert project id and data path to uri, uri scheme {uri_type} not recognised")
+        raise ValueError
 
 
 def unpack_icav2_uri(uri: str) -> Tuple[str, str]:
+    DeprecationWarning(
+        "Warning, please use unpack_uri instead."
+    )
+    return unpack_uri(uri)
+
+
+def unpack_uri(uri: str) -> Tuple[str, str]:
     """
-    Unpack an icav2 uri
+    Unpack an icav2 or s3 uri
 
     :param uri: The icav2 uri in the format of 'icav2://project_id/path/to/file.txt' or 'icav2://project_id/path/to/dir/'
 
@@ -1334,31 +1416,47 @@ def unpack_icav2_uri(uri: str) -> Tuple[str, str]:
 
         project_id, data_path = unpack_icav2_uri("icav2://project_id/path/to/dir")
     """
-    from wrapica.project.functions.project_functions import get_project_id_from_project_name
+    # Get local imports
+    from ...project import get_project_id_from_project_name
+    from ...storage_configuration import unpack_s3_uri
+
     # Parse obj
     uri_obj = urlparse(uri)
 
-    # Confirm that this uri starts with icav2
-    if not uri_obj.scheme == "icav2":
-        logger.error(f"Cannot unpack {uri} as it does not start with icav2://")
-        raise ValueError
+    if UriType(uri_obj.scheme) == UriType.ICAV2:
+        # Get project name or id
+        project_name_or_id = uri_obj.netloc
 
-    # Get project name or id
-    project_name_or_id = uri_obj.netloc
+        # Get data path
+        data_path = uri_obj.path
 
-    # Get data path
-    data_path = uri_obj.path
+        # Get project id
+        if is_uuid_format(project_name_or_id):
+            project_id = project_name_or_id
+        else:
+            project_id = get_project_id_from_project_name(project_name_or_id)
 
-    # Get project id
-    if is_uuid_format(project_name_or_id):
-        project_id = project_name_or_id
+        return project_id, data_path
+    elif UriType(uri_obj.scheme) == UriType.S3:
+        return unpack_s3_uri(uri)
     else:
-        project_id = get_project_id_from_project_name(project_name_or_id)
-
-    return project_id, data_path
+        raise ValueError(f"Could not unpack uri, scheme {uri_obj.scheme} not recognised")
 
 
 def coerce_data_id_or_icav2_uri_to_project_data_obj(
+        data_id_or_uri: str,
+        create_data_if_not_found: bool = False
+) -> ProjectData:
+    DeprecationWarning(
+        "Please use coerce_data_id_or_uri_to_project_data_obj instead "
+    )
+    return coerce_data_id_or_uri_to_project_data_obj(
+        data_id_or_uri=data_id_or_uri,
+        create_data_if_not_found=create_data_if_not_found
+    )
+
+
+def coerce_data_id_or_uri_to_project_data_obj(
         data_id_or_uri: str,
         create_data_if_not_found: bool = False
 ) -> ProjectData:
@@ -1371,12 +1469,12 @@ def coerce_data_id_or_icav2_uri_to_project_data_obj(
     """
     from ...data import get_project_data_obj_from_data_id
     if is_data_id_format(
-        data_id=data_id_or_uri
+            data_id=data_id_or_uri
     ):
         return get_project_data_obj_from_data_id(
             data_id=data_id_or_uri
         )
-    return convert_icav2_uri_to_project_data_obj(
+    return convert_uri_to_project_data_obj(
         data_uri=data_id_or_uri,
         create_data_if_not_found=create_data_if_not_found
     )
@@ -1386,6 +1484,18 @@ def coerce_data_id_icav2_uri_or_path_to_project_data_obj(
         data_id_path_or_uri: str,
         create_data_if_not_found: bool = False
 ) -> Optional[ProjectData]:
+    DeprecationWarning(
+        "Please use coerce_data_id_uri_or_path_to_project_data_obj or use "
+        "coerce_data_id_uri_or_path_to_data_obj from wrapica.data instead."
+    )
+    return coerce_data_id_uri_or_path_to_project_data_obj(data_id_path_or_uri, create_data_if_not_found)
+
+
+def coerce_data_id_uri_or_path_to_project_data_obj(
+        data_id_path_or_uri: str,
+        create_data_if_not_found: bool = False
+) -> Optional[ProjectData]:
+
     """
     Coerce a data id, uri, path to a project data object
 
@@ -1402,22 +1512,23 @@ def coerce_data_id_icav2_uri_or_path_to_project_data_obj(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import coerce_data_id_icav2_uri_or_path_to_project_data_obj
+        from wrapica.project_data import coerce_data_id_uri_or_path_to_project_data_obj
 
-        project_data_obj = coerce_data_id_icav2_uri_or_path_to_project_data_obj(
+        project_data_obj = coerce_data_id_uri_or_path_to_project_data_obj(
             data_id_path_or_uri="icav2://project-name/path/to/data/"
         )
     """
     from ...project import get_project_id
+
     if is_data_id_format(data_id_path_or_uri):
         # Data ID, easy to convert across
         return get_project_data_obj_by_id(
             project_id=get_project_id(),
             data_id=data_id_path_or_uri
         )
-    elif urlparse(data_id_path_or_uri).scheme == "icav2":
+    elif UriType(urlparse(data_id_path_or_uri).scheme) in [UriType.ICAV2, UriType.S3]:
         # ICAv2 URI, convert to data object
-        return convert_icav2_uri_to_data_obj(
+        return convert_uri_to_project_data_obj(
             data_uri=data_id_path_or_uri,
             create_data_if_not_found=create_data_if_not_found
         )
@@ -1698,9 +1809,10 @@ def check_uri_exists(
 
         print(check_uri_exists("icav2://project-name/path/to/file.txt"))
     """
-
-    project_id, data_path = unpack_icav2_uri(data_uri)
-
+    if UriType(urlparse(data_uri).scheme) in [UriType.ICAV2, UriType.S3]:
+        project_id, data_path = unpack_uri(data_uri)
+    else:
+        raise ValueError(f"URI scheme '{urlparse(data_uri).scheme}' not supported")
     if data_path.endswith("/"):
         return check_folder_exists(project_id, Path(data_path))
     else:
@@ -2367,3 +2479,71 @@ def delete_project_data(project_id: str, data_id: str):
     except ApiException as e:
         logger.error("Exception when calling ProjectDataApi->delete_data: %s\n" % e)
         raise ApiException
+
+
+def move_project_data(dest_project_id: str, dest_folder_id: str, src_data_list: List[str]) -> Job:
+    """
+    Move a list of data ids to a destination project
+    :param dest_project_id:
+    :param dest_folder_id:
+    :param src_data_list:
+
+    :return:
+
+    :rtype: Job
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        from wrapica.project_data import move_data
+
+        job = move_data(
+            dest_project_id="abcd-1234-efab-5678",
+            dest_folder_id="fol.abcdef1234567890",
+            src_data_list=[
+                "fil.abcdef1234567890",
+                "fil.abcdef1234567891"
+            ]
+        )
+
+    """
+    from ...job import get_job
+    configuration = get_icav2_configuration()
+
+    header = {
+        'Accept': 'application/vnd.illumina.v3+json',
+        'Content-Type': 'application/vnd.illumina.v3+json',
+        'Authorization': f'Bearer {configuration.access_token}'
+    }
+
+    data = {
+        "items": list(
+            map(
+                lambda src_data_iter: {
+                    "dataId": src_data_iter
+                },
+                src_data_list
+            )
+        ),
+        "destinationFolderId": dest_folder_id
+    }
+
+    try:
+        response = requests.post(
+            f"{configuration.host}/api/projects/{dest_project_id}/dataMoveBatch",
+            headers=header,
+            data=json.dumps(data),
+        )
+
+        # Get job from job id
+        response.raise_for_status()
+    except RequestException as e:
+        logger.error(f"Error moving data: {e}")
+        logger.error(response.json())
+        raise ApiException
+
+    # Get job from job id
+    return get_job(response.json().get("job").get("id"))

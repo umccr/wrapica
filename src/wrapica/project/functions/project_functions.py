@@ -3,7 +3,7 @@
 """
 Functions for project management
 """
-from typing import List
+from typing import List, Optional, Dict
 
 # Libica imports
 from libica.openapi.v2 import ApiClient, ApiException
@@ -24,6 +24,29 @@ from ...utils.miscell import is_uuid_format
 
 # Logger helpers
 logger = get_logger()
+
+# GLOBALS
+PROJECT_MAPPING_DICT = None
+
+
+def _set_project_mapping_dict():
+    global PROJECT_MAPPING_DICT
+
+    PROJECT_MAPPING_DICT = dict(
+        map(
+            lambda lambda_project_obj: (lambda_project_obj.id, lambda_project_obj.name),
+            list_projects()
+        )
+    )
+
+
+def _get_project_mapping_dict():
+    if PROJECT_MAPPING_DICT is not None:
+        return PROJECT_MAPPING_DICT
+
+    _set_project_mapping_dict()
+
+    return _get_project_mapping_dict()
 
 
 def get_project_obj_from_project_id(
@@ -102,7 +125,7 @@ def get_project_id_from_project_name(
     :return: The id of the project
     :rtype: str
 
-    :raises ValueError, ApiException
+    :raises StopIteration, ApiException
 
     :Examples:
 
@@ -115,8 +138,23 @@ def get_project_id_from_project_name(
         print(project_id)
         # "1234-5678-9012-3456"
     """
+    for project_id_iter, project_name_iter in _get_project_mapping_dict().items():
+        if project_name_iter == project_name:
+            return project_id_iter
 
-    return get_project_obj_from_project_name(project_name).id
+    #return get_project_obj_from_project_name(project_name).id
+
+
+# And vice-versa
+def get_project_name_from_project_id(project_id: str) -> str:
+    """
+    Given a project id, get the project object and return the name attribute
+    :param project_id:
+    :return:
+    """
+    for project_id_iter, project_name_iter in _get_project_mapping_dict().items():
+        if project_id_iter == project_id:
+            return project_name_iter
 
 
 def check_project_has_data_sharing_enabled(project_id: str) -> bool:

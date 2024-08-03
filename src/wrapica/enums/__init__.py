@@ -135,3 +135,14 @@ class AnalysisLogStreamName(Enum):
     STDERR = "stderr"
 
 
+class JobStatus(Enum):
+    INITIALIZED = "INITIALIZED"
+    WAITING_FOR_RESOURCES = "WAITING_FOR_RESOURCES"
+    RUNNING = "RUNNING"
+    STOPPED = "STOPPED"
+    SUCCEEDED = "SUCCEEDED"
+    PARTIALLY_SUCCEEDED = "PARTIALLY_SUCCEEDED"
+    FAILED = "FAILED"
+class UriType(Enum):
+    S3 = "s3"
+    ICAV2 = "icav2"

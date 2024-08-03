@@ -36,12 +36,18 @@ from .functions.project_data_functions import (
     create_download_url,
     create_download_urls,
     convert_icav2_uri_to_data_obj,
+    convert_uri_to_project_data_obj,
     convert_icav2_uri_to_project_data_obj,
     convert_project_data_obj_to_icav2_uri,
+    convert_project_data_obj_to_uri,
     convert_project_id_and_data_path_to_icav2_uri,
+    convert_project_id_and_data_path_to_uri,
     unpack_icav2_uri,
+    unpack_uri,
     coerce_data_id_or_icav2_uri_to_project_data_obj,
+    coerce_data_id_or_uri_to_project_data_obj,
     coerce_data_id_icav2_uri_or_path_to_project_data_obj,
+    coerce_data_id_uri_or_path_to_project_data_obj,
     get_aws_credentials_access_for_project_folder,
     is_folder_id_format,
     is_file_id_format,
@@ -58,7 +64,8 @@ from .functions.project_data_functions import (
     write_icav2_file_contents,
     get_file_by_file_name_from_project_data_list,
     project_data_copy_batch_handler,
-    delete_project_data
+    delete_project_data,
+    move_project_data
 )
 
 __all__ = [
@@ -93,11 +100,17 @@ __all__ = [
     'create_download_url',
     'create_download_urls',
     'convert_icav2_uri_to_data_obj',
+    'convert_uri_to_project_data_obj',
     'convert_icav2_uri_to_project_data_obj',
+    'convert_project_data_obj_to_uri',
     'convert_project_data_obj_to_icav2_uri',
     'convert_project_id_and_data_path_to_icav2_uri',
+    'convert_project_id_and_data_path_to_uri',
     'unpack_icav2_uri',
+    'unpack_uri',
     'coerce_data_id_or_icav2_uri_to_project_data_obj',
+    'coerce_data_id_or_uri_to_project_data_obj',
+    'coerce_data_id_uri_or_path_to_project_data_obj',
     'coerce_data_id_icav2_uri_or_path_to_project_data_obj',
     'get_aws_credentials_access_for_project_folder',
     'is_folder_id_format',
@@ -115,5 +128,7 @@ __all__ = [
     'write_icav2_file_contents',
     'get_file_by_file_name_from_project_data_list',
     'project_data_copy_batch_handler',
-    'delete_project_data'
+    'delete_project_data',
+    'move_project_data'
 ]
+
