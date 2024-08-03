@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import List, Optional, Union, Dict, Any
 from urllib.parse import urlparse
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 # Libica imports
@@ -20,7 +20,7 @@ from libica.openapi.v2.models import (
     AnalysisV3,
     AnalysisV4,
     AnalysisOutputMapping,
-    AnalysisTag,
+    CreateAnalysisTag,
     CreateCwlAnalysis,
     CreateNextflowAnalysis,
     CwlAnalysisJsonInput,
@@ -141,8 +141,8 @@ class ICAv2PipelineAnalysisTags:
                     )
                 )
 
-    def __call__(self) -> AnalysisTag:
-        return AnalysisTag(
+    def __call__(self) -> CreateAnalysisTag:
+        return CreateAnalysisTag(
             technical_tags=self.technical_tags,
             user_tags=self.user_tags,
             reference_tags=self.reference_tags
@@ -212,7 +212,7 @@ class ICAv2EngineParameters:
         # self.stream_all_directories: Optional[bool] = stream_all_directories
 
         # Set placeholders
-        current_utc_time = datetime.utcnow()
+        current_utc_time = datetime.now(timezone.utc)
         self.placeholder_dict: Dict = {
             "__DATE_STR__": current_utc_time.strftime("%Y%m%d"),
             "__TIME_STR__": current_utc_time.strftime("%H%M%S"),
