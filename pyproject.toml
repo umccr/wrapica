@@ -19,7 +19,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "libica >= 2.4.0, < 3",
+    "libica >= 2.5.0, < 3",
     "PyJWT >= 2.8.0, < 3",
     "ruamel.base >= 1.0.0, < 2",
     "ruamel.yaml >= 0.18.0, < 0.19",
