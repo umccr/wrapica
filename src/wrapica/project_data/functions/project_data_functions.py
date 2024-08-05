@@ -4,8 +4,8 @@
 List of available functions:
 
 """
-import json
 # Standard imports
+import json
 import re
 from io import TextIOWrapper
 from pathlib import Path
@@ -14,6 +14,7 @@ from typing import Dict, List, Union, Optional, Any, Tuple
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse
 import requests
+
 
 # Libica Api imports
 from libica.openapi.v2 import ApiClient, ApiException
@@ -43,7 +44,7 @@ from requests import RequestException
 from ...enums import DataType, ProjectDataSortParameter, ProjectDataStatusValues, UriType
 from ...utils.configuration import get_icav2_configuration, logger
 from ...utils.globals import LIBICAV2_DEFAULT_PAGE_SIZE, IS_REGEX_MATCH
-from ...utils.miscell import is_uuid_format
+from ...utils.miscell import is_uuid_format, is_uri_format
 
 
 def get_project_data_file_id_from_project_id_and_path(
@@ -1526,7 +1527,10 @@ def coerce_data_id_uri_or_path_to_project_data_obj(
             project_id=get_project_id(),
             data_id=data_id_path_or_uri
         )
-    elif UriType(urlparse(data_id_path_or_uri).scheme) in [UriType.ICAV2, UriType.S3]:
+    elif (
+            is_uri_format(data_id_path_or_uri) and
+            UriType(urlparse(data_id_path_or_uri).scheme) in [UriType.ICAV2, UriType.S3]
+    ):
         # ICAv2 URI, convert to data object
         return convert_uri_to_project_data_obj(
             data_uri=data_id_path_or_uri,

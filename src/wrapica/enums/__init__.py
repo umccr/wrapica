@@ -143,6 +143,8 @@ class JobStatus(Enum):
     SUCCEEDED = "SUCCEEDED"
     PARTIALLY_SUCCEEDED = "PARTIALLY_SUCCEEDED"
     FAILED = "FAILED"
+
+
 class UriType(Enum):
     S3 = "s3"
     ICAV2 = "icav2"
