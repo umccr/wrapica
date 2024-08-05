@@ -125,7 +125,7 @@ def get_project_id_by_s3_key_prefix(s3_key_prefix: str) -> Optional[str]:
         # Check if the s3 key prefix is in the storage configuration dict
         if s3_key_prefix.startswith(configuration_s3_key_prefix):
             # Get the project name as the first part after the configuration s3 prefix
-            project_name = Path(urlparse(s3_key_prefix).path).relative_to(Path(configuration_s3_key_prefix)).parts[0]
+            project_name = Path(urlparse(s3_key_prefix).path).relative_to(Path(urlparse(configuration_s3_key_prefix).path)).parts[0]
 
             try:
                 project_id = get_project_id_from_project_name(project_name)
@@ -134,8 +134,9 @@ def get_project_id_by_s3_key_prefix(s3_key_prefix: str) -> Optional[str]:
                 return None
 
             # Check project id is in this project configuration dict
-            if project_id in project_configuration_dict.values():
-                return project_id
+            for storage_configuration_id, project_ids_list in project_configuration_dict.items():
+                if project_id in project_ids_list:
+                    return project_id
             logger.error(f"Got project name as '{project_name}' but could not find project id '{project_id}' in project configuration dict")
 
     logger.error(f"Could not find project id for s3 key prefix: {s3_key_prefix}")
@@ -205,7 +206,11 @@ def convert_icav2_uri_to_s3_uri(icav2_uri: str) -> str:
                 urlparse(project_s3_prefix).scheme,
                 urlparse(project_s3_prefix).netloc,
                 str(
-                    Path(urlparse(project_s3_prefix).path) / Path(urlparse(icav2_uri).path)
+                    Path(urlparse(project_s3_prefix).path).joinpath(
+                        # Cannot join two abs paths so we need to strip the leading /
+                        # We can then join the relative path to the project s3 prefix
+                        Path(str(Path(urlparse(icav2_uri).path)).lstrip("/"))
+                    )
                 ) + ("/" if icav2_uri.endswith("/") else ""),
                 None, None, None
             )
@@ -222,7 +227,7 @@ def convert_project_data_obj_to_s3_uri(project_data_obj: ProjectData) -> str:
             (
                 urlparse(project_s3_prefix).scheme,
                 urlparse(project_s3_prefix).netloc,
-                str(Path(urlparse(project_s3_prefix).path) / Path(project_data_obj.name)) + ("/" if project_data_obj.name.endswith("/") else ""),
+                str(Path(urlparse(project_s3_prefix).path) / Path(project_data_obj.data.details.path)) + ("/" if DataType(project_data_obj) == DataType.FOLDER else ""),
                 None, None, None
             )
         )

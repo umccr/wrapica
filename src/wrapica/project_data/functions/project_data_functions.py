@@ -1251,9 +1251,10 @@ def convert_uri_to_project_data_obj(
             project_id = data_uri_obj.netloc
         else:
             project_id = get_project_id_from_project_name(data_uri_obj.netloc)
+        data_path = Path(data_uri_obj.path)
     elif UriType(data_uri_obj.scheme) == UriType.S3:
         # If the uri is an s3 uri, we need to convert it to an icav2 uri
-        project_id, _ = unpack_uri(data_uri)
+        project_id, data_path = unpack_uri(data_uri)
     else:
         logger.error(f"Could not convert uri to project data object, scheme {data_uri_obj.scheme} not recognised")
         raise ValueError
@@ -1261,7 +1262,7 @@ def convert_uri_to_project_data_obj(
     # Return the data object
     return get_project_data_obj_from_project_id_and_path(
         project_id=project_id,
-        data_path=Path(data_uri_obj.path),
+        data_path=Path(data_path),
         data_type=data_type,
         create_data_if_not_found=create_data_if_not_found
     )
