@@ -1308,7 +1308,7 @@ def convert_project_data_obj_to_uri(
             ))
         )
     elif uri_type == UriType.S3:
-        convert_project_data_obj_to_s3_uri(project_data_obj=project_data)
+        return convert_project_data_obj_to_s3_uri(project_data_obj=project_data)
     else:
         logger.error(
             f"Uri type {uri_type} not recognised, please use one of UriType.ICAV2, UriType.S3"
