@@ -6,6 +6,7 @@ Nextflow analysis
 
 # Imports
 from typing import List, Dict, Optional, Union
+from urllib.parse import urlparse
 
 # Libica imports
 from libica.openapi.v2.models import (
@@ -30,10 +31,10 @@ from .analysis import (
 # Local imports
 from ...enums import (
     AnalysisStorageSize, WorkflowLanguage,
-    StructuredInputParameterType, StructuredInputParameterTypeMapping
+    StructuredInputParameterType, StructuredInputParameterTypeMapping, UriType
 )
 from ...utils.logger import get_logger
-from ...utils.miscell import is_str_type_representation, nextflow_parameter_to_str
+from ...utils.miscell import is_str_type_representation, nextflow_parameter_to_str, is_uri_format
 
 Analysis = Union[AnalysisV3, AnalysisV4]
 
@@ -203,7 +204,10 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
             if isinstance(value, List):
                 if len(value) == 0:
                     continue
-                if value[0].startswith("icav2://"):
+                if (
+                        is_uri_format(value[0]) and
+                        UriType(urlparse(value[0]).scheme) in [UriType.ICAV2, UriType.S3]
+                ):
                     self.inputs.append(
                         AnalysisDataInput(
                             parameter_code=key,
@@ -223,7 +227,11 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
                         )
                     )
             else:
-                if isinstance(value, str) and value.startswith("icav2://"):
+                if (
+                        isinstance(value, str) and
+                        is_uri_format(value) and
+                        UriType(urlparse(value).scheme) in [UriType.ICAV2, UriType.S3]
+                ):
                     self.inputs.append(
                         AnalysisDataInput(
                             parameter_code=key,
