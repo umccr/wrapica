@@ -12,7 +12,7 @@ from libica.openapi.v2.models import (
 )
 
 # Local imports
-from ...enums import UriType
+from ...enums import UriType, DataType
 from ...utils.configuration import get_icav2_configuration
 from ...utils.logger import get_logger
 
@@ -227,7 +227,7 @@ def convert_project_data_obj_to_s3_uri(project_data_obj: ProjectData) -> str:
             (
                 urlparse(project_s3_prefix).scheme,
                 urlparse(project_s3_prefix).netloc,
-                str(Path(urlparse(project_s3_prefix).path) / Path(project_data_obj.data.details.path)) + ("/" if DataType(project_data_obj) == DataType.FOLDER else ""),
+                str(Path(urlparse(project_s3_prefix).path) / Path(project_data_obj.data.details.path.lstrip("/"))) + ("/" if DataType(project_data_obj.data.details.data_type) == DataType.FOLDER else ""),
                 None, None, None
             )
         )
