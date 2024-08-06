@@ -91,9 +91,9 @@ class ICAv2CwlAnalysisJsonInput(ICAv2AnalysisInput):
 
     def deference_cwl_input_json(self):
         from ..functions.project_pipelines_functions import (
-            convert_icav2_uris_to_data_ids_from_cwl_input_json
+            convert_uris_to_data_ids_from_cwl_input_json
         )
-        self.input_json_deferenced_dict, self.mount_paths_list, self.external_mounts_list = convert_icav2_uris_to_data_ids_from_cwl_input_json(
+        self.input_json_deferenced_dict, self.mount_paths_list, self.external_mounts_list = convert_uris_to_data_ids_from_cwl_input_json(
               self.input_json
         )
         self.data_ids = list(
