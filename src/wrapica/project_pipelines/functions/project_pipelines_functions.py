@@ -54,8 +54,8 @@ from ...utils.configuration import get_icav2_configuration
 from ...utils.cwl_typing_helpers import WorkflowInputParameterType
 from ...utils.globals import BLANK_PARAMS_XML_V2_FILE_CONTENTS, NEXTFLOW_VERSION_UUID
 
-from ...enums import AnalysisStorageSize, WorkflowLanguage, DataType, PipelineStatus
-from ...utils.miscell import is_uuid_format
+from ...enums import AnalysisStorageSize, WorkflowLanguage, DataType, PipelineStatus, UriType
+from ...utils.miscell import is_uuid_format, is_uri_format
 from ...utils.nextflow_helpers import (
     convert_base_config_to_icav2_base_config,
     write_params_xml_from_nextflow_schema_json
@@ -1013,6 +1013,23 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
         # External Data List
     List[AnalysisInputExternalData]
 ]:
+    DeprecationWarning(
+        "This function is deprecated, "
+        "please use convert_uris_to_data_ids_from_cwl_input_json instead"
+    )
+    return convert_uris_to_data_ids_from_cwl_input_json(input_obj)
+
+
+def convert_uris_to_data_ids_from_cwl_input_json(
+        input_obj: Union[str, int, bool, Dict, List]
+) -> Tuple[
+    # Input Object
+    Union[str, Dict, List],
+        # Mount List
+    List[AnalysisInputDataMount],
+        # External Data List
+    List[AnalysisInputExternalData]
+]:
     """
     From a cwl input json, convert all the icav2 uris to data ids
 
@@ -1084,7 +1101,7 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
     # Convert dict of list types recursively
     if isinstance(input_obj, List):
         for input_item in input_obj:
-            input_obj_new_item, mount_list_new, external_data_list_new = convert_icav2_uris_to_data_ids_from_cwl_input_json(
+            input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_cwl_input_json(
                 input_item)
             input_obj_new_list.append(input_obj_new_item)
             mount_list.extend(mount_list_new)
@@ -1095,13 +1112,18 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
     if isinstance(input_obj, Dict):
         if "class" in input_obj.keys() and input_obj["class"] in ["File", "Directory"]:
             # Resolve location
-            if input_obj.get("location", "").startswith("icav2://"):
+            if (
+                is_uri_format(input_obj.get("location", "")) and
+                UriType(urlparse(input_obj.get("location", "")).scheme) in [UriType.ICAV2, UriType.S3]
+            ):
                 # Check directory has a trailing slash
                 if input_obj.get("Directory", None) is not None and not input_obj["location"].endswith("/"):
                     logger.error("Please ensure directories end with a trailing slash!")
                     logger.error(
-                        f"Got location '{input_obj.get('location')}' for directory object. Please add a trailing slash and try again")
+                        f"Got location '{input_obj.get('location')}' for directory object. "
+                        f"Please add a trailing slash and try again")
                     raise ValueError
+
                 # Get relative location path
                 input_obj_new: ProjectData = convert_icav2_uri_to_project_data_obj(input_obj.get("location"))
                 data_type: DataType = DataType(input_obj_new.data.details.data_type)  # One of FILE | FOLDER
@@ -1231,7 +1253,7 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
                 old_secondary_files = input_obj.get("secondaryFiles", [])
                 input_obj["secondaryFiles"] = []
                 for input_item in old_secondary_files:
-                    input_obj_new_item, mount_list_new, external_data_list_new = convert_icav2_uris_to_data_ids_from_cwl_input_json(
+                    input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_cwl_input_json(
                         input_item)
                     input_obj["secondaryFiles"].append(input_obj_new_item)
                     mount_list.extend(mount_list_new)
@@ -1242,7 +1264,7 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
             input_obj_dict = {}
             for key, value in input_obj.items():
                 input_obj_dict[
-                    key], mount_list_new, external_data_list_new = convert_icav2_uris_to_data_ids_from_cwl_input_json(
+                    key], mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_cwl_input_json(
                     value)
                 mount_list.extend(mount_list_new)
                 external_data_list.extend(external_data_list_new)
