@@ -51,7 +51,7 @@ from libica.openapi.v2.models import (
 # Local imports
 from ...utils.logger import get_logger
 from ...utils.configuration import get_icav2_configuration
-from ...utils.cwl_typing_helpers import WorkflowInputParameterType
+from ...utils.cwl_typing_helpers import WorkflowInputParameterType, WorkflowType
 from ...utils.globals import BLANK_PARAMS_XML_V2_FILE_CONTENTS, NEXTFLOW_VERSION_UUID
 
 from ...enums import AnalysisStorageSize, WorkflowLanguage, DataType, PipelineStatus, UriType
@@ -67,8 +67,10 @@ if typing.TYPE_CHECKING:
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis
     from ..classes.analysis import ICAv2PipelineAnalysisTags
 
+
 AnalysisType = Union[AnalysisV3, AnalysisV4]
 AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
+DEFAULT_ANALYSIS_STORAGE_SIZE = AnalysisStorageSize.SMALL
 
 logger = get_logger()
 
@@ -793,7 +795,7 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis, idempo
     return api_response
 
 
-def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis) -> AnalysisType:
+def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis, idempotency_key=None) -> AnalysisType:
     """
     Launch a Nextflow Workflow in a specific project context
 
@@ -864,12 +866,21 @@ def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowA
         endpoint_settings = api_instance.create_nextflow_analysis_endpoint.settings
         endpoint_settings['response_type'] = (AnalysisV4,)
 
+    # Collect kwargs
+    analysis_kwargs = {
+        "idempotency_key": idempotency_key
+    }
+
+    # Reduce analysis_kwargs to only those that are not None
+    analysis_kwargs = {k: v for k, v in analysis_kwargs.items() if v is not None}
+
     # example passing only required values which don't have defaults set
     try:
         # Create and start an analysis for a CWL pipeline.
         api_response: AnalysisV4 = api_instance.create_nextflow_analysis(
             project_id,
-            nextflow_analysis
+            nextflow_analysis,
+            **analysis_kwargs
         )
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->create_nextflow_analysis: %s\n" % e)
@@ -1770,7 +1781,30 @@ def create_cwl_project_pipeline(
 
     # Check analysis storage
     if analysis_storage is None:
-        analysis_storage: AnalysisStorageType = get_analysis_storage_from_analysis_storage_size(AnalysisStorageSize.SMALL)
+        workflow_obj: WorkflowType = load_document_by_uri(workflow_path)
+
+        # Check if hints
+        # FIXME - turn into function get_analysis_storage_size_from_workflow_obj
+        if hasattr(workflow_obj, 'hints') and workflow_obj.hints is not None:
+            try:
+                resource_requirement = next(
+                    filter(
+                        lambda requirement_iter: requirement_iter.class_ == "ResourceRequirement",
+                        workflow_obj.hints
+                    )
+                )
+
+                # Get the analysis storage from the hints
+                if hasattr(resource_requirement, 'extension_fields') and resource_requirement.extension_fields is not None:
+                    analysis_storage_size = resource_requirement.extension_fields.get('https://platform.illumina.com/rdf/ica/resources/storage', None)
+                    if analysis_storage_size is not None:
+                        analysis_storage = get_analysis_storage_from_analysis_storage_size(AnalysisStorageSize(analysis_storage_size))
+
+            except StopIteration:
+                pass
+
+        if analysis_storage is None:
+            analysis_storage: AnalysisStorageType = get_analysis_storage_from_analysis_storage_size(DEFAULT_ANALYSIS_STORAGE_SIZE)
 
     # Add params xml file to the file list
     if params_xml_file is None:
@@ -1866,6 +1900,7 @@ def create_cwl_workflow_from_zip(
         # Check the workflow path
         if not workflow_path.is_file():
             logger.error("Cannot create cwl workflow from zip, expected a file named 'workflow.cwl'")
+            raise FileNotFoundError
 
         # Get the tool paths (these might not exist)
         tool_paths = list(
@@ -1888,7 +1923,8 @@ def create_cwl_workflow_from_zip(
         # Add workflow description from workflow.cwl
         # If not set
         if workflow_description is None:
-            workflow_description = load_document_by_uri(workflow_path).get("doc", None)
+            workflow_obj: WorkflowType = load_document_by_uri(workflow_path)
+            workflow_description = str(workflow_obj.doc)
 
         # Create the cwl workflow
         return create_cwl_project_pipeline(
@@ -2139,7 +2175,7 @@ def create_nextflow_project_pipeline(
 
     # Check analysis storage
     if analysis_storage is None:
-        analysis_storage: AnalysisStorageType = get_analysis_storage_from_analysis_storage_size(AnalysisStorageSize.SMALL)
+        analysis_storage: AnalysisStorageType = get_analysis_storage_from_analysis_storage_size(DEFAULT_ANALYSIS_STORAGE_SIZE)
 
     # Add params xml file to the file list
     if params_xml_file is None:
