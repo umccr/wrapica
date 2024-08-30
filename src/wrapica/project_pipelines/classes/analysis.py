@@ -450,7 +450,7 @@ class ICAv2PipelineAnalysis:
         # Set the analysis
         self.analysis: Optional[Union[CreateCwlAnalysis, CreateNextflowAnalysis]] = None
 
-    def __call__(self) -> Analysis:
+    def __call__(self, idempotency_key: Optional[str] = None) -> Analysis:
         """
         Fix up the engine parameters, and generate a CWL Analysis Object
         :return:
@@ -461,7 +461,7 @@ class ICAv2PipelineAnalysis:
         # Create analysis
         self.analysis = self.create_analysis()
 
-        return self.launch_analysis()
+        return self.launch_analysis(idempotency_key=idempotency_key)
 
     def get_analysis_output_mapping_from_uri(self) -> AnalysisOutputMapping:
         """
@@ -521,7 +521,7 @@ class ICAv2PipelineAnalysis:
         # Implemented in subclass
         raise NotImplementedError
 
-    def launch_analysis(self) -> Analysis:
+    def launch_analysis(self, idempotenty_key: Optional[str] = None) -> Analysis:
         # Implemented in subclass
         raise NotImplementedError
 

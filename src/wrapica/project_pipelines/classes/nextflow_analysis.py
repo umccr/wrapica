@@ -365,9 +365,10 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             analysis_output=self.engine_parameters.analysis_output
         )
 
-    def launch_analysis(self) -> Analysis:
+    def launch_analysis(self, idempotency_key: Optional[str] = None) -> Analysis:
         from ..functions.project_pipelines_functions import launch_nextflow_workflow
         return launch_nextflow_workflow(
             project_id=self.project_id,
             nextflow_analysis=self.analysis,
+            idempotency_key=idempotency_key
         )
