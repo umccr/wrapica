@@ -266,6 +266,32 @@ def get_workflow_input_type_from_array_schema(workflow_input: WorkflowInputParam
     :param workflow_input:
     :return:
     """
+    if workflow_input.type_.items == "string":
+        return [
+            "string" if workflow_input.default is None else workflow_input.default
+        ],
+    elif workflow_input.type_.items == "int":
+        return [
+            1 if workflow_input.default is None else workflow_input.default
+        ],
+    elif workflow_input.type_.items == "boolean":
+        return [
+            False if workflow_input.default is None else workflow_input.default
+        ]
+    elif workflow_input.type_.items == "File":
+        return [
+            {
+                "class": "File",
+                "location": "icav2://project_id/path/to/file"
+            }
+        ]
+    elif workflow_input.type_.items == "Directory":
+        return [
+            {
+                "class": "Directory",
+                "location": "icav2://project_id/path/to/dir/"
+            }
+        ]
     return [
         CWLSchema.load_schema_from_uri(workflow_input.type_.items).get_inputs_template()
     ]
