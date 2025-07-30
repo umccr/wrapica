@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Import models
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     AnalysisInputExternalData,
     AwsTempCredentials,
     CreateData,
@@ -65,7 +65,8 @@ from .functions.project_data_functions import (
     get_file_by_file_name_from_project_data_list,
     project_data_copy_batch_handler,
     delete_project_data,
-    move_project_data
+    move_project_data,
+    add_tag_to_data_object
 )
 
 __all__ = [
@@ -129,6 +130,7 @@ __all__ = [
     'get_file_by_file_name_from_project_data_list',
     'project_data_copy_batch_handler',
     'delete_project_data',
-    'move_project_data'
+    'move_project_data',
+    'add_tag_to_data_object'
 ]
 

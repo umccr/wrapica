@@ -29,7 +29,6 @@ install_test_pypi:
 		--extra-index-url https://pypi.org/simple/ \
 		wrapica==${WRAPICA_VERSION}
 
-
 build_docs_quick:
 	@sphinx-build docs/ docs/_build/
 

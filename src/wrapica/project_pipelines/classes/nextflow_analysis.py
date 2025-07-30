@@ -3,21 +3,14 @@
 """
 Nextflow analysis
 """
-
+import json
 # Imports
-from typing import List, Dict, Optional, Union
-from urllib.parse import urlparse
+from typing import List, Dict, Optional
 
-# Libica imports
-from libica.openapi.v2.models import (
-    AnalysisDataInput,
-    AnalysisOutputMapping,
-    AnalysisParameterInput,
-    AnalysisV3,
-    AnalysisV4,
-    CreateNextflowAnalysis,
-    InputParameter,
-    NextflowAnalysisInput,
+from libica.openapi.v3 import (
+    AnalysisInputDataMount, AnalysisInputExternalData, NextflowAnalysisWithCustomInput,
+    AnalysisOutputMapping, CreateNextflowWithCustomInputAnalysis,
+    AnalysisV4 as Analysis
 )
 
 # Local parent imports
@@ -28,15 +21,13 @@ from .analysis import (
     ICAv2AnalysisInput
 )
 
+
 # Local imports
-from ...enums import (
-    AnalysisStorageSize, WorkflowLanguage,
-    StructuredInputParameterType, StructuredInputParameterTypeMapping, UriType
+from ...literals import (
+    WorkflowLanguageType, AnalysisStorageSizeType,
 )
 from ...utils.logger import get_logger
-from ...utils.miscell import is_str_type_representation, nextflow_parameter_to_str, is_uri_format
 
-Analysis = Union[AnalysisV3, AnalysisV4]
 
 # Set logger
 logger = get_logger()
@@ -48,203 +39,74 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
     if the input is an icav2 uri, it is considered an analysis data input
     """
 
-    object_type = "STRUCTURED"
-
     def __init__(
         self,
         input_json: Dict,
-        pipeline_id: str,
-        project_id: str
+        cache_uri: Optional[str] = None,
     ):
         # Initialise parent class
-        super().__init__(
-            object_type=self.object_type
-        )
+        super().__init__()
+
+        # Get the cache uri from the input_json if it exists
+        # Required if the nextflow pipeline has a parameter called 'input' that is a list of objects
+        self.cache_uri: Optional[str] = cache_uri
 
         # Set inputs
         self.input_json: Dict = input_json
 
-        # Insert pipeline id and project id
-        self.pipeline_id: str = pipeline_id
-        self.project_id: str = project_id
-
-        # Split input types
-        self.inputs: List[AnalysisDataInput] = []
-        self.parameters: List[AnalysisParameterInput] = []
+        # Initialise values after dereferencing
+        self.data_ids: List[str] = []
+        self.input_json_deferenced_dict: Dict = {}
+        self.mount_paths_list: List[AnalysisInputDataMount] = []
+        self.external_mounts_list: List[AnalysisInputExternalData] = []
+        self.input_json_str: Optional[str] = None
 
     def validate_input(self):
         """
-        Validate the input parameters much their expected inputs from the pipeline
+        Cannot yet validate the input as we dont have an easy way to collect a JSON schema for the Nextflow pipeline.
+        We can do this for non-proprietary pipelines, but not for proprietary pipelines.
+        User is expected to know the input format of the Nextflow pipeline they are using.
         :return:
         """
-        from ..functions.project_pipelines_functions import (
-            get_project_pipeline_input_parameters,
-            get_project_pipeline_configuration_parameters
-        )
+        pass
 
-        # Get the pipeline input parameters
-        pipeline_input_parameters: List[InputParameter] = get_project_pipeline_input_parameters(
-            project_id=self.project_id,
-            pipeline_id=self.pipeline_id
-        )
+    def create_analysis_input(self) -> NextflowAnalysisWithCustomInput:
+        # Deference cwl input json
+        self.deference_nextflow_input_json()
 
-        # Get the pipeline configuration parameters
-        #pipeline_configuration_parameters: List[PipelineConfigurationParameter] = (
-        pipeline_configuration_parameters: List[Dict] = (
-            get_project_pipeline_configuration_parameters(
-                project_id=self.project_id,
-                pipeline_id=self.pipeline_id
-            )
-        )
-
-        # With the input parameters, we can validate against the input json
-        errors_list = []
-        for input_parameter in pipeline_input_parameters:
-            # Check required inputs
-            if input_parameter.required:
-                if not any(
-                    list(
-                        map(
-                            lambda input_iter: input_iter.parameter_code == input_parameter.code,
-                            self.inputs
-                        )
-                    )
-                ):
-                    logger.error(f"Required input parameter {input_parameter.code} not found in input json")
-                    errors_list.append(f"Required input parameter {input_parameter.code} not found in input json")
-
-            # Check if any multi-values allow for multiple values
-            if not input_parameter.multi_value:
-                if (
-                    len(
-                        list(
-                            filter(
-                                lambda input_iter: input_iter.parameter_code == input_parameter.code,
-                                self.inputs
-                            )
-                        )
-                    ) > 1
-                ):
-                    logger.error(f"non-multiple input parameter {input_parameter.code} specified multiple times")
-                    errors_list.append(f"non-multiple input parameter {input_parameter.code} specified multiple times")
-
-        # Iterate through configuration parameters
-        for configuration_parameter in pipeline_configuration_parameters:
-            # Check if required parameter is in configuration list
-            if configuration_parameter.get('required'):
-                if not any(
-                    list(
-                        map(
-                            lambda parameter_iter: parameter_iter.code == configuration_parameter.get("code"),
-                            self.parameters
-                        )
-                    )
-                ):
-                    logger.error(f"Required configuration parameter {configuration_parameter.get('code')} not found in input json")
-                    errors_list.append(f"Required configuration parameter {configuration_parameter.get('code')} not found in input json")
-
-            # Check if any multi-values allow for multiple values
-            if not configuration_parameter.get("multi_value"):
-                if (
-                    len(
-                        list(
-                            filter(
-                                lambda parameter_iter: parameter_iter.code == configuration_parameter.get("code"),
-                                self.parameters
-                            )
-                        )
-                    ) > 1
-                ):
-                    logger.error(f"non-multiple configuration parameter {configuration_parameter.get('code')} specified multiple times")
-                    errors_list.append(f"non-multiple configuration parameter {configuration_parameter.get('code')} specified multiple times")
-
-            # Check type of parameter matches the type in the configuration
-            for parameter in self.parameters:
-                if parameter.code == configuration_parameter.get("code"):
-                    if not (
-                        # Check if the parameter value is of the expected configuration parameter type
-                        is_str_type_representation(
-                            parameter.value,
-                            StructuredInputParameterTypeMapping[
-                                StructuredInputParameterType(
-                                    configuration_parameter.get("type")
-                                ).name
-                            ].value
-                        )
-                    ):
-                        logger.error(f"Parameter {parameter.code} is not of type {configuration_parameter.get('type')}")
-                        errors_list.append(f"Parameter {parameter.code} is not of type {configuration_parameter.get('type')}")
-
-            if len(errors_list) == 0:
-                logger.info("Inputs validation passed")
-                return
-
-            logger.error("Inputs validation failed")
-            for error in errors_list:
-                logger.error(error)
-            raise ValueError("Inputs validation failed")
-
-    def create_analysis_input(self) -> NextflowAnalysisInput:
         # Set input json to string
-        self.split_input_json_by_inputs_and_parameters()
+        self.set_input_json()
 
         self.validate_input()
 
         # Generate a CWL analysis input
-        return NextflowAnalysisInput(
-            inputs=self.inputs,
-            parameters=self.parameters,
+        return NextflowAnalysisWithCustomInput(
+            customInput=self.input_json_str,
+            dataIds=self.data_ids,
+            mounts=self.mount_paths_list,
+            externalData=self.external_mounts_list
         )
 
-    def split_input_json_by_inputs_and_parameters(self):
-        # Local imports for functions
-        from ...project_data import convert_icav2_uri_to_project_data_obj
-        for key, value in self.input_json.items():
+    def deference_nextflow_input_json(self):
+        from ..functions.project_pipelines_functions import (
+            convert_uris_to_data_ids_from_nextflow_input_json
+        )
+        self.input_json_deferenced_dict, self.mount_paths_list, self.external_mounts_list = convert_uris_to_data_ids_from_nextflow_input_json(
+              self.input_json,
+              cache_uri=self.cache_uri
+        )
+        self.data_ids = list(
+            map(
+                lambda mount_path_iter: mount_path_iter.data_id,
+                self.mount_paths_list
+            )
+        )
 
-            if isinstance(value, List):
-                if len(value) == 0:
-                    continue
-                if (
-                        is_uri_format(value[0]) and
-                        UriType(urlparse(value[0]).scheme) in [UriType.ICAV2, UriType.S3]
-                ):
-                    self.inputs.append(
-                        AnalysisDataInput(
-                            parameter_code=key,
-                            data_ids=list(
-                                map(
-                                    lambda icav2_uri_iter: convert_icav2_uri_to_project_data_obj(icav2_uri_iter).data.id,
-                                    value
-                                )
-                            )
-                        )
-                    )
-                else:
-                    self.parameters.append(
-                        AnalysisParameterInput(
-                            code=key,
-                            multi_value=map(nextflow_parameter_to_str, value)
-                        )
-                    )
-            else:
-                if (
-                        isinstance(value, str) and
-                        is_uri_format(value) and
-                        UriType(urlparse(value).scheme) in [UriType.ICAV2, UriType.S3]
-                ):
-                    self.inputs.append(
-                        AnalysisDataInput(
-                            parameter_code=key,
-                            data_ids=[convert_icav2_uri_to_project_data_obj(value).data.id]
-                        )
-                    )
-                else:
-                    self.parameters.append(
-                        AnalysisParameterInput(
-                            code=key,
-                            value=nextflow_parameter_to_str(value)
-                        )
-                    )
+    def set_input_json(self):
+        if not 'outdir' in self.input_json_deferenced_dict.keys():
+            self.input_json_deferenced_dict['outdir'] = 'out/'
+
+        self.input_json_str = json.dumps(self.input_json_deferenced_dict, indent=2)
 
 
 class ICAv2NextflowEngineParameters(ICAv2EngineParameters):
@@ -252,18 +114,17 @@ class ICAv2NextflowEngineParameters(ICAv2EngineParameters):
     The ICAv2 EngineParameters has the following properties
     """
 
-    workflow_language = WorkflowLanguage.NEXTFLOW
+    workflow_language: WorkflowLanguageType = "NEXTFLOW"
 
     def __init__(
         self,
         project_id: Optional[str] = None,
         pipeline_id: Optional[str] = None,
         analysis_output: Optional[List[AnalysisOutputMapping]] = None,
-        analysis_input: Optional[NextflowAnalysisInput] = None,
+        analysis_input: Optional[NextflowAnalysisWithCustomInput] = None,
         tags: Optional[ICAv2PipelineAnalysisTags] = None,
         analysis_storage_id: Optional[str] = None,
-        analysis_storage_size: Optional[AnalysisStorageSize] = None,
-        activation_id: Optional[str] = None,
+        analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
     ):
         # Initialise parameters
         super().__init__(
@@ -274,7 +135,6 @@ class ICAv2NextflowEngineParameters(ICAv2EngineParameters):
             tags=tags,
             analysis_storage_id=analysis_storage_id,
             analysis_storage_size=analysis_storage_size,
-            activation_id=activation_id
         )
 
 
@@ -291,7 +151,6 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
     tags: ICAv2PipelineAnalysisTags,
     analysis_input: Union[CwlAnalysisJsonInput, NextflowAnalysisInput],
     analysis_output: str,
-    activation_code_details_id: Optional[str] = None,
     analysis_storage_size: Optional[AnalysisStorageSize] = None
 
     """
@@ -302,10 +161,9 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
         user_reference: str,
         project_id: str,
         pipeline_id: str,
-        analysis_input: NextflowAnalysisInput,
+        analysis_input: NextflowAnalysisWithCustomInput,
         analysis_storage_id: Optional[str] = None,
-        analysis_storage_size: Optional[AnalysisStorageSize] = None,
-        activation_id: Optional[str] = None,
+        analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         # Output parameters
         analysis_output_uri: Optional[str] = None,
         ica_logs_uri: Optional[str] = None,
@@ -320,7 +178,6 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
         :param analysis_input
         :param analysis_storage_id
         :param analysis_storage_size
-        :param activation_id
         :param analysis_output_uri
         :param ica_logs_uri
         :param tags
@@ -336,7 +193,6 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             analysis_input=analysis_input,
             analysis_storage_id=analysis_storage_id,
             analysis_storage_size=analysis_storage_size,
-            activation_id=activation_id,
             analysis_output_uri=analysis_output_uri,
             ica_logs_uri=ica_logs_uri,
             tags=tags
@@ -351,18 +207,16 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             tags=self.tags,
             analysis_storage_id=self.analysis_storage_id,
             analysis_storage_size=self.analysis_storage_size,
-            activation_id=self.activation_id,
         )
 
-    def create_analysis(self) -> CreateNextflowAnalysis:
-        return CreateNextflowAnalysis(
-            user_reference=self.user_reference,
-            pipeline_id=self.pipeline_id,
+    def create_analysis(self) -> CreateNextflowWithCustomInputAnalysis:
+        return CreateNextflowWithCustomInputAnalysis(
+            userReference=self.user_reference,
+            pipelineId=self.pipeline_id,
             tags=self.engine_parameters.tags(),
-            activation_code_detail_id=self.engine_parameters.activation_id,
-            analysis_input=self.analysis_input,
-            analysis_storage_id=self.engine_parameters.analysis_storage_id,
-            analysis_output=self.engine_parameters.analysis_output
+            analysisInput=self.analysis_input,
+            analysisStorageId=self.engine_parameters.analysis_storage_id,
+            analysisOutput=self.engine_parameters.analysis_output
         )
 
     def launch_analysis(self, idempotency_key: Optional[str] = None) -> Analysis:

@@ -4,11 +4,11 @@
 from typing import List, Optional
 
 # Libica Api imports
-from libica.openapi.v2 import ApiClient, ApiException
-from libica.openapi.v2.api.region_api import RegionApi
+from libica.openapi.v3 import ApiClient, ApiException
+from libica.openapi.v3.api.region_api import RegionApi
 
 # Libica model imports
-from libica.openapi.v2.models import Region
+from libica.openapi.v3.models import Region
 
 # Local imports
 from ...utils.logger import get_logger

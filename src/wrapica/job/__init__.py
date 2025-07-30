@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Model imports
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     Job
 )
 

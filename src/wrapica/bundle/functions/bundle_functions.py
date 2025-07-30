@@ -5,14 +5,14 @@ from typing import List, Optional
 import re
 
 # Libica api imports
-from libica.openapi.v2 import ApiClient, ApiException
-from libica.openapi.v2.api.bundle_api import BundleApi
-from libica.openapi.v2.api.bundle_data_api import BundleDataApi
-from libica.openapi.v2.api.bundle_pipeline_api import BundlePipelineApi
-from libica.openapi.v2.api.project_api import ProjectApi
+from libica.openapi.v3 import ApiClient, ApiException
+from libica.openapi.v3.api.bundle_api import BundleApi
+from libica.openapi.v3.api.bundle_data_api import BundleDataApi
+from libica.openapi.v3.api.bundle_pipeline_api import BundlePipelineApi
+from libica.openapi.v3.api.project_api import ProjectApi
 
 # Libica model imports
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     Data,
     BundleData,
     BundlePagedList,
@@ -24,10 +24,14 @@ from libica.openapi.v2.models import (
 )
 
 # Local imports
-from ...enums import PipelineStatus, DataType, BundleStatus
+from ...literals import BundleStatusType
 from ...pipelines.functions.pipelines_functions import get_pipeline_obj_from_pipeline_id
 from ...utils.configuration import get_icav2_configuration
-from ...utils.globals import LIBICAV2_DEFAULT_PAGE_SIZE
+from ...utils.globals import (
+    LIBICAV2_DEFAULT_PAGE_SIZE,
+    FILE_DATA_TYPE,
+    FOLDER_DATA_TYPE
+)
 
 # Set logger
 from ...utils.logger import get_logger
@@ -100,11 +104,11 @@ def generate_empty_bundle(
 
     create_bundle = CreateBundle(
         name=bundle_name,
-        short_description=short_description,
-        bundle_release_version=bundle_version,
-        bundle_version_comment=version_comment,
-        region_id=region_id,
-        bundle_status="DRAFT",
+        shortDescription=short_description,
+        bundleReleaseVersion=bundle_version,
+        bundleVersionComment=version_comment,
+        regionId=region_id,
+        bundleStatus="DRAFT",
         categories=categories,
         links=Links(
             links=[
@@ -260,7 +264,7 @@ def add_pipeline_to_bundle(
 
     # Check Pipeline Status
     pipeline_obj = get_pipeline_obj_from_pipeline_id(pipeline_id)
-    if not PipelineStatus(pipeline_obj.status) == PipelineStatus.RELEASED:
+    if not pipeline_obj.status == "RELEASED":
         logger.warning(
             f"Pipeline '{pipeline_id}' is not released. Please release the pipeline before adding it to a bundle")
         return False
@@ -338,7 +342,7 @@ def add_project_data_to_bundle(
 
     # Confirm data region and bundle region are the same
     if not project_data_obj.data.details.region.id == bundle_obj.region.id:
-        logger.error(f"Data region '{project_data_obj.region_id}' and Bundle region '{bundle_id}' are not the same")
+        logger.error(f"Data region '{project_data_obj.data.details.region.code}' and Bundle region '{bundle_obj.region.code}' are not the same")
         return False
 
     # Initialise the API client
@@ -348,7 +352,7 @@ def add_project_data_to_bundle(
 
     try:
         # Link a data to a bundle.
-        api_instance.link_data_to_bundle(bundle_id, project_data_obj.id)
+        api_instance.link_data_to_bundle(bundle_id, project_data_obj.data.id)
         return True
     except ApiException as e:
         logger.error("Exception when calling BundleDataApi->link_data_to_bundle: %s\n" % e)
@@ -465,13 +469,14 @@ def filter_bundles(
     bundle_name: Optional[str] = None,
     project_id: Optional[str] = None,
     region_id: Optional[str] = None,
-    status: Optional[BundleStatus] = None,
+    status: Optional[BundleStatusType] = None,
     creator_id: Optional[str] = None
 ) -> Optional[List[Bundle]]:
     """
     Get a list of bundles but filter by name, region id, status, and creator id
 
     :param bundle_name:  The name of the bundle
+    :param project_id: The project id
     :param region_id:  The region id of the bundle
     :param status:  The status of the bundle
     :param creator_id:  The creator id of the bundle
@@ -561,7 +566,7 @@ def filter_bundles(
         if region_id is not None and not bundle.region.id == region_id:
             continue
         # Check bundle status match
-        if status is not None and not BundleStatus[bundle.status] == status:
+        if status is not None and not bundle.status == status:
             continue
         # Check creator id
         if creator_id is not None and not bundle.owner_id == creator_id:
@@ -678,7 +683,7 @@ def filter_bundle_data_to_top_level_only(bundle_data: List[BundleData]) -> List[
 
         all_folders_sorted = sorted(
             filter(
-                lambda bundle_data_iter: DataType[bundle_data_iter.data.details.data_type] == DataType.FOLDER,
+                lambda bundle_data_iter: bundle_data_iter.data.details.data_type == FOLDER_DATA_TYPE,
                 project_bundle_data_list
             ),
             key=lambda bundle_data_sort_iter: bundle_data_sort_iter.data.details.path
@@ -687,7 +692,7 @@ def filter_bundle_data_to_top_level_only(bundle_data: List[BundleData]) -> List[
         # Find top folders only (where folder is not a child of another folder)
         for index_i, bundle_folder_data_iter_i in enumerate(all_folders_sorted):
             # Skip files
-            if not DataType[bundle_folder_data_iter_i.data.details.data_type] == DataType.FOLDER:
+            if not bundle_folder_data_iter_i.data.details.data_type == FOLDER_DATA_TYPE:
                 continue
             if any(
                 map(
@@ -702,7 +707,7 @@ def filter_bundle_data_to_top_level_only(bundle_data: List[BundleData]) -> List[
         # Find top level files in bundle data by only selecting files that are not children of folders
         for bundle_file_data_iter_i in project_bundle_data_list:
             # Skip folders
-            if not DataType[bundle_file_data_iter_i.data.details.data_type] == DataType.FILE:
+            if not bundle_file_data_iter_i.data.details.data_type == FILE_DATA_TYPE:
                 continue
             if any(
                 map(
@@ -847,7 +852,7 @@ def link_bundle_to_project(
     # example passing only required values which don't have defaults set
     try:
         # Link bundle to project
-        api_response = api_instance.link_project_bundle(project_id, bundle_id)
+        api_instance.link_project_bundle(project_id, bundle_id)
     except ApiException as e:
         logger.error("Exception when calling ProjectApi->link_project_bundle: %s\n" % e)
         raise ApiException
@@ -903,7 +908,7 @@ def unlink_bundle_from_project(
     # example passing only required values which don't have defaults set
     try:
         # Link bundle to project
-        api_response = api_instance.unlink_project_bundle(project_id, bundle_id)
+        api_instance.unlink_project_bundle(project_id, bundle_id)
     except ApiException as e:
         logger.error("Exception when calling ProjectApi->unlink_project_bundle: %s\n" % e)
         raise ApiException

@@ -25,7 +25,7 @@ from pathlib import Path
 
 # Wrapica imports
 from wrapica.project import get_project_id_from_project_code
-from wrapica.enums import DataType
+from wrapica.enums import Data
 from wrapica.libica_models import ProjectData
 from wrapica.project_data import (
     # Functions
@@ -38,9 +38,9 @@ from wrapica.project_data import (
 my_project_folder_obj: ProjectData = get_project_data_obj_from_project_id_and_path(
     project_id=get_project_id_from_project_code("my_project_name"),
     # Required value
-    data_path=Path("/path/to/my/project/folder"),  
+    data_path=Path("/path/to/my/project/folder"),
     # Optional FILE or FOLDER if not specified searches for both
-    data_type=DataType.FOLDER,  
+    data_type=FOLDER_DATA_TYPE,
     # Optional, default is True (cannot be created if data_type is not specified)
     create_data_if_not_found=False,
 )

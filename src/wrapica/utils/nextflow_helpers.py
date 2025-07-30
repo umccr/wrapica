@@ -6,11 +6,19 @@ from pathlib import Path
 from typing import List, Dict
 from xml.dom.minidom import Document
 import pandas as pd
+from libica.openapi.v3 import ApiClient
 from ruamel.yaml import CommentedMap, CommentedSeq
-from urllib.parse import urlparse
+
+
+# Libica imports
+from libica.openapi.v3.models import (
+    PipelineLanguageVersion
+)
+from libica.openapi.v3.api.pipeline_language_api import PipelineLanguageApi
 
 # Wrapica imports
-from wrapica.utils.globals import NEXTFLOW_PROCESS_LABEL_RE_OBJ, NEXTFLOW_TASK_POD_MAPPING
+from .configuration import get_icav2_configuration
+from .globals import NEXTFLOW_PROCESS_LABEL_RE_OBJ, NEXTFLOW_TASK_POD_MAPPING, DEFAULT_NEXTFLOW_VERSION
 
 
 def convert_base_config_to_icav2_base_config(base_config_path: Path):
@@ -95,6 +103,9 @@ def write_params_xml_from_nextflow_schema_json(
     """
     Get the params xml from the nextflow json input file (not the assets/schema_input.json file)
     :param nextflow_schema_json_path:
+    :param params_xml_path:
+    :param pipeline_name:
+    :param pipeline_version:
     :return:
     """
 
@@ -207,7 +218,10 @@ def write_params_xml_from_nextflow_schema_json(
 
                 data_input_element.setAttribute('code', property_name)
                 data_input_element.setAttribute('format', (
-                    "UNKNOWN" if not property_schema_dict.get("mimetype")
+                    "UNKNOWN" if (
+                            not property_schema_dict.get("mimetype") or
+                            property_schema_dict.get("mimetype").split("/")[-1].upper() == "PLAIN"
+                    )
                     else property_schema_dict.get("mimetype").split("/")[-1].upper()
                 ))
                 data_input_element.setAttribute('type', (
@@ -301,11 +315,16 @@ def write_params_xml_from_nextflow_schema_json(
             #params_xml_file_h.write("\n")
 
 
-def generate_samplesheet_file_from_input_dict(samplesheet_dict: List[Dict], schema_input_path: Path,
-                                              samplesheet_path: Path):
+def generate_samplesheet_file_from_input_dict(
+        samplesheet_dict: List[Dict],
+        schema_input_path: Path,
+        samplesheet_path: Path
+):
     """
     Generate the samplesheet csv from the samplesheet dict
     :param samplesheet_dict:
+    :param schema_input_path:
+    :param samplesheet_path:
     :return:
     """
     from ..project_data import convert_icav2_uri_to_project_data_obj, create_download_url
@@ -628,3 +647,43 @@ def download_nextflow_schema_input_json_from_pipeline_id(
         file_id=schema_json_pipeline_file_id.get("id"),
         file_path=schema_input_json_path
     )
+
+
+def get_nextflow_pipeline_versions_list() -> List[PipelineLanguageVersion]:
+    """
+    Get the list of nextflow pipeline versions from the ICAv2 API
+    :return:
+    """
+    # Create the API client
+    # Enter a context with an instance of the API client
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        pipeline_language_api = PipelineLanguageApi(api_client)
+
+    # Get the nextflow pipeline versions
+    return pipeline_language_api.get_nextflow_versions().items
+
+
+def get_default_nextflow_pipeline_version() -> PipelineLanguageVersion:
+    """
+    Get the default nextflow pipeline version from the ICAv2 API
+    :return:
+    """
+    # Get the list of nextflow pipeline versions
+    nextflow_pipeline_versions: List[PipelineLanguageVersion] = get_nextflow_pipeline_versions_list()
+
+    # Return the default nextflow pipeline version
+    return next(
+        filter(
+            lambda version_obj_iter_: version_obj_iter_.name == DEFAULT_NEXTFLOW_VERSION,
+            nextflow_pipeline_versions
+        )
+    )
+
+
+def get_default_nextflow_pipeline_version_id() -> str:
+    """
+    Get the default nextflow pipeline version name from the ICAv2 API
+    :return:
+    """
+    return get_default_nextflow_pipeline_version().id

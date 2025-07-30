@@ -23,6 +23,8 @@ Functions
      coerce_analysis_id_or_user_reference_to_analysis_id,
      get_analysis_obj_from_user_reference,
      coerce_analysis_id_or_user_reference_to_analysis_obj
+     update_project_data_obj,
+     add_tag_to_analysis
    :undoc-members:
    :show-inheritance:
    :exclude-members:

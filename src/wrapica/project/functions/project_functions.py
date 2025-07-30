@@ -3,14 +3,14 @@
 """
 Functions for project management
 """
-from typing import List, Optional, Dict
+from typing import List
 
 # Libica imports
-from libica.openapi.v2 import ApiClient, ApiException
-from libica.openapi.v2.api.project_api import ProjectApi
+from libica.openapi.v3 import ApiClient, ApiException
+from libica.openapi.v3.api.project_api import ProjectApi
 
 # Libica models
-from libica.openapi.v2.models import Project
+from libica.openapi.v3.models import Project
 
 # Local imports
 from ...utils.configuration import (
@@ -138,11 +138,13 @@ def get_project_id_from_project_name(
         print(project_id)
         # "1234-5678-9012-3456"
     """
-    for project_id_iter, project_name_iter in _get_project_mapping_dict().items():
-        if project_name_iter == project_name:
-            return project_id_iter
-
-    #return get_project_obj_from_project_name(project_name).id
+    try:
+        return next(filter(
+            lambda kv_iter_: kv_iter_[1] == project_name,
+            _get_project_mapping_dict().items()
+        ))[0]
+    except StopIteration as e:
+        raise StopIteration("Could not find project id from project name: %s" % project_name) from e
 
 
 # And vice-versa
@@ -152,9 +154,13 @@ def get_project_name_from_project_id(project_id: str) -> str:
     :param project_id:
     :return:
     """
-    for project_id_iter, project_name_iter in _get_project_mapping_dict().items():
-        if project_id_iter == project_id:
-            return project_name_iter
+    try:
+        return next(filter(
+            lambda kv_iter_: kv_iter_[0] == project_id,
+            _get_project_mapping_dict().items()
+        ))[1]
+    except StopIteration as e:
+        raise StopIteration("Could not find project name from project id: %s" % project_id) from e
 
 
 def check_project_has_data_sharing_enabled(project_id: str) -> bool:
