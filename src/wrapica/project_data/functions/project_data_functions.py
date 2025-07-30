@@ -5,24 +5,23 @@ List of available functions:
 
 """
 # Standard imports
-import json
 import re
+import warnings
 from io import TextIOWrapper
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Dict, List, Union, Optional, Any, Tuple
+from typing import Dict, List, Union, Optional, Any, Tuple, cast
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse
 import requests
 
-
 # Libica Api imports
-from libica.openapi.v2 import ApiClient, ApiException
-from libica.openapi.v2.api.project_data_api import ProjectDataApi
-from libica.openapi.v2.api.project_data_copy_batch_api import ProjectDataCopyBatchApi
+from libica.openapi.v3 import ApiException
+from libica.openapi.v3.api.project_data_api import ProjectDataApi
+from libica.openapi.v3.api.project_data_copy_batch_api import ProjectDataCopyBatchApi
 
 # Libica model imports
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     AnalysisInputExternalData,
     AwsTempCredentials,
     CreateData,
@@ -38,12 +37,28 @@ from libica.openapi.v2.models import (
     TempCredentials,
     Upload
 )
-from requests import RequestException
+from libica.openapi.v3 import ApiClient
+from libica.openapi.v3 import (
+    CreateFileData, CreateFolder,
+)
 
 # Local imports
-from ...enums import DataType, ProjectDataSortParameter, ProjectDataStatusValues, UriType
+from ...literals import (
+    DataType,
+    ProjectDataSortParameterType,
+    ProjectDataStatusValuesType,
+    UriType,
+    DataTagType
+)
 from ...utils.configuration import get_icav2_configuration, logger
-from ...utils.globals import LIBICAV2_DEFAULT_PAGE_SIZE, IS_REGEX_MATCH
+from ...utils.globals import (
+    LIBICAV2_DEFAULT_PAGE_SIZE,
+    IS_REGEX_MATCH,
+    FILE_DATA_TYPE,
+    FOLDER_DATA_TYPE,
+    ICAV2_URI_SCHEME,
+    S3_URI_SCHEME
+)
 from ...utils.miscell import is_uuid_format, is_uri_format
 
 
@@ -119,7 +134,7 @@ def get_project_data_file_id_from_project_id_and_path(
             filename=filename,
             filename_match_mode="EXACT",
             file_path_match_mode="FULL_CASE_INSENSITIVE",
-            type="FILE"
+            type=FILE_DATA_TYPE
         ).items
     except ApiException as e:
         if not create_file_if_not_found:
@@ -159,7 +174,7 @@ def create_data_in_project(
     :param project_id: The project ID
     :param parent_folder_path: The parent folder path of where the data object needs to be created
     :param data_name:  The name of the file or folder
-    :param data_type:  One of DataType.FILE or DataType.FOLDER
+    :param data_type:  One of "FILE" or "FOLDER"
 
     :return: The newly created project data object
     :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_]
@@ -185,9 +200,14 @@ def create_data_in_project(
             project_id="abcd-1234-efab-5678",
             parent_folder_path=Path("/path/to/folder/"),
             data_name="file.txt",
-            data_type=DataType.FILE
+            data_type="FILE"
         )
     """
+    warnings.warn(
+        "create_data_in_project is deprecated and will be removed in a future release. Use create_file_in_project or create_folder_in_project instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
 
     # Get the configuration
     configuration = get_icav2_configuration()
@@ -204,12 +224,13 @@ def create_data_in_project(
     # example passing only required values which don't have defaults set
     try:
         # Create a project data.
+        # Note that this is a deprecated function and will be removed in the future.
         api_response: ProjectData = api_instance.create_data_in_project(
             project_id=project_id,
             create_data=CreateData(
                 name=data_name,
-                folder_path=parent_folder_path,
-                data_type=DataType(data_type).value,
+                folderPath=parent_folder_path,
+                dataType=data_type,
             )
         )
     except ApiException as e:
@@ -253,12 +274,35 @@ def create_file_in_project(
             file_path=Path("/path/to/file.txt")
         )
     """
-    return create_data_in_project(
-        project_id=project_id,
-        parent_folder_path=file_path.parent,
-        data_name=file_path.name,
-        data_type=DataType.FILE
-    )
+
+    # Get the configuration
+    configuration = get_icav2_configuration()
+
+    # Enter a context with an instance of the API client
+    with ApiClient(configuration) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectDataApi(api_client)
+
+    parent_folder_path = str(file_path.absolute().parent) + "/"
+    if parent_folder_path == "//":
+        parent_folder_path = "/"
+
+    # example passing only required values which don't have defaults set
+    try:
+        # Create a project data.
+        api_response: ProjectData = api_instance.create_file(
+            project_id=project_id,
+            create_file_data=CreateFileData(
+                name=file_path.name,
+                folderPath=parent_folder_path,
+            )
+        )
+    except ApiException as e:
+        logger.error("Exception when calling ProjectDataApi->create_file: %s\n" % e)
+        raise ApiException
+
+    # Return the folder id
+    return api_response
 
 
 def create_folder_in_project(
@@ -294,12 +338,35 @@ def create_folder_in_project(
         )
 
     """
-    return create_data_in_project(
-        project_id=project_id,
-        parent_folder_path=folder_path.parent,
-        data_name=folder_path.name,
-        data_type=DataType.FOLDER
-    )
+
+    # Get the configuration
+    configuration = get_icav2_configuration()
+
+    # Enter a context with an instance of the API client
+    with ApiClient(configuration) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectDataApi(api_client)
+
+    parent_folder_path = str(folder_path.absolute().parent) + "/"
+    if parent_folder_path == "//":
+        parent_folder_path = "/"
+
+    # example passing only required values which don't have defaults set
+    try:
+        # Create a project data.
+        api_response: ProjectData = api_instance.create_folder(
+            project_id=project_id,
+            create_folder=CreateFolder(
+                name=folder_path.name,
+                folderPath=parent_folder_path
+            )
+        )
+    except ApiException as e:
+        logger.error("Exception when calling ProjectDataApi->create_folder: %s\n" % e)
+        raise ApiException
+
+    # Return the folder id
+    return api_response
 
 
 def get_project_data_folder_id_from_project_id_and_path(
@@ -365,7 +432,7 @@ def get_project_data_folder_id_from_project_id_and_path(
             filename=folder_name,
             filename_match_mode="EXACT",
             file_path_match_mode="FULL_CASE_INSENSITIVE",
-            type="FOLDER"
+            type=FOLDER_DATA_TYPE
         ).items
     except ApiException as e:
         logger.error("Exception when calling ProjectDataApi->get_project_data_list: %s\n" % e)
@@ -405,7 +472,7 @@ def get_project_data_id_from_project_id_and_path(
 
     :param project_id: The project context the data exists in
     :param data_path: The path to the data in the project
-    :param data_type: The data_type, one of DataType.FILE, DataType.FOLDER
+    :param data_type: The data_type, one of "FILE", "FOLDER"
     :param create_data_if_not_found:
 
     :raises: FileNotFoundError, NotADirectoryError, ApiException
@@ -431,17 +498,17 @@ def get_project_data_id_from_project_id_and_path(
         data_id: str = get_project_data_id_from_project_id_and_path(
             project_id="abcd-1234-efab-5678",
             data_path=Path("/path/to/folder/"),
-            data_type=DataType.FOLDER
+            data_type="FOLDER"
         )
 
         # Get a file
         data_id: str = get_project_data_id_from_project_id_and_path(
             project_id="abcd-1234-efab-5678",
             data_path=Path("/path/to/file.txt"),
-            data_type=DataType.FILE
+            data_type="FILE"
         )
     """
-    if data_type == DataType.FOLDER:
+    if data_type == FOLDER_DATA_TYPE:
         return get_project_data_folder_id_from_project_id_and_path(
             project_id=project_id,
             folder_path=data_path,
@@ -521,7 +588,7 @@ def get_project_data_obj_from_project_id_and_path(
 
     :param project_id: The project id to search in
     :param data_path: The path to the data in the project
-    :param data_type: The data_type, one of DataType.FILE, DataType.FOLDER
+    :param data_type: The data_type, one of "FILE", "FOLDER"
     :param create_data_if_not_found: If the data is not found, and create_data_if_not_found is True, create the data
 
     :return: The project data object
@@ -546,14 +613,14 @@ def get_project_data_obj_from_project_id_and_path(
         project_folder_data_obj: ProjectData = get_project_data_obj_from_project_id_and_path(
             project_id="abcd-1234-efab-5678",
             data_path=Path("/path/to/folder/"),
-            data_type=DataType.FOLDER
+            data_type="FOLDER"
         )
 
         # Get a file project data object
         project_file_data_obj: ProjectData = get_project_data_obj_from_project_id_and_path(
             project_id="abcd-1234-efab-5678",
             data_path=Path("/path/to/file.txt"),
-            data_type=DataType.FILE
+            data_type="FILE"
         )
 
         print(project_folder_data_obj.data.id)
@@ -624,13 +691,13 @@ def list_project_data_non_recursively(
         parent_folder_id: Optional[str] = None,
         parent_folder_path: Optional[Path] = None,
         file_name: Optional[Union[str, List[str]]] = None,
-        status: Optional[Union[ProjectDataStatusValues, List[ProjectDataStatusValues]]] = None,
+        status: Optional[Union[ProjectDataStatusValuesType, List[ProjectDataStatusValuesType]]] = None,
         data_type: Optional[DataType] = None,
         creation_date_after: Optional[datetime] = None,
         creation_date_before: Optional[datetime] = None,
         status_date_after: Optional[datetime] = None,
         status_date_before: Optional[datetime] = None,
-        sort: Optional[Union[ProjectDataSortParameter, List[ProjectDataSortParameter]]] = ""
+        sort: Optional[Union[ProjectDataSortParameterType, List[ProjectDataSortParameterType]]] = ""
 ) -> List[ProjectData]:
     """
     Given a project id and parent folder id or path,
@@ -641,7 +708,7 @@ def list_project_data_non_recursively(
     :param parent_folder_id: The parent folder id (can use parent_folder_path instead)
     :param file_name: The name of the file or directory to look for, can also be a list of names, may also use * as a wildcard
     :param status: The status of the data, one of ProjectDataStatusValues
-    :param data_type: The type of the data, one of DataType.FILE, DataType.FOLDER
+    :param data_type: The type of the data, one of "FILE", "FOLDER"
     :param creation_date_after: Return only data created after this date
     :param creation_date_before: Return only data created before this date
     :param status_date_after: Return only data with status date after this date
@@ -681,7 +748,7 @@ def list_project_data_non_recursively(
             parent_folder_path=Path("/path/to/folder/"),
             file_name="file.txt",
             status=ProjectDataStatusValues.COMPLETED,
-            data_type=DataType.FILE,
+            data_type="FILE",
             creation_date_after=datetime(2021, 1, 1),
             creation_date_before=datetime(2021, 12, 31),
             status_date_after=datetime(2021, 1, 1),
@@ -716,10 +783,10 @@ def list_project_data_non_recursively(
 
     # Check status
     if status is not None:
-        if isinstance(status, ProjectDataStatusValues):
+        if isinstance(status, ProjectDataStatusValuesType):
             status = [status]
         elif isinstance(status, str):
-            status = [ProjectDataStatusValues(status)]
+            status = [ProjectDataStatusValuesType(status)]
         status = list(
             map(
                 lambda status_iter: status_iter.value,
@@ -727,20 +794,15 @@ def list_project_data_non_recursively(
             )
         )
 
-    # Check data_type
-    if data_type is not None:
-        if isinstance(data_type, (DataType, str)):
-            data_type = DataType(data_type).value
-
     # Check sort
     if sort == "":
         sort = None
 
     if sort is not None:
-        if isinstance(sort, ProjectDataSortParameter):
+        if isinstance(sort, ProjectDataSortParameterType):
             sort = [sort]
         elif isinstance(sort, str):
-            sort = [ProjectDataSortParameter(sort)]
+            sort = [ProjectDataSortParameterType(sort)]
         # Complete a comma join of the sort parameters
         sort = ", ".join(
             list(
@@ -834,7 +896,7 @@ def find_project_data_recursively(
     :param parent_folder_id: The parent folder id (alternative to parent_folder_path)
     :param parent_folder_path: The path to the parent folder (alternative to parent_folder_id)
     :param name: The name of the file or directory to look for, may also use a regex pattern
-    :param data_type: The type of the data, one of DataType.FILE, DataType.FOLDER
+    :param data_type: The type of the data, one of "FILE", "FOLDER"
     :param min_depth: The minimum depth to search
     :param max_depth: The maximum depth to search
 
@@ -859,7 +921,7 @@ def find_project_data_recursively(
             project_id="abcd-1234-efab-5678",
             parent_folder_id="fol.abcdef1234567890",
             name="file.txt",
-            data_type=DataType.FILE,
+            data_type="FILE",
             min_depth=1,
             max_depth=3
         )
@@ -903,7 +965,7 @@ def find_project_data_recursively(
     if min_depth is None or min_depth <= 1:
         for data_item in data_items:
             # Check data type
-            if data_type is not None and not DataType(data_item.data.details.data_type) == data_type:
+            if data_type is not None and not data_item.data.details.data_type == data_type:
                 continue
             # Check if we have regex name to match on
             if name_regex_obj is None:
@@ -916,10 +978,10 @@ def find_project_data_recursively(
         # Listing sub folders
         # If we didn't specify the datatype as FILE,
         # or a name / name regex, all the subfolders should be in the data items
-        if not data_type == DataType.FILE and name is None and name_regex_obj is None:
+        if not data_type == FILE_DATA_TYPE and name is None and name_regex_obj is None:
             subfolders = list(
                 filter(
-                    lambda x: DataType(x.data.details.data_type) == DataType.FOLDER,
+                    lambda x: x.data.details.data_type == FOLDER_DATA_TYPE,
                     data_items
                 )
             )
@@ -929,7 +991,7 @@ def find_project_data_recursively(
                 project_id=project_id,
                 parent_folder_id=parent_folder_id,
                 parent_folder_path=parent_folder_path,
-                data_type=DataType.FOLDER,
+                data_type=FOLDER_DATA_TYPE,
             )
         for subfolder in subfolders:
             matched_data_items.extend(
@@ -958,7 +1020,7 @@ def find_project_data_bulk(
     :param project_id: The project id to search in
     :param parent_folder_id: The parent folder id (alternative to parent_folder_path)
     :param parent_folder_path: The path to the parent folder (alternative to parent_folder_id)
-    :param data_type: The type of the data, one of DataType.FILE, DataType.FOLDER
+    :param data_type: The type of the data, one of "FILE", "FOLDER"
 
     :return: List of data objects
     :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_]
@@ -980,7 +1042,7 @@ def find_project_data_bulk(
         project_data_list: List[ProjectData] = find_project_data_bulk(
             project_id="abcd-1234-efab-5678",
             parent_folder_id="fol.abcdef1234567890",
-            data_type=DataType.FILE
+            data_type="FILE"
         )
 
         for project_data in project_data_list:
@@ -1021,7 +1083,7 @@ def find_project_data_bulk(
                 file_path_match_mode="STARTS_WITH_CASE_INSENSITIVE",
                 page_size=str(page_size),
                 page_token=page_token,
-                type=data_type.value
+                type=data_type
             )
 
         except ApiException as e:
@@ -1094,7 +1156,7 @@ def create_download_url(
             logger.error("Exception when calling ProjectDataApi->create_download_url_for_data: %s\n" % e)
             raise ApiException
 
-    return api_response.get("url")
+    return api_response.url
 
 
 def create_download_urls(
@@ -1144,18 +1206,18 @@ def create_download_urls(
         project_data_list = find_project_data_bulk(
             project_id=project_id,
             parent_folder_id=folder_id,
-            data_type=DataType.FILE
+            data_type=FILE_DATA_TYPE
         )
     else:
         project_data_list = list_project_data_non_recursively(
             project_id=project_id,
             parent_folder_id=folder_id,
-            data_type=DataType.FILE
+            data_type=FILE_DATA_TYPE
         )
 
     # Set data paths
     data_id_paths_list = DataIdOrPathList(
-        data_ids=list(
+        dataIds=list(
             map(
                 lambda project_file_iter: project_file_iter.data.id,
                 project_data_list
@@ -1208,7 +1270,7 @@ def convert_icav2_uri_to_project_data_obj(
 def convert_uri_to_project_data_obj(
         data_uri: str,
         create_data_if_not_found: bool = False
-):
+) -> ProjectData:
     """
     Given an ICAv2 URI, return a project data object
 
@@ -1241,18 +1303,18 @@ def convert_uri_to_project_data_obj(
 
     # Set data type
     if data_uri_obj.path.endswith("/"):
-        data_type = DataType.FOLDER
+        data_type = cast(DataType, FOLDER_DATA_TYPE)
     else:
-        data_type = DataType.FILE
+        data_type = cast(DataType, FILE_DATA_TYPE)
 
-    if UriType(data_uri_obj.scheme) == UriType.ICAV2:
+    if cast(UriType, data_uri_obj.scheme) == ICAV2_URI_SCHEME:
         # Check if the project is in project id format
         if is_uuid_format(data_uri_obj.netloc):
             project_id = data_uri_obj.netloc
         else:
             project_id = get_project_id_from_project_name(data_uri_obj.netloc)
         data_path = Path(data_uri_obj.path)
-    elif UriType(data_uri_obj.scheme) == UriType.S3:
+    elif cast(UriType, data_uri_obj.scheme) == S3_URI_SCHEME:
         # If the uri is an s3 uri, we need to convert it to an icav2 uri
         project_id, data_path = unpack_uri(data_uri)
     else:
@@ -1281,12 +1343,12 @@ def convert_project_data_obj_to_icav2_uri(
     DeprecationWarning(
         "Please use convert_project_data_obj_to_uri instead."
     )
-    return convert_project_data_obj_to_uri(project_data, uri_type=UriType.ICAV2)
+    return convert_project_data_obj_to_uri(project_data, uri_type=ICAV2_URI_SCHEME)
 
 
 def convert_project_data_obj_to_uri(
         project_data: ProjectData,
-        uri_type: UriType = UriType.ICAV2
+        uri_type: UriType = ICAV2_URI_SCHEME
 ) -> str:
     """
     Return the file object as an icav2:// uri
@@ -1297,17 +1359,17 @@ def convert_project_data_obj_to_uri(
     :return: The icav2:// uri string
     """
     from ...storage_configuration import convert_project_data_obj_to_s3_uri
-    if uri_type == UriType.ICAV2:
+    if uri_type == ICAV2_URI_SCHEME:
         return str(
             urlunparse((
-                uri_type.value,
+                uri_type,
                 project_data.project_id,
                 project_data.data.details.path.rstrip("/") + (
-                    "/" if project_data.data.details.data_type == "FOLDER" else ""),
+                    "/" if project_data.data.details.data_type == FOLDER_DATA_TYPE else ""),
                 None, None, None
             ))
         )
-    elif uri_type == UriType.S3:
+    elif uri_type == S3_URI_SCHEME:
         return convert_project_data_obj_to_s3_uri(project_data_obj=project_data)
     else:
         logger.error(
@@ -1335,18 +1397,18 @@ def convert_project_id_and_data_path_to_uri(
         project_id: str,
         data_path: Path,
         data_type: DataType,
-        uri_type: UriType = UriType.ICAV2
+        uri_type: UriType = ICAV2_URI_SCHEME
 ) -> str:
     """
     Given a project_id and a data_id, return the icav2:// uri
 
     Unlike convert_project_data_obj_to_icav2_uri, this does not require the path to exist.
 
-    If the data_type is DataType.FOLDER, the path should end with a forward slash.
+    If the data_type is "FOLDER", the path should end with a forward slash.
 
     :param project_id: The project id to search in
     :param data_path: The path to the data in the project
-    :param data_type: The data_type, one of DataType.FILE, DataType.FOLDER
+    :param data_type: The data_type, one of "FILE", "FOLDER"
     :param uri_type: One of UriType.ICAV2, UriType.S3
 
     :return: The icav2:// uri string
@@ -1363,27 +1425,27 @@ def convert_project_id_and_data_path_to_uri(
         icav2_uri: str = convert_project_id_and_data_path_to_icav2_uri(
             project_id="abcd-1234-efab-5678",
             data_path=Path("/path/to/folder/"),
-            data_type=DataType.FOLDER
+            data_type="FOLDER"
         )
     """
     from ...storage_configuration import get_s3_key_prefix_by_project_id
-    if uri_type == UriType.ICAV2:
+    if uri_type == ICAV2_URI_SCHEME:
         return str(
             urlunparse((
-                UriType.ICAV2.value,
+                ICAV2_URI_SCHEME,
                 project_id,
-                str(data_path) + ("/" if data_type == DataType.FOLDER else ""),
+                str(data_path) + ("/" if data_type == FOLDER_DATA_TYPE else ""),
                 None, None, None
             ))
         )
-    elif uri_type == UriType.S3:
+    elif uri_type == S3_URI_SCHEME:
         return str(
             urlunparse((
-                UriType.S3.value,
+                S3_URI_SCHEME,
                 project_id,
                 str(
                     Path(get_s3_key_prefix_by_project_id(project_id)) / data_path
-                ) + ("/" if data_type == DataType.FOLDER else ""),
+                ) + ("/" if data_type == FOLDER_DATA_TYPE else ""),
                 None, None, None
             ))
         )
@@ -1425,7 +1487,7 @@ def unpack_uri(uri: str) -> Tuple[str, str]:
     # Parse obj
     uri_obj = urlparse(uri)
 
-    if UriType(uri_obj.scheme) == UriType.ICAV2:
+    if cast(UriType, uri_obj.scheme) == ICAV2_URI_SCHEME:
         # Get project name or id
         project_name_or_id = uri_obj.netloc
 
@@ -1439,7 +1501,7 @@ def unpack_uri(uri: str) -> Tuple[str, str]:
             project_id = get_project_id_from_project_name(project_name_or_id)
 
         return project_id, data_path
-    elif UriType(uri_obj.scheme) == UriType.S3:
+    elif cast(UriType, uri_obj.scheme) == S3_URI_SCHEME:
         return unpack_s3_uri(uri)
     else:
         raise ValueError(f"Could not unpack uri, scheme {uri_obj.scheme} not recognised")
@@ -1530,7 +1592,7 @@ def coerce_data_id_uri_or_path_to_project_data_obj(
         )
     elif (
             is_uri_format(data_id_path_or_uri) and
-            UriType(urlparse(data_id_path_or_uri).scheme) in [UriType.ICAV2, UriType.S3]
+            cast(UriType, urlparse(data_id_path_or_uri).scheme) in [ICAV2_URI_SCHEME, S3_URI_SCHEME]
     ):
         # ICAv2 URI, convert to data object
         return convert_uri_to_project_data_obj(
@@ -1548,7 +1610,7 @@ def coerce_data_id_uri_or_path_to_project_data_obj(
         project_data_obj = get_project_data_obj_from_project_id_and_path(
             project_id=project_id,
             data_path=Path(data_id_path_or_uri),
-            data_type=DataType.FOLDER if data_id_path_or_uri.endswith("/") else DataType.FILE,
+            data_type=FOLDER_DATA_TYPE if data_id_path_or_uri.endswith("/") else FILE_DATA_TYPE,
             create_data_if_not_found=create_data_if_not_found
         )
         return project_data_obj
@@ -1753,7 +1815,7 @@ def check_folder_exists(
     """
     try:
         # Try to get data object from project id and path
-        get_project_data_obj_from_project_id_and_path(project_id, folder_path, data_type=DataType.FOLDER)
+        get_project_data_obj_from_project_id_and_path(project_id, folder_path, data_type=FOLDER_DATA_TYPE)
     except (ValueError, FileNotFoundError):
         return False
     else:
@@ -1785,7 +1847,7 @@ def check_file_exists(
     """
     try:
         # Try to get data object from project id and path
-        get_project_data_obj_from_project_id_and_path(project_id, file_path, data_type=DataType.FILE)
+        get_project_data_obj_from_project_id_and_path(project_id, file_path, data_type=FILE_DATA_TYPE)
     except (ValueError, FileNotFoundError):
         return False
     else:
@@ -1814,7 +1876,7 @@ def check_uri_exists(
 
         print(check_uri_exists("icav2://project-name/path/to/file.txt"))
     """
-    if UriType(urlparse(data_uri).scheme) in [UriType.ICAV2, UriType.S3]:
+    if cast(UriType, urlparse(data_uri).scheme) in [ICAV2_URI_SCHEME, S3_URI_SCHEME]:
         project_id, data_path = unpack_uri(data_uri)
     else:
         raise ValueError(f"URI scheme '{urlparse(data_uri).scheme}' not supported")
@@ -1865,7 +1927,7 @@ def presign_folder(
         folder_id = get_project_data_id_from_project_id_and_path(
             project_id=project_id,
             data_path=folder_path,
-            data_type=DataType.FOLDER
+            data_type=FOLDER_DATA_TYPE
         )
 
     return create_download_urls(
@@ -1938,10 +2000,10 @@ def presign_cwl_directory(
 
     # Collect file object list
     for file_item_obj in file_obj_list:
-        data_type: str = file_item_obj.get("data").get("details").get('data_type')  # One of FILE | FOLDER
-        data_id = file_item_obj.get("data").get("id")
-        basename = file_item_obj.get("data").get("details").get("name")
-        if data_type == "FOLDER":
+        data_type = cast(DataType, file_item_obj.data.details.data_type) # One of FILE | FOLDER
+        data_id = file_item_obj.data.id
+        basename = file_item_obj.data.details.name
+        if data_type == FOLDER_DATA_TYPE:
             cwl_item_objs.append(
                 {
                     "class": "Directory",
@@ -2038,10 +2100,10 @@ def presign_cwl_directory_with_external_data_mounts(
 
     # Collect file object list
     for file_item_obj in file_obj_list:
-        data_type: str = file_item_obj.get("data").get("details").get('data_type')  # One of FILE | FOLDER
-        data_id = file_item_obj.get("data").get("id")
-        basename = file_item_obj.get("data").get("details").get("name")
-        if data_type == "FOLDER":
+        data_type = cast(DataType, file_item_obj.data.details.data_type)  # One of FILE | FOLDER
+        data_id = file_item_obj.data.id
+        basename = file_item_obj.data.details.name
+        if data_type == FOLDER_DATA_TYPE:
             external_data_mounts_new, listing = presign_cwl_directory_with_external_data_mounts(
                 project_id,
                 data_id
@@ -2070,7 +2132,7 @@ def presign_cwl_directory_with_external_data_mounts(
                 AnalysisInputExternalData(
                     url=presigned_url,
                     type="http",
-                    mount_path=mount_path
+                    mountPath=mount_path
                 )
             )
 
@@ -2090,7 +2152,7 @@ def read_icav2_file_contents(
         project_id: str,
         data_id: str,
         output_path: Optional[Union[Path, TextIOWrapper]] = None
-) -> str:
+) -> Optional[str]:
     """
     Write icav2 file contents to a path
 
@@ -2141,6 +2203,8 @@ def read_icav2_file_contents(
     else:
         # Write the file contents to the output path
         output_path.write(r.content.decode())
+
+    return None
 
 
 def read_icav2_file_contents_to_string(
@@ -2331,7 +2395,7 @@ def get_file_by_file_name_from_project_data_list(
         project_data_list: List[ProjectData] = find_project_data_bulk(
             project_id="abcd-1234-efab-5678",
             parent_folder_id="fol.abcdef1234567890",
-            data_type=DataType.FILE
+            data_type="FILE"
         )
 
         file_obj: ProjectData = get_file_by_file_name_from_project_data_list(
@@ -2346,7 +2410,7 @@ def get_file_by_file_name_from_project_data_list(
             filter(
                 lambda file_iter: (
                         file_iter.data.details.name == file_name and
-                        file_iter.data.details.data_type == DataType.FILE.value
+                        file_iter.data.details.data_type == FILE_DATA_TYPE
                 ),
                 project_data_list
             )
@@ -2410,20 +2474,20 @@ def project_data_copy_batch_handler(
                 items=list(
                     map(
                         lambda source_data_id_iter: CreateProjectDataCopyBatchItem(
-                            data_id=source_data_id_iter
+                            dataId=source_data_id_iter
                         ),
                         source_data_ids
                     )
                 ),
-                destination_folder_id=get_project_data_folder_id_from_project_id_and_path(
+                destinationFolderId=get_project_data_folder_id_from_project_id_and_path(
                     project_id=destination_project_id,
                     folder_path=destination_folder_path,
                     create_folder_if_not_found=True
                 ),
-                copy_user_tags=True,
-                copy_technical_tags=True,
-                copy_instrument_info=True,
-                action_on_exist="SKIP"
+                copyUserTags=True,
+                copyTechnicalTags=True,
+                copyInstrumentInfo=True,
+                actionOnExist="SKIP"
             )
         )
     except ApiException as e:
@@ -2515,40 +2579,121 @@ def move_project_data(dest_project_id: str, dest_folder_id: str, src_data_list: 
         )
 
     """
-    from ...job import get_job
-    configuration = get_icav2_configuration()
 
-    header = {
-        'Accept': 'application/vnd.illumina.v3+json',
-        'Content-Type': 'application/vnd.illumina.v3+json',
-        'Authorization': f'Bearer {configuration.access_token}'
-    }
-
-    data = {
-        "items": list(
-            map(
-                lambda src_data_iter: {
-                    "dataId": src_data_iter
-                },
-                src_data_list
-            )
-        ),
-        "destinationFolderId": dest_folder_id
-    }
+    # Create an instance of the API class
+    with ApiClient(get_icav2_configuration()) as api_client:
+        api_instance = ProjectDataCopyBatchApi(api_client)
 
     try:
-        response = requests.post(
-            f"{configuration.host}/api/projects/{dest_project_id}/dataMoveBatch",
-            headers=header,
-            data=json.dumps(data),
+        # Create a project data copy batch.
+        api_response = api_instance.create_project_data_copy_batch(
+            dest_project_id,
+            CreateProjectDataCopyBatch(
+                items=list(
+                    map(
+                        lambda src_data_iter: CreateProjectDataCopyBatchItem(
+                            dataId=src_data_iter
+                        ),
+                        src_data_list
+                    )
+                ),
+                destinationFolderId=dest_folder_id,
+                copyUserTags=False,
+                copyTechnicalTags=False,
+                copyInstrumentInfo=False,
+                actionOnExist="SKIP"  # SKIP | OVERWRITE | FAIL
+            )
         )
-
-        # Get job from job id
-        response.raise_for_status()
-    except RequestException as e:
-        logger.error(f"Error moving data: {e}")
-        logger.error(response.json())
-        raise ApiException
+    except ApiException as e:
+        logger.error("Exception when calling ProjectDataCopyBatchApi->create_project_data_copy_batch: %s\n" % e)
+        raise ApiException("Exception when calling ProjectDataCopyBatchApi->create_project_data_copy_batch: %s\n") from e
 
     # Get job from job id
-    return get_job(response.json().get("job").get("id"))
+    return api_response.job
+
+
+def update_project_data_obj(
+        project_id: str,
+        data_id: str,
+        project_data_obj: ProjectData
+):
+    """
+    Given a project id, and data id, update with the project data object
+    :param project_id:
+    :param data_id:
+    :param project_data_obj:
+    :return:
+    """
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectDataApi(api_client)
+
+    try:
+        # Update the project data object
+        api_response: ProjectData = api_instance.update_project_data(project_id, data_id, project_data_obj)
+    except ApiException as e:
+        logger.error("Exception when calling ProjectDataApi->update_project_data: %s\n" % e)
+        raise e
+
+    return api_response
+
+
+def add_tag_to_data_object(
+        project_id: str,
+        data_id: str,
+        tag: str,
+        tag_type: DataTagType
+) -> ProjectData:
+    """
+    Add tags to a data object
+
+    :param project_id:
+    :param data_id:
+    :param tag:
+    :param tag_type:
+    :return:
+
+    :return:
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        add_tag_to_data_obj(
+          project_id,
+          data_id,
+          "to_be_archived"
+        )
+    """
+    # Get the existing object
+    project_data_obj = get_project_data_obj_by_id(
+        project_id=project_id,
+        data_id=data_id
+    )
+
+    # Get existing tags
+    if tag_type == "technical_tag":
+        project_data_obj.data.details.tags.technical_tags.append(tag)
+    elif tag_type == "user_tag":
+        project_data_obj.data.details.tags.user_tags.append(tag)
+    elif tag_type == "connector_tag":
+        project_data_obj.data.details.tags.connector_tags.append(tag)
+    elif tag_type == "run_in_tag":
+        project_data_obj.data.details.tags.run_in_tags.append(tag)
+    elif tag_type == "run_out_tag":
+        project_data_obj.data.details.tags.run_out_tags.append(tag)
+    elif tag_type == "reference_tag":
+        project_data_obj.data.details.tags.reference_tags.append(tag)
+    else:
+        raise ValueError("Tag type not recognised")
+
+    # Update the analysis object
+    project_data_obj = update_project_data_obj(
+        project_id=project_id,
+        data_id=data_id,
+        project_data_obj=project_data_obj
+    )
+
+    return project_data_obj

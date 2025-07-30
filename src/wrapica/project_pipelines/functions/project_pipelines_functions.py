@@ -6,59 +6,60 @@ Project Pipeline Helpers
 
 # Standard imports
 import typing
-from typing import Tuple, Dict, Optional, Union, List, BinaryIO
+from io import StringIO
+from typing import Tuple, Dict, Optional, Union, List, cast, Any
 from urllib.parse import urlparse
 import uuid
 from pathlib import Path
 from zipfile import ZipFile
-
-import requests
+import pandas as pd
 from cwl_utils.parser import load_document_by_uri
-from libica.openapi.v2.model.analysis_storage_v3 import AnalysisStorageV3
-from libica.openapi.v2.model.analysis_storage_v4 import AnalysisStorageV4
-from requests import HTTPError, Response
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 # Libica imports
-from libica.openapi.v2 import ApiClient, ApiException
-from libica.openapi.v2.api.analysis_storage_api import AnalysisStorageApi
-from libica.openapi.v2.api.entitlement_detail_api import EntitlementDetailApi
-from libica.openapi.v2.api.project_analysis_api import ProjectAnalysisApi
-from libica.openapi.v2.api.project_pipeline_api import ProjectPipelineApi
+from libica.openapi.v3 import (
+    ApiClient,
+    ApiException,
+    ProjectAnalysisStorageApi,
+    ProjectPipelineV4,
+    PipelineConfigurationParameter
+)
+from libica.openapi.v3.api.project_pipeline_api import ProjectPipelineApi
+from libica.openapi.v3.api.project_analysis_api import ProjectAnalysisApi
 
-from libica.openapi.v2.models import (
-    ActivationCodeDetail,
+# V3 imports
+from libica.openapi.v3.models import (
     AnalysisInputDataMount,
     AnalysisInputExternalData,
-    AnalysisV3,
     AnalysisV4,
-    CreateCwlAnalysis,
-    CreateNextflowAnalysis,
-    CwlAnalysisJsonInput,
-    CwlAnalysisStructuredInput,
     InputParameter,
     InputParameterList,
-    NextflowAnalysisInput,
     PipelineConfigurationParameterList,
     PipelineFile,
     Project,
     ProjectData,
     ProjectPipeline,
-    SearchMatchingActivationCodesForCwlAnalysis,
-    SearchMatchingActivationCodesForNextflowAnalysis
+    CreateCwlWithJsonInputAnalysis,
+    CreateNextflowWithCustomInputAnalysis,
+    AnalysisStorageV3,
+    AnalysisStorageV4,
 )
 
 # Local imports
 from ...utils.logger import get_logger
 from ...utils.configuration import get_icav2_configuration
 from ...utils.cwl_typing_helpers import WorkflowInputParameterType, WorkflowType
-from ...utils.globals import BLANK_PARAMS_XML_V2_FILE_CONTENTS, NEXTFLOW_VERSION_UUID
-
-from ...enums import AnalysisStorageSize, WorkflowLanguage, DataType, PipelineStatus, UriType
+from ...utils.globals import (
+    BLANK_PARAMS_XML_V2_FILE_CONTENTS,
+    FILE_DATA_TYPE,
+    FOLDER_DATA_TYPE,
+    ICAV2_URI_SCHEME,
+    S3_URI_SCHEME
+)
+from ...literals import DataType, PipelineStatusType, UriType, AnalysisStorageSizeType
 from ...utils.miscell import is_uuid_format, is_uri_format
 from ...utils.nextflow_helpers import (
-    convert_base_config_to_icav2_base_config,
-    write_params_xml_from_nextflow_schema_json
+    convert_base_config_to_icav2_base_config, get_default_nextflow_pipeline_version_id,
 )
 
 if typing.TYPE_CHECKING:
@@ -67,15 +68,15 @@ if typing.TYPE_CHECKING:
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis
     from ..classes.analysis import ICAv2PipelineAnalysisTags
 
+DEFAULT_ANALYSIS_STORAGE_SIZE: AnalysisStorageSizeType = "Small"
 
-AnalysisType = Union[AnalysisV3, AnalysisV4]
 AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
-DEFAULT_ANALYSIS_STORAGE_SIZE = AnalysisStorageSize.SMALL
+PipelineType = Union[ProjectPipeline, ProjectPipelineV4]
 
 logger = get_logger()
 
 
-def get_project_pipeline_obj(project_id: str, pipeline_id: str) -> ProjectPipeline:
+def get_project_pipeline_obj(project_id: str, pipeline_id: str) -> ProjectPipelineV4:
     """
     Given a project id and pipeline id, return the project pipeline object
 
@@ -102,12 +103,13 @@ def get_project_pipeline_obj(project_id: str, pipeline_id: str) -> ProjectPipeli
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
+        # FIXME - add v4 accept header
         api_instance = ProjectPipelineApi(api_client)
 
     # example passing only required values which don't have defaults set
     try:
         # Retrieve a pipeline.
-        api_response: ProjectPipeline = api_instance.get_project_pipeline(project_id, pipeline_id)
+        api_response: ProjectPipelineV4 = api_instance.get_project_pipeline(project_id, pipeline_id)
     except ApiException as e:
         raise ValueError("Exception when calling ProjectPipelineApi->get_project_pipeline: %s\n" % e)
 
@@ -276,54 +278,7 @@ def get_project_pipeline_description_from_pipeline_id(project_id: str, pipeline_
     return project_pipeline_obj.pipeline.description
 
 
-def get_analysis_storage_id_from_analysis_storage_size(analysis_storage_size: AnalysisStorageSize) -> str:
-    """
-    Given an analysis storage size, return the analysis storage id
-
-    :param analysis_storage_size: The analysis storage size to retrieve the id for
-
-    :return: The analysis storage id
-    :rtype: str
-
-    :raises: ValueError, ApiException
-
-    :Examples:
-
-    .. code-block:: python
-        :linenos:
-
-        from wrapica.project_pipelines import get_analysis_storage_id_from_analysis_storage_size
-        from wrapica.enums import AnalysisStorageSize
-
-        analysis_storage_size = AnalysisStorageSize.SMALL
-
-        analysis_storage_id = get_analysis_storage_id_from_analysis_storage_size(analysis_storage_size)
-    """
-    # Create an instance of the API class
-    # Enter a context with an instance of the API client
-    with ApiClient(get_icav2_configuration()) as api_client:
-        # Create an instance of the API class
-        api_instance = AnalysisStorageApi(api_client)
-
-    # example, this endpoint has no required or optional parameters
-    try:
-        # Retrieve the list of analysis storage options.
-        api_response = api_instance.get_analysis_storage_options()
-    except ApiException as e:
-        raise ValueError("Exception when calling AnalysisStorageApi->get_analysis_storage_options: %s\n" % e)
-
-    try:
-        return next(
-            filter(
-                lambda x: x.name == analysis_storage_size.value,
-                api_response.items
-            )
-        )
-    except StopIteration:
-        raise ValueError(f"Could not find analysis storage size {analysis_storage_size} in this region")
-
-
-def coerce_pipeline_id_or_code_to_project_pipeline_obj(pipeline_id_or_code: str) -> ProjectPipeline:
+def coerce_pipeline_id_or_code_to_project_pipeline_obj(pipeline_id_or_code: str) -> PipelineType:
     """
     Coerce a pipeline id or code to a project pipeline object
 
@@ -352,9 +307,10 @@ def coerce_pipeline_id_or_code_to_project_pipeline_obj(pipeline_id_or_code: str)
     return get_project_pipeline_obj_from_pipeline_code(project_id, pipeline_id_or_code)
 
 
-def get_analysis_storage_from_analysis_storage_id(analysis_storage_id: str) -> AnalysisStorageType:
+def get_analysis_storage_from_analysis_storage_id(project_id: str, analysis_storage_id: str) -> AnalysisStorageType:
     """
     Given an analysis storage id, return the analysis storage object
+    :param project_id:
     :param analysis_storage_id:
 
     :return: The analysis storage object
@@ -365,12 +321,14 @@ def get_analysis_storage_from_analysis_storage_id(analysis_storage_id: str) -> A
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
-        api_instance = AnalysisStorageApi(api_client)
+        api_instance = ProjectAnalysisStorageApi(api_client)
 
     # example, this endpoint has no required or optional parameters
     try:
         # Retrieve the list of analysis storage options.
-        api_response = api_instance.get_analysis_storage_options()
+        api_response = api_instance.get_project_analysis_storage_options(
+            project_id=project_id
+        )
     except ApiException as e:
         logger.error("Exception when calling AnalysisStorageApi->get_analysis_storage_options: %s\n" % e)
         raise ApiException
@@ -387,22 +345,31 @@ def get_analysis_storage_from_analysis_storage_id(analysis_storage_id: str) -> A
         raise ValueError
 
 
-def get_analysis_storage_from_analysis_storage_size(analysis_storage_size: AnalysisStorageSize) -> AnalysisStorageType:
+def get_analysis_storage_from_analysis_storage_size(project_id: str,
+                                                    analysis_storage_size: AnalysisStorageSizeType) -> AnalysisStorageType:
     """
     Given an analysis storage size, return the analysis storage object
 
+    :param project_id:
     :param analysis_storage_size:
     :return:
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
+        # Force the API client to send back the v4 API
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v4+json"
+        )
         # Create an instance of the API class
-        api_instance = AnalysisStorageApi(api_client)
+        api_instance = ProjectAnalysisStorageApi(api_client)
 
     # example, this endpoint has no required or optional parameters
     try:
         # Retrieve the list of analysis storage options.
-        api_response = api_instance.get_analysis_storage_options()
+        api_response = api_instance.get_project_analysis_storage_options(
+            project_id=project_id
+        )
     except ApiException as e:
         logger.error("Exception when calling AnalysisStorageApi->get_analysis_storage_options: %s\n" % e)
         raise ApiException
@@ -410,189 +377,56 @@ def get_analysis_storage_from_analysis_storage_size(analysis_storage_size: Analy
     try:
         return next(
             filter(
-                lambda storage_obj_iter: storage_obj_iter.name == analysis_storage_size.value,
+                lambda storage_obj_iter: storage_obj_iter.name == analysis_storage_size,
                 api_response.items
             )
         )
     except StopIteration:
-        logger.error(f"Could not find analysis storage size {analysis_storage_size.value}")
+        logger.error(f"Could not find analysis storage size {analysis_storage_size}")
         raise ValueError
 
 
-def coerce_analysis_storage_id_or_size_to_analysis_storage(analysis_storage_id_or_size: Union[str, AnalysisStorageSize]) -> AnalysisStorageType:
+def get_analysis_storage_id_from_analysis_storage_size(project_id: str,
+                                                       analysis_storage_size: AnalysisStorageSizeType) -> str:
+    """
+    Given an analysis storage size, return the analysis storage id
+
+    :param project_id: The project id that the analysis storage exists in
+    :param analysis_storage_size: The analysis storage size to retrieve the id for
+
+    :return: The analysis storage id
+    :rtype: str
+
+    :raises: ValueError, ApiException
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_pipelines import get_analysis_storage_id_from_analysis_storage_size
+        from wrapica.enums import AnalysisStorageSize
+
+        analysis_storage_size = AnalysisStorageSize.SMALL
+
+        analysis_storage_id = get_analysis_storage_id_from_analysis_storage_size(analysis_storage_size)
+    """
+    return get_analysis_storage_from_analysis_storage_size(project_id, analysis_storage_size).id
+
+
+def coerce_analysis_storage_id_or_size_to_analysis_storage(project_id: str, analysis_storage_id_or_size: Union[
+    str, AnalysisStorageSizeType]) -> AnalysisStorageType:
     """
     Given either an analysis storage id or analysis storage size, return the analysis storage id
 
+    :param project_id:
     :param analysis_storage_id_or_size:
     :return:
     """
-    if isinstance(analysis_storage_id_or_size, AnalysisStorageSize):
-        return get_analysis_storage_from_analysis_storage_size(analysis_storage_id_or_size)
     if is_uuid_format(analysis_storage_id_or_size):
-        return get_analysis_storage_from_analysis_storage_id(analysis_storage_id_or_size)
-    return get_analysis_storage_from_analysis_storage_size(AnalysisStorageSize(analysis_storage_id_or_size))
-
-
-def get_activation_id(
-        project_id: str,
-        pipeline_id: str,
-        analysis_input: Union[CwlAnalysisStructuredInput, CwlAnalysisJsonInput, NextflowAnalysisInput],
-        workflow_language: WorkflowLanguage
-):
-    """
-    Get the activation id for a project pipeline analysis input
-
-    :param project_id:
-    :param pipeline_id:
-    :param analysis_input:
-    :param workflow_language:
-    :return:
-    """
-    if workflow_language.value == "CWL":
-        return get_best_matching_entitlement_detail_for_cwl_analysis(
-            project_id=project_id,
-            pipeline_id=pipeline_id,
-            analysis_input=analysis_input
-        ).id
-
-    elif workflow_language.value == "NEXTFLOW":
-        return get_best_matching_entitlement_detail_for_nextflow_analysis(
-            project_id=project_id,
-            pipeline_id=pipeline_id,
-            analysis_input=analysis_input
-        ).id
-    else:
-        raise ValueError(f"Workflow language {workflow_language.value} not supported")
-
-
-def get_best_matching_entitlement_detail_for_cwl_analysis(
-        project_id: str,
-        pipeline_id: str,
-        analysis_input: Union[CwlAnalysisStructuredInput, CwlAnalysisJsonInput]
-) -> ActivationCodeDetail:
-    """
-    Given a project id, pipeline id and an analysis input object
-    Return the best fitting activation ID
-
-    :param project_id: The project id that the pipeline exists in
-    :param pipeline_id: The pipeline id to retrieve the best matching activation code detail for
-    :param analysis_input: The analysis input object
-
-    :return: The best matching activation code detail for the CWL pipeline
-    :rtype: `ActivationCodeDetail <https://umccr-illumina.github.io/libica/openapi/v2/docs/ActivationCodeDetail/>`_
-
-    :Examples:
-
-    .. code-block:: python
-        :linenos:
-
-        from wrapica.project_pipelines import (
-            get_best_matching_entitlement_detail_for_cwl_analysis,
-            CwlAnalysisJsonInput
-        )
-
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
-        analysis_input = CwlAnalysisJsonInput(
-            input_json={
-                "input": "json"
-            }
-        )
-
-        best_matching_activation_code_detail = get_best_matching_entitlement_detail_for_cwl_analysis(
-            project_id, pipeline_id, analysis_input
-        )
-
-        print(best_matching_activation_code_detail.id)
-        # Output: "activation-123"
-
-    """
-    with ApiClient(get_icav2_configuration()) as api_client:
-        # Create an instance of the API class
-        api_instance = EntitlementDetailApi(api_client)
-        search_matching_activation_codes_for_cwl_analysis = SearchMatchingActivationCodesForCwlAnalysis(
-            project_id=project_id,
-            pipeline_id=pipeline_id,
-            analysis_input=analysis_input,
-        )  # SearchMatchingActivationCodesForCwlAnalysis |  (optional)
-
-        # example passing only required values which don't have defaults set
-        # and optional values
-        try:
-            # Search the best matching activation code detail for Cwl pipeline.
-            api_response = api_instance.find_best_matching_activation_code_for_cwl(
-                search_matching_activation_codes_for_cwl_analysis=search_matching_activation_codes_for_cwl_analysis
-            )
-        except ApiException as e:
-            raise ValueError(
-                "Exception when calling EntitlementDetailApi->find_best_matching_activation_code_for_cwl: %s\n" % e
-            )
-
-    return api_response
-
-
-def get_best_matching_entitlement_detail_for_nextflow_analysis(
-        project_id: str,
-        pipeline_id: str,
-        analysis_input: NextflowAnalysisInput
-) -> ActivationCodeDetail:
-    """
-    Given a project id, pipeline id and an analysis input object
-    Return the best fitting activation ID
-
-    :param project_id: The project id that the pipeline exists in
-    :param pipeline_id: The pipeline id to retrieve the best matching activation code detail for
-    :param analysis_input: The analysis input object
-
-    :return: The best matching activation code detail for the Nextflow pipeline
-    :rtype: `ActivationCodeDetail <https://umccr-illumina.github.io/libica/openapi/v2/docs/ActivationCodeDetail/>`_
-
-    :Examples:
-
-    .. code-block:: python
-        :linenos:
-
-        from wrapica.project_pipelines import (
-            get_best_matching_entitlement_detail_for_nextflow_analysis,
-            NextflowAnalysisInput
-        )
-
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
-        analysis_input = NextflowAnalysisInput(
-            input_json={
-                "input": "json"
-            }
-        )
-
-        best_matching_activation_code_detail = get_best_matching_entitlement_detail_for_nextflow_analysis(
-            project_id, pipeline_id, analysis_input
-        )
-
-        print(best_matching_activation_code_detail.id)
-        # Output: "activation-123"
-    """
-    with ApiClient(get_icav2_configuration()) as api_client:
-        # Create an instance of the API class
-        api_instance = EntitlementDetailApi(api_client)
-        search_matching_activation_codes_for_nextflow_analysis = SearchMatchingActivationCodesForNextflowAnalysis(
-            project_id=project_id,
-            pipeline_id=pipeline_id,
-            analysis_input=analysis_input
-        )  # SearchMatchingActivationCodesForNextflowAnalysis |  (optional)
-
-        # example passing only required values which don't have defaults set
-        # and optional values
-        try:
-            # Search the best matching activation code detail for Cwl pipeline.
-            api_response = api_instance.find_best_matching_activation_codes_for_nextflow(
-                search_matching_activation_codes_for_nextflow_analysis=search_matching_activation_codes_for_nextflow_analysis
-            )
-        except ApiException as e:
-            raise ValueError(
-                "Exception when calling EntitlementDetailApi->find_best_matching_activation_code_for_nextflow: %s\n" % e)
-
-    return api_response
+        return get_analysis_storage_from_analysis_storage_id(project_id, analysis_storage_id_or_size)
+    return get_analysis_storage_from_analysis_storage_size(project_id,
+                                                           cast(AnalysisStorageSizeType, analysis_storage_id_or_size))
 
 
 def create_cwl_input_json_analysis_obj(
@@ -601,8 +435,7 @@ def create_cwl_input_json_analysis_obj(
         pipeline_id: str,
         analysis_input_dict: Dict,
         analysis_storage_id: Optional[str] = None,
-        analysis_storage_size: Optional[AnalysisStorageSize] = None,
-        activation_id: Optional[str] = None,
+        analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         # Output parameters
         analysis_output_uri: Optional[str] = None,
         # Meta parameters
@@ -613,7 +446,7 @@ def create_cwl_input_json_analysis_obj(
     """
     Given a pipeline id (optional - can be in the ICAv2EngineParameters
     An input json where the location attributes point to icav2 uris
-    Generate a CreateCwlAnalysis object ready for launch
+    Generate a CreateCwlAnalysisWithJsonInput object ready for launch
 
     :param user_reference: The user reference to use for the analysis
     :param project_id: The project id that the pipeline exists in
@@ -621,7 +454,6 @@ def create_cwl_input_json_analysis_obj(
     :param analysis_input_dict: The analysis input dictionary
     :param analysis_storage_id: The analysis storage id to use
     :param analysis_storage_size: The analysis storage size to use
-    :param activation_id: The activation id to use
     :param analysis_output_uri: The analysis output uri to use
     :param tags: The tags to use
     :param cwltool_overrides: The cwltool overrides to use
@@ -652,7 +484,6 @@ def create_cwl_input_json_analysis_obj(
         }
         analysis_storage_id = "analysis-storage-123"
         analysis_storage_size = AnalysisStorageSize.SMALL
-        activation_id = "activation-123"
         analysis_output_uri = "icav2://project-123/output-path"
         tags = ICAv2PipelineAnalysisTags(
             technical_tags=[
@@ -671,7 +502,6 @@ def create_cwl_input_json_analysis_obj(
             analysis_input_dict=analysis_input_dict,
             analysis_storage_id=analysis_storage_id,
             analysis_storage_size=analysis_storage_size,
-            activation_id=activation_id,
             analysis_output_uri=analysis_output_uri,
             tags=tags
         )
@@ -694,7 +524,6 @@ def create_cwl_input_json_analysis_obj(
         analysis_input=cwl_input_obj(),
         analysis_storage_id=analysis_storage_id,
         analysis_storage_size=analysis_storage_size,
-        activation_id=activation_id,
         analysis_output_uri=analysis_output_uri,
         tags=tags,
         cwltool_overrides=cwltool_overrides
@@ -703,7 +532,8 @@ def create_cwl_input_json_analysis_obj(
     return cwl_analysis
 
 
-def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis, idempotency_key=None) -> AnalysisType:
+def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlWithJsonInputAnalysis,
+                        idempotency_key=None) -> AnalysisV4:
     """
     Launch a CWL Workflow in a specific project context
 
@@ -727,7 +557,7 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis, idempo
             ICAv2CWLPipelineAnalysis,
         )
 
-        from wrapica.libica_models import CreateCwlAnalysis, Analysis
+        from wrapica.libica_models import CreateCwlWithJsonInputAnalysis
 
         # Initialise an ICAv2CWLPipeline Analysis object
         cwl_analysis = ICAv2CWLPipelineAnalysis(
@@ -756,21 +586,9 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis, idempo
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
         # Force default headers to v4
-        api_client.set_default_header(
-            header_name="Content-Type",
-            header_value="application/vnd.illumina.v4+json"
-        )
-        api_client.set_default_header(
-            header_name="Accept",
-            header_value="application/vnd.illumina.v4+json"
-        )
-
+        # FIXME - add accept header here
         # Create an instance of the API class
         api_instance = ProjectAnalysisApi(api_client)
-
-        # override endpoint settings response type to the version we want i.e. AnalysisV3 or AnalysisV4
-        endpoint_settings = api_instance.create_cwl_analysis_endpoint.settings
-        endpoint_settings['response_type'] = (AnalysisV4,)
 
     # Collect kwargs
     analysis_kwargs = {
@@ -783,24 +601,26 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlAnalysis, idempo
     # example passing only required values which don't have defaults set
     try:
         # Create and start an analysis for a CWL pipeline.
-        api_response: AnalysisType = api_instance.create_cwl_analysis(
+        api_response: AnalysisV4 = api_instance.create_cwl_analysis_with_json_input(
             project_id,
             cwl_analysis,
             **analysis_kwargs
         )
     except ApiException as e:
-        logger.error("Exception when calling ProjectAnalysisApi->create_cwl_analysis: %s\n" % e)
+        logger.error("Exception when calling ProjectAnalysisApi->create_cwl_json_analysis: %s\n" % e)
         raise ApiException
 
     return api_response
 
 
-def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowAnalysis, idempotency_key=None) -> AnalysisType:
+def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowWithCustomInputAnalysis,
+                             idempotency_key=None) -> AnalysisV4:
     """
     Launch a Nextflow Workflow in a specific project context
 
     :param project_id: The project id to launch the Nextflow workflow in
     :param nextflow_analysis: The Nextflow analysis object to launch
+    :param idempotency_key: Prevent duplicate requests and support retries by providing an Idempotency-Key header.
 
     :return: the analysis ID along with the deconstructed json used for submission to the end point
     :rtype: `Analysis <https://umccr-illumina.github.io/libica/openapi/v2/docs/Analysis/>`_
@@ -858,13 +678,8 @@ def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowA
             header_name="Accept",
             header_value="application/vnd.illumina.v4+json"
         )
-
         # Create an instance of the API class
         api_instance = ProjectAnalysisApi(api_client)
-
-        # override endpoint settings response type to the version we want i.e. AnalysisV3 or Analysis
-        endpoint_settings = api_instance.create_nextflow_analysis_endpoint.settings
-        endpoint_settings['response_type'] = (AnalysisV4,)
 
     # Collect kwargs
     analysis_kwargs = {
@@ -872,12 +687,15 @@ def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowA
     }
 
     # Reduce analysis_kwargs to only those that are not None
-    analysis_kwargs = {k: v for k, v in analysis_kwargs.items() if v is not None}
+    analysis_kwargs = dict(filter(
+        lambda kv: kv[1] is not None,
+        analysis_kwargs.items()
+    ))
 
     # example passing only required values which don't have defaults set
     try:
         # Create and start an analysis for a CWL pipeline.
-        api_response: AnalysisV4 = api_instance.create_nextflow_analysis(
+        api_response: AnalysisV4 = api_instance.create_nextflow_analysis_with_custom_input(
             project_id,
             nextflow_analysis,
             **analysis_kwargs
@@ -952,7 +770,7 @@ def get_project_pipeline_input_parameters(
 def get_project_pipeline_configuration_parameters(
         project_id: str,
         pipeline_id: str
-) -> List[Dict]:  # -> List[PipelineConfigurationParameter]:
+) -> List[PipelineConfigurationParameter]:
     """
     Given a pipeline and project id, return the configuration parameters for the pipeline
 
@@ -1033,14 +851,14 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
 
 def convert_uris_to_data_ids_from_cwl_input_json(
         input_obj: Union[str, int, bool, Dict, List]
-) -> Tuple[
+) -> Optional[Tuple[
     # Input Object
     Union[str, Dict, List],
         # Mount List
     List[AnalysisInputDataMount],
         # External Data List
     List[AnalysisInputExternalData]
-]:
+]]:
     """
     From a cwl input json, convert all the icav2 uris to data ids
 
@@ -1083,8 +901,8 @@ def convert_uris_to_data_ids_from_cwl_input_json(
         print(mount_list)
         # Output: [
         #   AnalysisInputDataMount(
-        #     data_id="fil.1234567890",
-        #     mount_path="path/to/mount/file.txt"
+        #     dataId="fil.1234567890",
+        #     mountPath="path/to/mount/file.txt"
         #   )
 
         print(external_data_list)
@@ -1124,8 +942,8 @@ def convert_uris_to_data_ids_from_cwl_input_json(
         if "class" in input_obj.keys() and input_obj["class"] in ["File", "Directory"]:
             # Resolve location
             if (
-                is_uri_format(input_obj.get("location", "")) and
-                UriType(urlparse(input_obj.get("location", "")).scheme) in [UriType.ICAV2, UriType.S3]
+                    is_uri_format(input_obj.get("location", "")) and
+                    urlparse(input_obj.get("location", "")).scheme in [ICAV2_URI_SCHEME, S3_URI_SCHEME]
             ):
                 # Check directory has a trailing slash
                 if input_obj.get("Directory", None) is not None and not input_obj["location"].endswith("/"):
@@ -1137,7 +955,7 @@ def convert_uris_to_data_ids_from_cwl_input_json(
 
                 # Get relative location path
                 input_obj_new: ProjectData = convert_icav2_uri_to_project_data_obj(input_obj.get("location"))
-                data_type: DataType = DataType(input_obj_new.data.details.data_type)  # One of FILE | FOLDER
+                data_type: DataType = input_obj_new.data.details.data_type
                 owning_project_id: str = input_obj_new.data.details.owning_project_id
                 data_id = input_obj_new.data.id
                 basename = input_obj_new.data.details.name
@@ -1182,12 +1000,12 @@ def convert_uris_to_data_ids_from_cwl_input_json(
                     mount_path = None
 
                 # Check data types match
-                if data_type == DataType.FOLDER and input_obj["class"] == "File":
+                if data_type == FOLDER_DATA_TYPE and input_obj["class"] == "File":
                     logger.error("Got mismatch on data type and class for input object")
                     logger.error(
                         f"Class of {input_obj.get('location')} is set to file but found directory id {data_id} instead")
                     raise ValueError
-                if data_type == DataType.FILE and input_obj["class"] == "Directory":
+                if data_type == FILE_DATA_TYPE and input_obj["class"] == "Directory":
                     logger.error("Got mismatch on data type and class for input object")
                     logger.error(
                         f"Class of {input_obj.get('location')} is set to directory but found file id {data_id} instead")
@@ -1196,9 +1014,9 @@ def convert_uris_to_data_ids_from_cwl_input_json(
                 # File cannot be set to 'stage' without also being a presigned url
                 if is_presign and not is_stage:
                     # No mounting
-                    if data_type == DataType.FILE:
+                    if data_type == FILE_DATA_TYPE:
                         input_obj["location"] = create_download_url(owning_project_id, data_id)
-                    elif data_type == DataType.FOLDER:
+                    elif data_type == FOLDER_DATA_TYPE:
                         # We need a basename for the directory now, not a location
                         input_obj["basename"] = get_project_data_obj_by_id(owning_project_id, data_id).data.details.name
                         _ = input_obj.pop("location")
@@ -1206,16 +1024,16 @@ def convert_uris_to_data_ids_from_cwl_input_json(
                             owning_project_id, data_id
                         )
                 elif is_presign and is_stage:
-                    if data_type == DataType.FILE:
+                    if data_type == FILE_DATA_TYPE:
                         input_obj["location"] = mount_path
                         external_data_list.append(
                             AnalysisInputExternalData(
                                 url=create_download_url(owning_project_id, data_id),
                                 type="http",
-                                mount_path=input_obj.get("location")
+                                mountPath=input_obj.get("location")
                             )
                         )
-                    elif data_type == DataType.FOLDER:
+                    elif data_type == FOLDER_DATA_TYPE:
                         input_obj["basename"] = get_project_data_obj_by_id(owning_project_id, data_id).data.details.name
                         # We need a basename for the directory, not a location
                         _ = input_obj.pop("location")
@@ -1229,8 +1047,8 @@ def convert_uris_to_data_ids_from_cwl_input_json(
                 else:
                     mount_list.append(
                         AnalysisInputDataMount(
-                            data_id=data_id,
-                            mount_path=mount_path
+                            dataId=data_id,
+                            mountPath=mount_path
                         )
                     )
                     input_obj["location"] = mount_path
@@ -1255,7 +1073,7 @@ def convert_uris_to_data_ids_from_cwl_input_json(
                         AnalysisInputExternalData(
                             url=input_obj.get("location"),
                             type="http",
-                            mount_path=mount_path
+                            mountPath=mount_path
                         )
                     )
 
@@ -1280,6 +1098,196 @@ def convert_uris_to_data_ids_from_cwl_input_json(
                 mount_list.extend(mount_list_new)
                 external_data_list.extend(external_data_list_new)
             return input_obj_dict, mount_list, external_data_list
+
+    logger.warning(f"Not sure what to do with this input {type(input_obj)}: {input_obj}")
+    return None
+
+
+def convert_uris_to_data_ids_from_nextflow_input_json(
+        input_obj: Union[str, int, bool, Dict[str, Any], List],
+        cache_uri: Optional[str] = None,
+        is_top_level: bool = True
+) -> Optional[Tuple[
+    Union[str, Dict, List],
+    List[AnalysisInputDataMount],
+    List[AnalysisInputExternalData]
+]]:
+    """
+    Similar to the CWL version, however we don't have object types, instead we assume that if any value is a URI,
+    we add the data id, mount it and add the mount path to the input json dereferenced dict.
+
+    This has the added component of if there exists the key 'input' in the top level of the input_obj and
+    the value is a list of objects, then we will need to convert this to a 'samplesheet.csv', upload to the cache uri
+    And then append samplesheet to the list of mount paths.
+
+    :param cache_uri:
+    :param input_obj:
+    :param is_top_level:
+
+    :return: The converted input object, mount list and external data list
+    :rtype: Tuple[
+        Union[str, Dict, List],
+        List[AnalysisInputDataMount],
+        List[AnalysisInputExternalData]
+    ]
+
+    :raises: ValueError, ApiException
+    """
+    # Importing from another functions directory should be done locally
+    from ...project_data import (
+        convert_icav2_uri_to_project_data_obj,
+        get_project_data_obj_from_project_id_and_path,
+        coerce_data_id_uri_or_path_to_project_data_obj,
+        # Needed for uploading samplesheet
+        write_icav2_file_contents
+    )
+    # Set default mount list
+    input_obj_new_list: List[Union[Dict, List]] = []
+    mount_list: List[AnalysisInputDataMount] = []
+    external_data_list: List[AnalysisInputExternalData] = []
+
+    # Convert basic types
+    if isinstance(input_obj, bool) or isinstance(input_obj, int) or isinstance(input_obj, str):
+        return input_obj, mount_list, external_data_list
+
+    # Convert dict of list types recursively
+    if isinstance(input_obj, List):
+        for input_item in input_obj:
+            input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
+                input_item,
+                cache_uri,
+                is_top_level=False
+            )
+            input_obj_new_list.append(input_obj_new_item)
+            mount_list.extend(mount_list_new)
+            external_data_list.extend(external_data_list_new)
+        return input_obj_new_list, mount_list, external_data_list
+
+    # Convert dict types recursively
+    if isinstance(input_obj, Dict):
+        new_input_obj = {}
+
+        for key, value in input_obj.items():
+            # Check if this is the input key
+            if (
+                    # Is the top level key named 'samplesheet'
+                    is_top_level and key == "samplesheet" and
+                    # The value of samplesheet is a list of dicts
+                    isinstance(value, List) and all(list(map(lambda val_iter_: isinstance(val_iter_, Dict), value)))
+            ):
+                # We have the samplesheet!
+                # Extend all values to input object lists
+                input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
+                    value,
+                    is_top_level=False
+                )
+
+                # Add in the mounts / external data mounts
+                mount_list.extend(mount_list_new)
+                external_data_list.extend(external_data_list_new)
+
+                # Write the samplesheet to the cache uri
+                if cache_uri is None:
+                    logger.error("Cache URI must be provided for samplesheet upload")
+                    raise ValueError
+                if not cache_uri.endswith("/"):
+                    logger.error("Cache URI must end with a trailing slash")
+                    raise ValueError("Cache URI must end with a trailing slash")
+                # Get cache uri as an icav2 object
+                cache_uri_obj = coerce_data_id_uri_or_path_to_project_data_obj(
+                    cache_uri,
+                    create_data_if_not_found=True
+                )
+                logger.info("Uploading deferenced samplesheet to cache uri: %s", cache_uri_obj.data.details.path)
+                logger.info(pd.DataFrame(input_obj_new_item).to_csv(header=True, index=False))
+                write_icav2_file_contents(
+                    cache_uri_obj.project_id,
+                    Path(cache_uri_obj.data.details.path, 'samplesheet.csv'),
+                    StringIO(pd.DataFrame(input_obj_new_item).to_csv(header=True, index=False)),
+                )
+                # Add the samplesheet to the mount list
+                logger.info("Adding samplesheet to the mount list")
+                mount_list.append(
+                    AnalysisInputDataMount(
+                        dataId=get_project_data_obj_from_project_id_and_path(
+                            project_id=cache_uri_obj.project_id,
+                            data_path=Path(cache_uri_obj.data.details.path, 'samplesheet.csv'),
+                            data_type=FILE_DATA_TYPE
+                        ).data.id,
+                        mountPath=str(Path(cache_uri_obj.project_id, cache_uri_obj.data.id, 'samplesheet.csv'))
+                    )
+                )
+
+                new_input_obj.update({
+                    key: str(Path(cache_uri_obj.project_id, cache_uri_obj.data.id, 'samplesheet.csv'))
+                })
+
+                continue
+
+            if isinstance(value, Dict):
+                input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
+                    value,
+                    cache_uri,
+                    is_top_level=False
+                )
+                new_input_obj.update({
+                    key: input_obj_new_item
+                })
+                mount_list.extend(mount_list_new)
+                external_data_list.extend(external_data_list_new)
+                continue
+
+            # If the value is a list, we need to convert the list items
+            if isinstance(value, List):
+                input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
+                    value,
+                    is_top_level=False
+                )
+                # Update the new input object with the new item list
+                new_input_obj.update({
+                    key: input_obj_new_item
+                })
+                continue
+
+            if (
+                    isinstance(value, str) and
+                    is_uri_format(value) and
+                    cast(UriType, urlparse(cast(str, value)).scheme) in [ICAV2_URI_SCHEME, S3_URI_SCHEME]
+            ):
+                # Get relative location path
+                input_obj_new: ProjectData = convert_icav2_uri_to_project_data_obj(cast(str, value))
+                owning_project_id: str = input_obj_new.data.details.owning_project_id
+                data_id = input_obj_new.data.id
+                basename = input_obj_new.data.details.name
+                # Set mount path
+                mount_path = str(
+                    Path(owning_project_id) /
+                    Path(data_id) /
+                    Path(basename)
+                )
+                # Append the mount list
+                mount_list.append(
+                    AnalysisInputDataMount(
+                        dataId=data_id,
+                        mountPath=mount_path
+                    )
+                )
+                # Create the new deferenced input object
+                new_input_obj.update({
+                    key: mount_path
+                })
+                continue
+
+            # Otherwise we assume this is a normal value
+            # Like str, int, bool, etc.
+            new_input_obj.update({
+                key: value
+            })
+
+        return new_input_obj, mount_list, external_data_list
+
+    logger.warning("Not sure what to do with this input %s: %s", type(input_obj), input_obj)
+    return None
 
 
 def list_project_pipelines(
@@ -1323,6 +1331,7 @@ def list_project_pipelines(
 
     # Get api instance
     with ApiClient(get_icav2_configuration()) as api_client:
+
         api_instance = ProjectPipelineApi(api_client)
 
     try:
@@ -1373,8 +1382,8 @@ def is_pipeline_in_project(
 
 
 def list_projects_with_pipeline(
-    pipeline_id: str,
-    include_hidden_projects: bool
+        pipeline_id: str,
+        include_hidden_projects: bool
 ) -> List[Project]:
     """
     Given a pipeline id, return a list of projects that the pipeline is linked to
@@ -1473,14 +1482,14 @@ def release_project_pipeline(project_id: str, pipeline_id: str):
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Confirm pipeline is in draft status
-    if not PipelineStatus(project_pipeline_obj.pipeline.status) == PipelineStatus.DRAFT:
+    if not cast(PipelineStatusType, project_pipeline_obj.pipeline.status) == "DRAFT":
         logger.error("Pipeline is not in draft status, cannot release already released pipeline")
         raise ValueError
 
     # Check pipeline id belongs to owner
     username = get_user_id_from_configuration()
 
-    if not username == project_pipeline_obj.pipeline.owner_id:
+    if not username == project_pipeline_obj.pipeline.owner.id:
         logger.error("This pipeline does not belong to you, you cannot release it")
         raise ValueError
 
@@ -1543,49 +1552,24 @@ def update_pipeline_file(project_id: str, pipeline_id: str, file_id: str, file_p
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Confirm pipeline is in draft status
-    if not PipelineStatus(project_pipeline_obj.pipeline.status) == PipelineStatus.DRAFT:
+    if not cast(PipelineStatusType, project_pipeline_obj.pipeline.status) == "DRAFT":
         logger.error("Pipeline is not in draft status, cannot update a pipeline file if it has been released")
         raise ValueError
 
-    configuration = get_icav2_configuration()
+    with ApiClient(get_icav2_configuration()) as api_client:
 
-    headers = {
-        "Accept": "application/vnd.illumina.v3+json",
-        "Authorization": f"Bearer {configuration.access_token}",
-        # requests won"t add a boundary if this header is set when you pass files=
-        # "Content-Type": "multipart/form-data",
-    }
-
-    files = {
-        "content": open(f"{file_path}", "rb"),
-    }
+        api_instance = ProjectPipelineApi(api_client)
 
     try:
-        response = requests.put(
-            f"{configuration.host}/api/projects/{project_id}/pipelines/{pipeline_id}/files/{file_id}/content",
-            headers=headers,
-            files=files,
+        api_instance.update_project_pipeline_file(
+            project_id=project_id,
+            pipeline_id=pipeline_id,
+            file_id=file_id,
+            content=open(f"{file_path}", "rb")
         )
-        response.raise_for_status()
-    except HTTPError as err:
-        logger.error(f"Failed to update file {err}")
-        raise ApiException
-
-    # # Enter a context with an instance of the API client
-    # with ApiClient(get_icav2_configuration()) as api_client:
-    #     # Create an instance of the API class
-    #     api_instance = ProjectPipelineApi(api_client)
-    #
-    # # Set content handler
-    # content_h: IOBase
-    # with open(file_name, 'rb') as content_h:
-    #     # example passing only required values which don't have defaults set
-    #     try:
-    #         # Update the contents of a file for a pipeline.
-    #         api_instance.update_pipeline_file(project_id, pipeline_id, file_id, content_h)
-    #     except ApiException as e:
-    #         logger.error("Exception when calling ProjectPipelineApi->update_pipeline_file: %s\n" % e)
-    #         raise ApiException
+    except ApiException as e:
+        logger.error("Update pipeline file failed: %s\n" % e)
+        raise ApiException("Update pipeline file failed") from e
 
 
 def delete_pipeline_file(project_id: str, pipeline_id: str, file_id: str):
@@ -1625,52 +1609,41 @@ def delete_pipeline_file(project_id: str, pipeline_id: str, file_id: str):
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Confirm pipeline is in draft status
-    if not PipelineStatus(project_pipeline_obj.pipeline.status) == PipelineStatus.DRAFT:
+    if not cast(PipelineStatusType, project_pipeline_obj.pipeline.status) == "DRAFT":
         logger.error("Pipeline is not in draft status, cannot delete a pipeline file if it has been released")
         raise ValueError
 
-    # FIXME
-    configuration = get_icav2_configuration()
-
-    import requests
-
-    headers = {
-        "Accept": "application/vnd.illumina.v3+json",
-        "Authorization": f"Bearer {configuration.access_token}",
-        # requests won"t add a boundary if this header is set when you pass files=
-        # "Content-Type": "multipart/form-data",
-    }
-
+    # Enter a context with an instance of the API client
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectPipelineApi(api_client)
     try:
-        response = requests.delete(
-            f"{configuration.host}/api/projects/{project_id}/pipelines/{pipeline_id}/files/{file_id}",
-            headers=headers,
+        # Delete a file for a pipeline.
+        api_instance.delete_project_pipeline_file(
+            project_id=project_id,
+            pipeline_id=pipeline_id,
+            file_id=file_id
         )
-        response.raise_for_status()
-    except HTTPError as err:
-        logger.error(f"Failed to update file {err}")
-        raise ApiException
-
-    # # Enter a context with an instance of the API client
-    # with ApiClient(get_icav2_configuration()) as api_client:
-    #     # Create an instance of the API class
-    #     api_instance = ProjectPipelineApi(api_client)
-    #
-    #     # example passing only required values which don't have defaults set
-    #     try:
-    #         # Delete a file for a pipeline.
-    #         api_instance.delete_pipeline_file(project_id, pipeline_id, file_id)
-    #     except ApiException as e:
-    #         print("Exception when calling ProjectPipelineApi->delete_pipeline_file: %s\n" % e)
+    except ApiException as e:
+        logger.error("Exception when calling ProjectPipelineApi->delete_project_pipeline_file: %s\n" % e)
+        raise ApiException("Exception when calling ProjectPipelineApi->delete_project_pipeline_file") from e
 
 
-def add_pipeline_file(project_id: str, pipeline_id: str, file_path: Path) -> PipelineFile:
+def add_pipeline_file(
+        project_id: str,
+        pipeline_id: str,
+        file_path: Path,
+        relative_path: Optional[Path] = None
+) -> PipelineFile:
     """
+    FIXME - currently places file in the top directory , should be placed in a relative path instead
+
     Add a pipeline file to a pipeline on icav2
 
     :param project_id: The project id to add the file to
     :param pipeline_id: The pipeline id to add the file to
     :param file_path: The file path to add to the pipeline
+    :param relative_path:
 
     :return: The pipeline file object
     :rtype: `PipelineFile <https://umccr-illumina.github.io/libica/openapi/v2/docs/PipelineFile/>`_
@@ -1696,7 +1669,7 @@ def add_pipeline_file(project_id: str, pipeline_id: str, file_path: Path) -> Pip
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Confirm pipeline is in draft status
-    if not PipelineStatus(project_pipeline_obj.pipeline.status) == PipelineStatus.DRAFT:
+    if not cast(PipelineStatusType, project_pipeline_obj.pipeline.status) == "DRAFT":
         logger.error("Pipeline is not in draft status, cannot add a pipeline file if it has been released")
         raise ValueError
 
@@ -1709,51 +1682,42 @@ def add_pipeline_file(project_id: str, pipeline_id: str, file_path: Path) -> Pip
         # "Content-Type": "multipart/form-data",
     }
 
-    files = {
-        "content": open(f"{file_path}", "rb"),
-    }
+    if relative_path is None:
+        content = open(f"{file_path}", "rb")
+    else:
+        content = (
+            str(
+                relative_path
+            ),
+            open(f"{file_path}", "rb")
+        )
+
+    # Enter a context with an instance of the API client
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectPipelineApi(api_client)
 
     try:
-        response = requests.post(
-            f"{configuration.host}/api/projects/{project_id}/pipelines/{pipeline_id}/files",
-            headers=headers,
-            files=files,
-        )
-        response.raise_for_status()
-    except HTTPError as err:
-        logger.error(f"Failed to update file {err}")
-        raise ApiException
+        # Create an additional input form file for a pipeline.
+        api_response = api_instance.create_additional_project_pipeline_file(project_id, pipeline_id, content)
+    except ApiException as e:
+        logger.error("Exception when calling ProjectPipelineApi->create_additional_project_pipeline_file: %s\n" % e)
+        raise ApiException("Exception when calling ProjectPipelineApi->create_additional_project_pipeline_file") from e
 
     # Collect the pipeline id from the response json
-    return PipelineFile(**response.json())
-
-    # # Enter a context with an instance of the API client
-    # with ApiClient(get_icav2_configuration()) as api_client:
-    #     # Create an instance of the API class
-    #     api_instance = ProjectPipelineApi(api_client)
-    #
-    # # Set content handler
-    # content_h: IOBase
-    # with open(file_name, 'rb') as content_h:
-    #     # example passing only required values which don't have defaults set
-    #     try:
-    #         # Update the contents of a file for a pipeline.
-    #         api_instance.add_pipeline_file(project_id, pipeline_id, content_h)
-    #     except ApiException as e:
-    #         logger.error("Exception when calling ProjectPipelineApi->update_pipeline_file: %s\n" % e)
-    #         raise ApiException
+    return api_response
 
 
 def create_cwl_project_pipeline(
-    project_id: str,
-    pipeline_code: str,
-    workflow_path: Path,
-    tool_paths: Optional[List[Path]] = None,
-    workflow_description: Optional[str] = None,
-    params_xml_file: Optional[Path] = None,
-    analysis_storage: Optional[AnalysisStorageType] = None,
-    workflow_html_documentation: Optional[Path] = None,
-):
+        project_id: str,
+        pipeline_code: str,
+        workflow_path: Path,
+        tool_paths: Optional[List[Path]] = None,
+        workflow_description: Optional[str] = None,
+        params_xml_file: Optional[Path] = None,
+        analysis_storage: Optional[AnalysisStorageType] = None,
+        workflow_html_documentation: Optional[Path] = None,
+) -> ProjectPipeline:
     """
     Create a CWL project pipeline from a workflow path and tool paths
 
@@ -1767,17 +1731,9 @@ def create_cwl_project_pipeline(
     :param workflow_html_documentation:
     :return:
     """
-    # Get configuration
-    configuration = get_icav2_configuration()
 
-    # Initialise the file list with the workflow path
-    file_list: List[Union[
-        Tuple[str, Tuple[str, BinaryIO]],
-        Tuple[str, Tuple[str, BinaryIO], str],
-        Tuple[str, Tuple[None, str]]
-    ]] = [
-        ('workflowCwlFile', ('workflow.cwl', open(workflow_path, 'rb'))),
-    ]
+    # Add in workflow and
+    workflow_path_tuple_bytes = open(workflow_path, 'rb')
 
     # Check analysis storage
     if analysis_storage is None:
@@ -1795,77 +1751,81 @@ def create_cwl_project_pipeline(
                 )
 
                 # Get the analysis storage from the hints
-                if hasattr(resource_requirement, 'extension_fields') and resource_requirement.extension_fields is not None:
-                    analysis_storage_size = resource_requirement.extension_fields.get('https://platform.illumina.com/rdf/ica/resources/storage', None)
+                if hasattr(resource_requirement,
+                           'extension_fields') and resource_requirement.extension_fields is not None:
+                    analysis_storage_size = resource_requirement.extension_fields.get(
+                        'https://platform.illumina.com/rdf/ica/resources/storage', None)
                     if analysis_storage_size is not None:
-                        analysis_storage = get_analysis_storage_from_analysis_storage_size(AnalysisStorageSize(analysis_storage_size))
+                        analysis_storage = get_analysis_storage_from_analysis_storage_size(
+                            project_id=project_id,
+                            analysis_storage_size=cast(AnalysisStorageSizeType, analysis_storage_size)
+                        )
 
             except StopIteration:
                 pass
 
         if analysis_storage is None:
-            analysis_storage: AnalysisStorageType = get_analysis_storage_from_analysis_storage_size(DEFAULT_ANALYSIS_STORAGE_SIZE)
+            analysis_storage: AnalysisStorageType = get_analysis_storage_from_analysis_storage_size(
+                project_id=project_id,
+                analysis_storage_size=DEFAULT_ANALYSIS_STORAGE_SIZE
+            )
 
     # Add params xml file to the file list
     if params_xml_file is None:
         params_xml_temp_file_obj = NamedTemporaryFile(prefix="params", suffix=".xml")
         params_xml_file = Path(params_xml_temp_file_obj.name)
         create_blank_params_xml(output_file_path=params_xml_file)
-    file_list.append(
-        ('parametersXmlFile', ('params.xml', open(params_xml_file, 'rb')))
-    )
+
+    params_xml_tuple_bytes = (str(params_xml_file), open(params_xml_file, 'rb'))
 
     # Add tool paths to the file list
     if tool_paths is not None:
-        for tool_path in tool_paths:
-            file_list.append(
-                (
-                    'toolCwlFiles',
-                    (
-                        str(
-                            # Collect the tool path relative to the workflow path
-                            tool_path.parent.absolute().resolve().relative_to(
-                                workflow_path.parent.absolute().resolve()
-                            ).joinpath(
-                                tool_path.name
-                            )
-                        ),
-                        open(tool_path, 'rb')
+        tool_tuple_bytes_list = list(map(
+            lambda tool_path_iter_: (
+                str(
+                    # Collect the tool path relative to the workflow path
+                    tool_path_iter_.parent.absolute().resolve().relative_to(
+                        workflow_path.parent.absolute().resolve()
+                    ).joinpath(
+                        tool_path_iter_.name
                     )
-                )
-            )
+                ),
+                open(tool_path_iter_, 'rb')
+            ),
+            tool_paths
+        ))
+    else:
+        tool_tuple_bytes_list = []
 
     # Add the html documentation file to the file list
     if workflow_html_documentation is not None:
-        file_list.append(
-            ('htmlDocumentation', (str(workflow_html_documentation), open(params_xml_file, 'rb')))
-        )
-
-    # Add code, description and analysis storage id to the forms
-    file_list.append(('code', (None, pipeline_code)))
-    file_list.append(('description', (None, workflow_description)))
-    file_list.append(('analysisStorageId', (None, analysis_storage.id)))
+        html_documentation_tuple_bytes = (str(workflow_html_documentation), open(params_xml_file, 'rb'))
+    else:
+        html_documentation_tuple_bytes = None
 
     # Check response
+    # Enter a context with an instance of the API client
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectPipelineApi(api_client)
+
     try:
-        response = requests.post(
-            headers={
-                "Authorization": f"Bearer {configuration.access_token}",
-                "Accept": "application/vnd.illumina.v3+json"
-            },
-            url=f"{configuration.host}/api/projects/{project_id}/pipelines:createCwlPipeline",
-            files=file_list
+        # Create a CWL pipeline within a project.
+        api_response = api_instance.create_cwl_pipeline(
+            project_id=project_id,
+            code=pipeline_code,
+            description=workflow_description,
+            workflow_cwl_file=workflow_path_tuple_bytes,
+            parameters_xml_file=params_xml_tuple_bytes,
+            analysis_storage_id=analysis_storage.id,
+            tool_cwl_files=tool_tuple_bytes_list,
+            html_documentation=html_documentation_tuple_bytes,
         )
-        response.raise_for_status()
-    except HTTPError as err:
-        logger.error(f"Failed to create the CWL pipeline, error: {err}")
-        raise ApiException
+    except ApiException as e:
+        logger.error("Exception when calling ProjectPipelineApi->create_cwl_pipeline: %s\n" % e)
+        raise ApiException("Exception when calling ProjectPipelineApi->create_cwl_pipeline") from e
 
-    # Collect the id from the response json
-    pipeline_id = response.json().get("pipeline").get("id")
-
-    # Convert to a ProjectPipeline object
-    return get_project_pipeline_obj(project_id=project_id, pipeline_id=pipeline_id)
+    return api_response
 
 
 def create_cwl_workflow_from_zip(
@@ -1906,8 +1866,8 @@ def create_cwl_workflow_from_zip(
         tool_paths = list(
             filter(
                 lambda tool_path_iter: (
-                    tool_path_iter.is_file() and
-                    tool_path_iter.name not in ['workflow.cwl', 'params.xml']
+                        tool_path_iter.is_file() and
+                        tool_path_iter.name not in ['workflow.cwl', 'params.xml']
                 ),
                 Path(zip_dir).rglob("*")
             )
@@ -1967,12 +1927,12 @@ def create_nextflow_pipeline_from_zip(
         local_workflow_and_module_paths = list(
             filter(
                 lambda file_iter: (
-                    file_iter.is_file() and
-                    not (
-                        file_iter == main_nf_path or
-                        file_iter == config_file or
-                        file_iter == params_xml_file_path
-                    )
+                        file_iter.is_file() and
+                        not (
+                                file_iter == main_nf_path or
+                                file_iter == config_file or
+                                file_iter == params_xml_file_path
+                        )
                 ),
                 zip_dir.rglob("*")
             )
@@ -2074,22 +2034,31 @@ def create_nextflow_pipeline_from_nf_core_zip(
         filter(
             lambda sub_path: (
                 # Make sure we have a file in the workflow directory
-                sub_path.is_file() and
-                sub_path.is_relative_to(workflow_dir) and
-                # And it's not one of the main.nf or nextflow.config files
-                not (
-                    sub_path.absolute().resolve() == (workflow_dir / 'main.nf') or
-                    sub_path.absolute().resolve() == (workflow_dir / 'nextflow.config')
-                ) and
-                # It's not placed in a subdirectory that is a hidden directory in the top directory
-                not (
-                    sub_path.absolute().resolve().relative_to(workflow_dir).parts[0].startswith(".")
-                ) and
-                # Not a hidden file in the top directory
-                not (
-                    sub_path.parent.absolute().resolve() == workflow_dir and
-                    sub_path.name.startswith(".")
-                )
+                    sub_path.is_file() and
+                    sub_path.is_relative_to(workflow_dir) and
+                    # And it's not one of the main.nf or nextflow.config files
+                    not (
+                            sub_path.absolute().resolve() == (workflow_dir / 'main.nf') or
+                            sub_path.absolute().resolve() == (workflow_dir / 'nextflow.config')
+                    ) and
+                    # It's not placed in a subdirectory that is a hidden directory in the top directory
+                    not (
+                        sub_path.absolute().resolve().relative_to(workflow_dir).parts[0].startswith(".")
+                    ) and
+                    # Not a hidden file in the top directory
+                    not (
+                            sub_path.parent.absolute().resolve() == workflow_dir and
+                            sub_path.name.startswith(".")
+                    )
+                    # Also not a test file
+                    and not (
+                    sub_path.name.endswith(".test") or
+                    sub_path.name.endswith(".test.snap")
+            )
+                    # And not a conda environment file or meta file
+                    and not (
+                    sub_path.name in ["environment.yml", "environment.yaml", "meta.yml", "meta.yaml"]
+            )
             ),
             workflow_dir.rglob("*")
         )
@@ -2103,12 +2072,18 @@ def create_nextflow_pipeline_from_nf_core_zip(
     params_xml_file_path = Path(params_xml_tmp_file_obj.name)
 
     # Get the params json file
-    write_params_xml_from_nextflow_schema_json(
-        nextflow_schema_json_path=nextflow_schema_input_json_path,
-        params_xml_path=params_xml_file_path,
-        pipeline_name=pipeline_code.split("__")[0],
-        pipeline_version=pipeline_code.split("__")[1]
-    )
+    # FIXME - skipping this for now,
+    # Since we use the custom input json option to
+    # generate our analysis. It may be useful in the future to
+    # grab the nextflow schema json file to prepopulate input yamls in the future
+    # write_params_xml_from_nextflow_schema_json(
+    #     nextflow_schema_json_path=nextflow_schema_input_json_path,
+    #     params_xml_path=params_xml_file_path,
+    #     pipeline_name=pipeline_code.split("__")[0],
+    #     pipeline_version=pipeline_code.split("__")[1]
+    # )
+    # Instead we generate a blank params.xml file
+    create_blank_params_xml(output_file_path=params_xml_file_path)
 
     # Now zip everything back up
     new_zip_tmp_dir_obj = TemporaryDirectory()
@@ -2145,7 +2120,7 @@ def create_nextflow_project_pipeline(
         params_xml_file: Optional[Path] = None,
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
-):
+) -> ProjectPipeline:
     """
     Create a CWL project pipeline from a workflow path and tool paths
 
@@ -2160,82 +2135,65 @@ def create_nextflow_project_pipeline(
     :param workflow_html_documentation:
     :return:
     """
-    # Get configuration
-    configuration = get_icav2_configuration()
 
-    # Initialise the file list with the workflow path
-    file_list: List[Union[
-        Tuple[str, Tuple[str, BinaryIO]],
-        Tuple[str, Tuple[str, BinaryIO], str],
-        Tuple[str, Tuple[None, str]]
-    ]] = [
-        ('mainNextflowFile', ('main.nf', open(main_nextflow_file, 'rb'))),
-        ('nextflowConfigFile', ('nextflow.config', open(nextflow_config_file, 'rb')))
-    ]
+    # Get nextflow main and config files
+    main_nextflow_file_tuple_bytes = ('main.nf', open(main_nextflow_file, 'rb'))
+    nextflow_config_file_tuple_bytes = ('nextflow.config', open(nextflow_config_file, 'rb'))
 
     # Check analysis storage
     if analysis_storage is None:
-        analysis_storage: AnalysisStorageType = get_analysis_storage_from_analysis_storage_size(DEFAULT_ANALYSIS_STORAGE_SIZE)
+        analysis_storage: AnalysisStorageType = get_analysis_storage_from_analysis_storage_size(
+            project_id=project_id,
+            analysis_storage_size=DEFAULT_ANALYSIS_STORAGE_SIZE
+        )
 
     # Add params xml file to the file list
-    if params_xml_file is None:
-        params_xml_temp_file_obj = NamedTemporaryFile(prefix="params", suffix=".xml")
-        params_xml_file = Path(params_xml_temp_file_obj.name)
-        create_blank_params_xml(output_file_path=params_xml_file)
-    file_list.append(
-        ('parametersXmlFile', ('params.xml', open(params_xml_file, 'rb'))) #, 'text/xml')
-    )
+    params_xml_file_tuple_bytes = ('params.xml', open(params_xml_file, 'rb'))
 
     # Add tool paths to the file list
     if other_nextflow_files is not None:
-        for tool_path in other_nextflow_files:
-            file_list.append(
-                (
-                    'otherNextflowFiles',
-                    (
-                        str(
-                            # Collect the tool path relative to the workflow path
-                            tool_path.parent.absolute().resolve().relative_to(
-                                main_nextflow_file.parent.absolute().resolve()
-                            ).joinpath(
-                                tool_path.name
-                            )
-                        ),
-                        open(tool_path, 'rb')
+        other_nextflow_files_tuple_bytes_list = list(map(
+            lambda nf_file_iter_: (
+                str(
+                    # Collect the tool path relative to the workflow path
+                    nf_file_iter_.parent.absolute().resolve().relative_to(
+                        main_nextflow_file.parent.absolute().resolve()
+                    ).joinpath(
+                        nf_file_iter_.name
                     )
-                )
-            )
+                ),
+                open(nf_file_iter_, 'rb')
+            ),
+            other_nextflow_files
+        ))
+    else:
+        other_nextflow_files_tuple_bytes_list = []
 
     # Add the html documentation file to the file list
-    if workflow_html_documentation is not None:
-        file_list.append(
-            ('htmlDocumentation', (str(workflow_html_documentation), open(workflow_html_documentation, 'rb'))) #, 'text/html')
-        )
-
-    # Add code, description and analysis storage id to the forms
-    file_list.append(('code', (None, pipeline_code)))
-    file_list.append(('description', (None, workflow_description)))
-    file_list.append(('analysisStorageId', (None, analysis_storage.id)))
-    file_list.append(('pipelineLanguageVersionId', (None, NEXTFLOW_VERSION_UUID)))
+    workflow_html_documentation_tuple_bytes = (str(workflow_html_documentation), open(workflow_html_documentation, 'rb'))
 
     # Check response
+    # Enter a context with an instance of the API client
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectPipelineApi(api_client)
+
     try:
-        response: Response = requests.post(
-            headers={
-                "Authorization": f"Bearer {configuration.access_token}",
-                "Accept": "application/vnd.illumina.v3+json"
-            },
-            url=f"{configuration.host}/api/projects/{project_id}/pipelines:createNextflowPipeline",
-            files=file_list
+        # Create a Nextflow pipeline within a project.
+        api_response = api_instance.create_nextflow_pipeline(
+            project_id=project_id,
+            code=pipeline_code,
+            description=workflow_description,
+            main_nextflow_file=main_nextflow_file_tuple_bytes,
+            parameters_xml_file=params_xml_file_tuple_bytes,
+            analysis_storage_id=analysis_storage.id,
+            pipeline_language_version_id=get_default_nextflow_pipeline_version_id(),
+            nextflow_config_file=nextflow_config_file_tuple_bytes,
+            other_nextflow_files=other_nextflow_files_tuple_bytes_list,
+            html_documentation=workflow_html_documentation_tuple_bytes,
         )
-        response.raise_for_status()
-    except HTTPError as err:
-        logger.error(f"Failed to create the Nextflow pipeline, error: {err}")
-        logger.error(response.json())
-        raise ApiException
+    except Exception as e:
+        logger.error("Exception when calling ProjectPipelineApi->create_nextflow_pipeline: %s\n" % e)
+        raise ApiException("Exception when calling ProjectPipelineApi->create_nextflow_pipeline") from e
 
-    # Collect the id from the response json
-    pipeline_id = response.json().get("pipeline").get("id")
-
-    # Convert to a ProjectPipeline object
-    return get_project_pipeline_obj(project_id=project_id, pipeline_id=pipeline_id)
+    return api_response

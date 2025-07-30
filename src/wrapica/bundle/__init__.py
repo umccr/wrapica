@@ -1,4 +1,4 @@
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     BundleData,
     BundlePagedList,
     BundlePipeline,

@@ -5,7 +5,7 @@ Functions that don't quite do anywhere else
 """
 # Standard imports
 import re
-from typing import Dict, Any, Union, List, Type
+from typing import Dict, Any, Type
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -58,40 +58,17 @@ def is_uri_format(uri_str: str) -> bool:
         return False
 
 
-def build_curl_body_from_libica_item(libica_item: Any) -> Union[Dict, Any]:
-    """
-    Useful for pipeline retention, i.e what was actually submitted to the orchestration engine
-    :param libica_item:
-    :return:
-    """
-    if not isinstance(libica_item, object) or isinstance(libica_item, str):
-        return libica_item
-    open_api_body_dict = {}
-    for key, value in libica_item._data_store.items():
-        if isinstance(value, List):
-            output_value = [
-                build_curl_body_from_libica_item(value_item)
-                for value_item in value
-            ]
-        elif isinstance(value, object) and hasattr(value, "_data_store"):
-            output_value = build_curl_body_from_libica_item(value)
-        else:
-            output_value = value
-        open_api_body_dict[libica_item.attribute_map.get(key)] = output_value
-    return open_api_body_dict
-
-
-def is_str_type_representation(value: str, type: Type) -> bool:
+def is_str_type_representation(value: str, type_: Type) -> bool:
     """
     Check if the string 'value' can be represented as the type 'type'
 
     :param value:
-    :param type:
+    :param type_:
     :return:
     """
 
     try:
-        type(value)
+        type_(value)
         return True
     except ValueError:
         return False
@@ -104,7 +81,6 @@ def nextflow_parameter_to_str(parameter: Any) -> str:
     This is easy for ints + floats, for Boolean types we make sure the string is lowercase
 
     :param parameter:
-    :param type:
     :return:
     """
     if type(parameter) == bool:

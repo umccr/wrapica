@@ -7,11 +7,11 @@ from zipfile import ZipFile
 from cwl_utils.parser import load_document_by_uri
 
 # Libica API imports
-from libica.openapi.v2 import ApiClient, ApiException
-from libica.openapi.v2.api.pipeline_api import PipelineApi
+from libica.openapi.v3 import ApiClient, ApiException
+from libica.openapi.v3.api.pipeline_api import PipelineApi
 
 # Libica model imports
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     PipelineFile,
     PipelineV3,
     PipelineV4
@@ -58,13 +58,18 @@ def get_pipeline_obj_from_pipeline_id(
         )
     """
     with ApiClient(get_icav2_configuration()) as api_client:
+        # Force the API client to send back the v4 API
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v4+json"
+        )
         # Create an instance of the API class
         api_instance = PipelineApi(api_client)
 
     # example, this endpoint has no required or optional parameters
     try:
         # Retrieve a list of pipelines.
-        api_response: PipelineV3 = api_instance.get_pipeline(pipeline_id)
+        api_response: PipelineV4 = api_instance.get_pipeline(pipeline_id)
     except ApiException as e:
         logger.error("Exception when calling PipelineApi->get_pipelines: %s\n" % e)
         raise ApiException
@@ -205,6 +210,11 @@ def list_all_pipelines() -> List[PipelineType]:
 
     # Create an instance of the API class
     with ApiClient(get_icav2_configuration()) as api_client:
+        # Force the API client to send back the v3 API
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
         api_instance = PipelineApi(api_client)
 
     # example, this endpoint has no required or optional parameters
@@ -214,7 +224,7 @@ def list_all_pipelines() -> List[PipelineType]:
         pipelines: List[PipelineV3] = api_instance.get_pipelines().items
     except ApiException as e:
         logger.error("Could not get pipeline list")
-        raise ApiException
+        raise ApiException from e
 
     return pipelines
 
@@ -253,33 +263,23 @@ def download_pipeline_file(
     """
     assert file_path.parent.is_dir(), f"Parent directory {file_path.parent} does not exist"
 
-    # example passing only required values which don't have defaults set
-    # FIXME - wait until https://github.com/umccr-illumina/libica/issues/137 is resolved
-    # try:
-    #     # Download the contents of a pipeline file.
-    #     api_response: file_type = api_instance.download_pipeline_file_content(
-    #         pipeline_id=pipeline_id,
-    #         file_id=file_id
-    #     )
-    # except ApiException as e:
-    #     logger.error("Exception when calling PipelineApi->download_pipeline_file_content: %s\n" % e)
-    #     raise ApiException
-    import requests
-    from requests import HTTPError
-
-    headers = {
-        "Accept": "application/octet-stream",
-        "Authorization": f"Bearer {get_icav2_configuration().access_token}"
-    }
+    # Create an instance of the API class
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Force the API client to send back the v3 API
+        # api_client.set_default_header(
+        #     header_name="Accept",
+        #     header_value="application/octet-stream"
+        # )
+        api_instance = PipelineApi(api_client)
 
     try:
-        response = requests.get(
-            get_icav2_configuration().host + f"/api/pipelines/{pipeline_id}/files/{file_id}/content",
-            headers=headers
+        # Download the contents of a pipeline file.
+        api_response = api_instance.download_pipeline_file_content(
+            pipeline_id=pipeline_id,
+            file_id=file_id
         )
-        response.raise_for_status()
-    except HTTPError:
-        logger.error(f"Failed to download pipeline file {file_id} from pipeline {pipeline_id}")
+    except ApiException as e:
+        logger.error("Exception when calling PipelineApi->download_pipeline_file_content: %s\n" % e)
         raise ApiException
 
     # Write out file
@@ -289,12 +289,11 @@ def download_pipeline_file(
 
         with open(file_path, 'wb') as file_h:
             file_h.write(
-                response.content
-                # api_response.read()
+                api_response
             )
+        return None
     else:
-        # return BytesIO(api_response.read())
-        return BytesIO(response.content)
+        return BytesIO(api_response)
 
 
 def list_pipeline_files(

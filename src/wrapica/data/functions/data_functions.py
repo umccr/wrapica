@@ -3,25 +3,32 @@
 """
 Functions relating to the 'data' endpoint
 """
+
+# Standard imports
 from pathlib import Path
 from typing import Optional
 
 # Libica api imports
-from libica.openapi.v2 import ApiClient, ApiException
-from libica.openapi.v2.api.data_api import DataApi
+from libica.openapi.v3 import ApiClient, ApiException
+from libica.openapi.v3.api.data_api import DataApi
 from urllib.parse import urlunparse, urlparse
 
 # Libica model imports
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     Data,
     ProjectData
 )
 
-from ...enums import DataType
-from ...project_data import is_data_id_format
+
 # Local imports
+from ...project_data import is_data_id_format
 from ...utils.configuration import get_icav2_configuration
 from ...utils.logger import get_logger
+from ...utils.globals import (
+    FOLDER_DATA_TYPE,
+    FILE_DATA_TYPE,
+    ICAV2_URI_SCHEME
+)
 
 logger = get_logger()
 
@@ -105,12 +112,11 @@ def get_owning_project_id(data_id: str, region_id: Optional[str] = None) -> str:
     return data_obj.details.owning_project_id
 
 
-def get_project_data_obj_from_data_id(data_id: str, region_id: Optional[str] = None) -> ProjectData:
+def get_project_data_obj_from_data_id(data_id: str) -> ProjectData:
     """
     Get the project data object from a data id
 
     :param data_id:  The data id
-    :param region_id:  The region id
 
     :return: The project data object
     :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
@@ -206,7 +212,7 @@ def convert_data_obj_to_icav2_uri(data_obj: Data) -> str:
     return str(
         urlunparse(
             (
-                "icav2",
+                ICAV2_URI_SCHEME,
                 data_obj.details.owning_project_id,
                 data_obj.details.path,
                 None, None, None
@@ -250,7 +256,7 @@ def coerce_data_id_path_or_icav2_uri_to_data_obj(
         return get_data_obj_from_data_id(
             data_id=data_id_path_or_uri
         )
-    elif urlparse(data_id_path_or_uri).scheme == "icav2":
+    elif urlparse(data_id_path_or_uri).scheme == ICAV2_URI_SCHEME:
         # ICAv2 URI, convert to data object
         return convert_icav2_uri_to_data_obj(
             data_uri=data_id_path_or_uri,
@@ -267,7 +273,7 @@ def coerce_data_id_path_or_icav2_uri_to_data_obj(
         project_data_obj = get_project_data_obj_from_project_id_and_path(
             project_id=project_id,
             data_path=Path(data_id_path_or_uri),
-            data_type=DataType.FOLDER if data_id_path_or_uri.endswith("/") else DataType.FILE,
+            data_type=FOLDER_DATA_TYPE if data_id_path_or_uri.endswith("/") else FILE_DATA_TYPE,
             create_data_if_not_found=create_data_if_not_found
         )
         return project_data_obj.data

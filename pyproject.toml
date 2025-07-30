@@ -19,14 +19,14 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "libica >= 2.5.0, < 3",
+    "libica >= 3.0",
     "PyJWT >= 2.8.0, < 3",
     "ruamel.base >= 1.0.0, < 2",
     "ruamel.yaml >= 0.18.0, < 0.19",
     "verboselogs >= 1.7, < 2",
     "websocket_client >= 1.4.2, < 2",
     "beautifulsoup4 >= 4.10.0, < 5",
-    "cwl_utils >= 0.33, < 1",
+    "cwl_utils >= 0.38, < 1",
     "pandas >= 2.2.2",
 ]
 

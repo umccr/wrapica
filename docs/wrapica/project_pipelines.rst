@@ -56,7 +56,8 @@ Functions
       create_cwl_workflow_from_zip,
       create_nextflow_pipeline_from_zip,
       create_nextflow_pipeline_from_nf_core_zip,
-      create_nextflow_project_pipeline
+      create_nextflow_project_pipeline,
+      convert_uris_to_data_ids_from_nextflow_input_json
     :undoc-members:
     :show-inheritance:
     :exclude-members:

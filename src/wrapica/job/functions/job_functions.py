@@ -2,17 +2,18 @@
 
 # Standard imports
 from time import sleep
+from typing import cast
 
 # Libica API imports
-from libica.openapi.v2 import ApiClient, ApiException
-from libica.openapi.v2.api.job_api import JobApi
+from libica.openapi.v3 import ApiClient, ApiException
+from libica.openapi.v3.api.job_api import JobApi
 
 # Libica model imports
-from libica.openapi.v2.models import Job
+from libica.openapi.v3.models import Job
 
 # Util imports
+from ...literals import JobStatusType
 from ...utils.configuration import get_icav2_configuration
-from ...enums import JobStatus
 
 
 def get_job(
@@ -47,18 +48,18 @@ def get_job(
 def wait_for_job_completion(
         job_id: str,
         raise_on_failure: bool = True
-) -> JobStatus:
+) -> JobStatusType:
 
     while True:
         # Get the job objects
         job_obj = get_job(job_id)
 
         # Get the job status
-        job_status = JobStatus(job_obj.status)
+        job_status = cast(JobStatusType, job_obj.status)
 
-        if job_status in [JobStatus.SUCCEEDED]:
+        if job_status in ['SUCCEEDED']:
             return job_status
-        elif job_status in [JobStatus.FAILED, JobStatus.PARTIALLY_SUCCEEDED, JobStatus.STOPPED]:
+        elif job_status in ['FAILED', 'PARTIALLY_SUCCEEDED', 'STOPPED']:
             if raise_on_failure:
                 raise Exception(f"Job {job_id} failed with status {job_status}")
             else:

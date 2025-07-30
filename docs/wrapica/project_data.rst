@@ -44,7 +44,8 @@ Functions
      get_file_by_file_name_from_project_data_list,
      project_data_copy_batch_handler,
      delete_project_data,
-     move_project_data
+     move_project_data,
+     add_tag_to_data_object
    :undoc-members:
    :show-inheritance:
    :exclude-members:

@@ -4,7 +4,7 @@
 from typing import Union
 
 # Libica models
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     ActivationCodeDetail,
     AnalysisInputDataMount,
     AnalysisInputExternalData,
@@ -43,9 +43,6 @@ from .functions.project_pipelines_functions import (
     get_analysis_storage_from_analysis_storage_id,
     get_analysis_storage_from_analysis_storage_size,
     coerce_analysis_storage_id_or_size_to_analysis_storage,
-    get_activation_id,
-    get_best_matching_entitlement_detail_for_cwl_analysis,
-    get_best_matching_entitlement_detail_for_nextflow_analysis,
     create_cwl_input_json_analysis_obj,
     launch_cwl_workflow,
     launch_nextflow_workflow,
@@ -127,9 +124,6 @@ __all__ = [
     'get_analysis_storage_from_analysis_storage_id',
     'get_analysis_storage_from_analysis_storage_size',
     'coerce_analysis_storage_id_or_size_to_analysis_storage',
-    'get_activation_id',
-    'get_best_matching_entitlement_detail_for_cwl_analysis',
-    'get_best_matching_entitlement_detail_for_nextflow_analysis',
     'create_cwl_input_json_analysis_obj',
     'launch_cwl_workflow',
     'launch_nextflow_workflow',

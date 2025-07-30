@@ -1,27 +1,35 @@
 #!/usr/bin/env python3
+
+# Standard imports
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from urllib.parse import urlunparse, urlparse
 
-from libica.openapi.v2 import ApiException, ApiClient
-from libica.openapi.v2.api.storage_configuration_api import StorageConfigurationApi
-from libica.openapi.v2.model.aws_details import AWSDetails
-from libica.openapi.v2.models import (
+# Libica imports
+from libica.openapi.v3 import ApiException, ApiClient
+from libica.openapi.v3.api.storage_configuration_api import StorageConfigurationApi
+from libica.openapi.v3.models import (
     StorageConfigurationWithDetails,
-    ProjectData
+    ProjectData,
+    AWSDetails
 )
 
 # Local imports
-from ...enums import UriType, DataType
 from ...utils.configuration import get_icav2_configuration
 from ...utils.logger import get_logger
+from ...utils.globals import (
+    S3_URI_SCHEME,
+    ICAV2_URI_SCHEME,
+    FOLDER_DATA_TYPE
+)
 
+# Get the logger
 logger = get_logger()
 
 
-# s3-key-prefix: {storage_configuration_id: [project_id_1, project_id_2, ...]}
-STORAGE_CONFIGURATION_MAPPING_DICT: Optional[Dict[str, Dict[str, List[str]]]] = None
 
+# { "s3-key-prefix": {"storage_configuration_id": [project_id_1, project_id_2, ...]}
+STORAGE_CONFIGURATION_MAPPING_DICT: Optional[Dict[str, Dict[str, List[str]]]] = None
 
 def get_storage_configuration_list() -> List[StorageConfigurationWithDetails]:
     # Enter a context with an instance of the API client
@@ -48,7 +56,7 @@ def set_storage_configuration_mapping():
         return str(
             urlunparse(
                 (
-                    "s3",
+                    S3_URI_SCHEME,
                     aws_details.bucket_name,
                     str(Path(aws_details.key_prefix)) + "/",
                     None, None, None
@@ -144,7 +152,7 @@ def get_project_id_by_s3_key_prefix(s3_key_prefix: str) -> Optional[str]:
 
 
 # And vice-versa
-def get_s3_key_prefix_by_project_id(project_id: str) -> str:
+def get_s3_key_prefix_by_project_id(project_id: str) -> Optional[str]:
     # Local imports
     from ...project import get_project_name_from_project_id
     # Return Key Prefix with project name extension
@@ -164,7 +172,8 @@ def get_s3_key_prefix_by_project_id(project_id: str) -> str:
                         None, None, None
                     )
                 ))
-
+    logger.warning("Could not get S3 key prefix for project id: %s", project_id)
+    return None
 
 def convert_s3_uri_to_icav2_uri(s3_uri: str) -> str:
     # Convert S3 URI to ICAv2 URI
@@ -177,7 +186,7 @@ def convert_s3_uri_to_icav2_uri(s3_uri: str) -> str:
     return str(
         urlunparse(
             (
-                UriType.ICAV2.value,
+                ICAV2_URI_SCHEME,
                 get_project_id_by_s3_key_prefix(s3_uri),
                 # This path is then the relative path to the project s3 prefix
                 str(Path(urlparse(s3_uri).path).relative_to(Path(urlparse(project_s3_prefix).path))) + ("/" if s3_uri.endswith("/") else ""),
@@ -227,7 +236,7 @@ def convert_project_data_obj_to_s3_uri(project_data_obj: ProjectData) -> str:
             (
                 urlparse(project_s3_prefix).scheme,
                 urlparse(project_s3_prefix).netloc,
-                str(Path(urlparse(project_s3_prefix).path) / Path(project_data_obj.data.details.path.lstrip("/"))) + ("/" if DataType(project_data_obj.data.details.data_type) == DataType.FOLDER else ""),
+                str(Path(urlparse(project_s3_prefix).path) / Path(project_data_obj.data.details.path.lstrip("/"))) + ("/" if project_data_obj.data.details.data_type == FOLDER_DATA_TYPE else ""),
                 None, None, None
             )
         )
