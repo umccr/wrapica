@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # Standard imports
+"""
 All the enums!
 """
 from enum import Enum
