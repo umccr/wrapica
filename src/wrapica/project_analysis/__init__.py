@@ -4,7 +4,7 @@
 from typing import Union
 
 # Import libica models
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     AnalysisQueryParameters,
     AnalysisV3,
     AnalysisV4,

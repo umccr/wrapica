@@ -11,9 +11,9 @@ from typing import List, Union, Dict, Any, Optional, cast
 import re
 
 # Libica apis
-from libica.openapi.v2.api.project_analysis_api import ProjectAnalysisApi
-from libica.openapi.v2.api_client import ApiClient
-from libica.openapi.v2.exceptions import ApiException
+from libica.openapi.v3.api.project_analysis_api import ProjectAnalysisApi
+from libica.openapi.v3.api_client import ApiClient
+from libica.openapi.v3.exceptions import ApiException
 
 # Wrapica imports
 from ...literals import (
@@ -26,7 +26,7 @@ from ...literals import (
 )
 
 # Libica models
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     AnalysisQueryParameters,
     AnalysisV3,
     AnalysisV4,
@@ -305,7 +305,7 @@ def get_cwl_outputs_json_from_analysis_id(
 def get_analysis_obj_from_analysis_id(
     project_id: str,
     analysis_id: str
-) -> AnalysisType:
+) -> AnalysisV4:
     """
     Get an analysis object given a project id and analysis id
 
@@ -332,13 +332,22 @@ def get_analysis_obj_from_analysis_id(
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
+        # Set as V4 headers
+        api_client.set_default_header(
+            header_name="Content-Type",
+            header_value="application/vnd.illumina.v4+json"
+        )
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v4+json"
+        )
         # Create an instance of the API class
         api_instance = ProjectAnalysisApi(api_client)
 
     # example passing only required values which don't have defaults set
     try:
         # Retrieve an analysis.
-        api_response: AnalysisType = api_instance.get_analysis(project_id, analysis_id)
+        api_response: AnalysisV4 = api_instance.get_analysis(project_id, analysis_id)
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->get_analysis: %s\n" % e)
         raise ApiException
@@ -673,11 +682,6 @@ def list_analyses(
 
     # Enter a context with an instance of the API client
     with ApiClient(configuration) as api_client:
-        # Force default headers for endpoints with a ':' in the name
-        api_client.set_default_header(
-            header_name="Accept",
-            header_value="application/vnd.illumina.v4+json"
-        )
         # Create an instance of the API class
         api_instance = ProjectAnalysisApi(api_client)
 
@@ -719,7 +723,7 @@ def list_analyses(
                 )
             )
         except ApiException as e:
-            raise ValueError("Exception when calling ProjectDataApi->get_project_data_list: %s\n" % e)
+            raise ValueError("Exception when calling ProjectAnalysisApi->get_project_data_list: %s\n" % e)
 
         # Extend items list
         analysis_list.extend(api_response.items)
