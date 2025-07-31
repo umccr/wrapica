@@ -266,10 +266,10 @@ def download_pipeline_file(
     # Create an instance of the API class
     with ApiClient(get_icav2_configuration()) as api_client:
         # Force the API client to send back the v3 API
-        # api_client.set_default_header(
-        #     header_name="Accept",
-        #     header_value="application/octet-stream"
-        # )
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/octet-stream"
+        )
         api_instance = PipelineApi(api_client)
 
     try:

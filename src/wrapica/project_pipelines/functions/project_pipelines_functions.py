@@ -22,7 +22,8 @@ from libica.openapi.v3 import (
     ApiException,
     ProjectAnalysisStorageApi,
     ProjectPipelineV4,
-    PipelineConfigurationParameter
+    PipelineConfigurationParameter,
+    PipelineResources
 )
 from libica.openapi.v3.api.project_pipeline_api import ProjectPipelineApi
 from libica.openapi.v3.api.project_analysis_api import ProjectAnalysisApi
@@ -56,7 +57,7 @@ from ...utils.globals import (
     ICAV2_URI_SCHEME,
     S3_URI_SCHEME
 )
-from ...literals import DataType, PipelineStatusType, UriType, AnalysisStorageSizeType
+from ...literals import DataType, PipelineStatusType, UriType, AnalysisStorageSizeType, ResourceType
 from ...utils.miscell import is_uuid_format, is_uri_format
 from ...utils.nextflow_helpers import (
     convert_base_config_to_icav2_base_config, get_default_nextflow_pipeline_version_id,
@@ -103,7 +104,11 @@ def get_project_pipeline_obj(project_id: str, pipeline_id: str) -> ProjectPipeli
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
-        # FIXME - add v4 accept header
+        # Force the API client to send back the v4 API
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v4+json"
+        )
         api_instance = ProjectPipelineApi(api_client)
 
     # example passing only required values which don't have defaults set
@@ -1557,7 +1562,7 @@ def update_pipeline_file(project_id: str, pipeline_id: str, file_id: str, file_p
         raise ValueError
 
     with ApiClient(get_icav2_configuration()) as api_client:
-
+        # Force content type
         api_instance = ProjectPipelineApi(api_client)
 
     try:
@@ -1565,7 +1570,7 @@ def update_pipeline_file(project_id: str, pipeline_id: str, file_id: str, file_p
             project_id=project_id,
             pipeline_id=pipeline_id,
             file_id=file_id,
-            content=open(f"{file_path}", "rb")
+            content=open(f"{file_path}", "rb").read()
         )
     except ApiException as e:
         logger.error("Update pipeline file failed: %s\n" % e)
@@ -1636,8 +1641,6 @@ def add_pipeline_file(
         relative_path: Optional[Path] = None
 ) -> PipelineFile:
     """
-    FIXME - currently places file in the top directory , should be placed in a relative path instead
-
     Add a pipeline file to a pipeline on icav2
 
     :param project_id: The project id to add the file to
@@ -1673,23 +1676,14 @@ def add_pipeline_file(
         logger.error("Pipeline is not in draft status, cannot add a pipeline file if it has been released")
         raise ValueError
 
-    configuration = get_icav2_configuration()
-
-    headers = {
-        "Accept": "application/vnd.illumina.v3+json",
-        "Authorization": f"Bearer {configuration.access_token}",
-        # requests won"t add a boundary if this header is set when you pass files=
-        # "Content-Type": "multipart/form-data",
-    }
-
     if relative_path is None:
-        content = open(f"{file_path}", "rb")
+        content = open(f"{file_path}", "rb").read()
     else:
         content = (
             str(
                 relative_path
             ),
-            open(f"{file_path}", "rb")
+            open(f"{file_path}", "rb").read()
         )
 
     # Enter a context with an instance of the API client
@@ -1699,7 +1693,7 @@ def add_pipeline_file(
 
     try:
         # Create an additional input form file for a pipeline.
-        api_response = api_instance.create_additional_project_pipeline_file(project_id, pipeline_id, content)
+        api_response = api_instance.create_project_pipeline_file(project_id, pipeline_id, content)
     except ApiException as e:
         logger.error("Exception when calling ProjectPipelineApi->create_additional_project_pipeline_file: %s\n" % e)
         raise ApiException("Exception when calling ProjectPipelineApi->create_additional_project_pipeline_file") from e
@@ -1717,10 +1711,12 @@ def create_cwl_project_pipeline(
         params_xml_file: Optional[Path] = None,
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
-) -> ProjectPipeline:
+        resource_type: Optional[ResourceType] = None
+) -> ProjectPipelineV4:
     """
     Create a CWL project pipeline from a workflow path and tool paths
 
+    :param resource_type:
     :param project_id:
     :param pipeline_code:
     :param workflow_path:
@@ -1733,7 +1729,7 @@ def create_cwl_project_pipeline(
     """
 
     # Add in workflow and
-    workflow_path_tuple_bytes = open(workflow_path, 'rb')
+    workflow_path_tuple_bytes = open(workflow_path, 'rb').read()
 
     # Check analysis storage
     if analysis_storage is None:
@@ -1776,7 +1772,7 @@ def create_cwl_project_pipeline(
         params_xml_file = Path(params_xml_temp_file_obj.name)
         create_blank_params_xml(output_file_path=params_xml_file)
 
-    params_xml_tuple_bytes = (str(params_xml_file), open(params_xml_file, 'rb'))
+    params_xml_tuple_bytes = (str(params_xml_file), open(params_xml_file, 'rb').read())
 
     # Add tool paths to the file list
     if tool_paths is not None:
@@ -1790,7 +1786,7 @@ def create_cwl_project_pipeline(
                         tool_path_iter_.name
                     )
                 ),
-                open(tool_path_iter_, 'rb')
+                open(tool_path_iter_, 'rb').read()
             ),
             tool_paths
         ))
@@ -1799,9 +1795,30 @@ def create_cwl_project_pipeline(
 
     # Add the html documentation file to the file list
     if workflow_html_documentation is not None:
-        html_documentation_tuple_bytes = (str(workflow_html_documentation), open(params_xml_file, 'rb'))
+        html_documentation_tuple_bytes = (str(workflow_html_documentation), open(params_xml_file, 'rb').read())
     else:
         html_documentation_tuple_bytes = None
+
+    # Check if the resource type is set
+    if resource_type is not None:
+        if resource_type == "f1":
+            resources = PipelineResources(
+                f1=True
+            )
+        elif resource_type == "f2":
+            resources = PipelineResources(
+                f2=True
+            )
+        elif resource_type == "gpu":
+            resources = PipelineResources(
+                gpu=True
+            )
+        else:
+            resources = PipelineResources(
+                **{"software-only": True}
+            )
+    else:
+        resources = None
 
     # Check response
     # Enter a context with an instance of the API client
@@ -1820,12 +1837,16 @@ def create_cwl_project_pipeline(
             analysis_storage_id=analysis_storage.id,
             tool_cwl_files=tool_tuple_bytes_list,
             html_documentation=html_documentation_tuple_bytes,
+            resources=resources
         )
     except ApiException as e:
         logger.error("Exception when calling ProjectPipelineApi->create_cwl_pipeline: %s\n" % e)
         raise ApiException("Exception when calling ProjectPipelineApi->create_cwl_pipeline") from e
 
-    return api_response
+    return get_project_pipeline_obj(
+        project_id=project_id,
+        pipeline_id=api_response.pipeline.id
+    )
 
 
 def create_cwl_workflow_from_zip(
@@ -1835,7 +1856,8 @@ def create_cwl_workflow_from_zip(
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_description: Optional[str] = None,
         html_documentation_path: Optional[Path] = None,
-) -> ProjectPipeline:
+        resource_type: Optional[ResourceType] = None
+) -> ProjectPipelineV4:
     """
     Create a CWL project pipeline from a zip file containing the workflow and tools
 
@@ -1845,6 +1867,7 @@ def create_cwl_workflow_from_zip(
     :param analysis_storage:
     :param workflow_description:
     :param html_documentation_path:
+    :param resource_type:
     :return:
     """
     # Unzip the workflow and tool files
@@ -1895,7 +1918,8 @@ def create_cwl_workflow_from_zip(
             workflow_description=workflow_description,
             params_xml_file=params_xml_file,
             analysis_storage=analysis_storage,
-            workflow_html_documentation=html_documentation_path
+            workflow_html_documentation=html_documentation_path,
+            resource_type=resource_type
         )
 
 
@@ -1904,8 +1928,9 @@ def create_nextflow_pipeline_from_zip(
         pipeline_code: str,
         zip_path: Path,
         workflow_description: Optional[str] = None,
-        html_documentation_path: Optional[Path] = None
-) -> ProjectPipeline:
+        html_documentation_path: Optional[Path] = None,
+        resource_type: Optional[ResourceType] = None
+) -> ProjectPipelineV4:
     # Extract the zip file
     with TemporaryDirectory() as temp_dir:
         zip_h = ZipFile(zip_path, 'r')
@@ -1947,7 +1972,8 @@ def create_nextflow_pipeline_from_zip(
             other_nextflow_files=local_workflow_and_module_paths,
             workflow_description=workflow_description,
             params_xml_file=params_xml_file_path if params_xml_file_path.is_file() else None,
-            workflow_html_documentation=html_documentation_path
+            workflow_html_documentation=html_documentation_path,
+            resource_type=resource_type
         )
 
 
@@ -1958,7 +1984,8 @@ def create_nextflow_pipeline_from_nf_core_zip(
         pipeline_revision: str,
         workflow_description: Optional[str] = None,
         html_documentation_path: Optional[Path] = None,
-) -> ProjectPipeline:
+        resource_type: Optional[ResourceType] = None
+) -> ProjectPipelineV4:
     """
     Create a Nextflow project pipeline from a zip file containing the workflow and tools
     This function is designed for a user to generate an nf-core pipeline from a zip file containing the workflow and tools.
@@ -1969,6 +1996,7 @@ def create_nextflow_pipeline_from_nf_core_zip(
     :param zip_path:
     :param workflow_description:
     :param html_documentation_path:
+    :param resource_type:
 
     :return: The nextflow pipeline
     :rtype: `ProjectPipeline <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectPipeline/>`_
@@ -2106,7 +2134,8 @@ def create_nextflow_pipeline_from_nf_core_zip(
         pipeline_code=pipeline_code,
         zip_path=new_zip_file_path,
         workflow_description=workflow_description,
-        html_documentation_path=html_documentation_path
+        html_documentation_path=html_documentation_path,
+        resource_type=resource_type
     )
 
 
@@ -2120,7 +2149,8 @@ def create_nextflow_project_pipeline(
         params_xml_file: Optional[Path] = None,
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
-) -> ProjectPipeline:
+        resource_type: Optional[ResourceType] = None
+) -> ProjectPipelineV4:
     """
     Create a CWL project pipeline from a workflow path and tool paths
 
@@ -2133,12 +2163,13 @@ def create_nextflow_project_pipeline(
     :param params_xml_file:
     :param analysis_storage:
     :param workflow_html_documentation:
+    :param resource_type:
     :return:
     """
 
     # Get nextflow main and config files
-    main_nextflow_file_tuple_bytes = ('main.nf', open(main_nextflow_file, 'rb'))
-    nextflow_config_file_tuple_bytes = ('nextflow.config', open(nextflow_config_file, 'rb'))
+    main_nextflow_file_tuple_bytes = ('main.nf', open(main_nextflow_file, 'rb').read())
+    nextflow_config_file_tuple_bytes = ('nextflow.config', open(nextflow_config_file, 'rb').read())
 
     # Check analysis storage
     if analysis_storage is None:
@@ -2148,7 +2179,7 @@ def create_nextflow_project_pipeline(
         )
 
     # Add params xml file to the file list
-    params_xml_file_tuple_bytes = ('params.xml', open(params_xml_file, 'rb'))
+    params_xml_file_tuple_bytes = ('params.xml', open(params_xml_file, 'rb').read())
 
     # Add tool paths to the file list
     if other_nextflow_files is not None:
@@ -2162,7 +2193,7 @@ def create_nextflow_project_pipeline(
                         nf_file_iter_.name
                     )
                 ),
-                open(nf_file_iter_, 'rb')
+                open(nf_file_iter_, 'rb').read()
             ),
             other_nextflow_files
         ))
@@ -2170,9 +2201,30 @@ def create_nextflow_project_pipeline(
         other_nextflow_files_tuple_bytes_list = []
 
     # Add the html documentation file to the file list
-    workflow_html_documentation_tuple_bytes = (str(workflow_html_documentation), open(workflow_html_documentation, 'rb'))
+    workflow_html_documentation_tuple_bytes = (str(workflow_html_documentation), open(workflow_html_documentation, 'rb').read())
 
-    # Check response
+    # Check if the resource type is set
+    if resource_type is not None:
+        if resource_type == "f1":
+            resources = PipelineResources(
+                f1=True
+            )
+        elif resource_type == "f2":
+            resources = PipelineResources(
+                f2=True
+            )
+        elif resource_type == "gpu":
+            resources = PipelineResources(
+                gpu=True
+            )
+        else:
+            resources = PipelineResources.from_dict(
+                {"software-only": True}
+            )
+    else:
+        resources = None
+
+
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
@@ -2191,9 +2243,13 @@ def create_nextflow_project_pipeline(
             nextflow_config_file=nextflow_config_file_tuple_bytes,
             other_nextflow_files=other_nextflow_files_tuple_bytes_list,
             html_documentation=workflow_html_documentation_tuple_bytes,
+            resources=resources
         )
     except Exception as e:
         logger.error("Exception when calling ProjectPipelineApi->create_nextflow_pipeline: %s\n" % e)
         raise ApiException("Exception when calling ProjectPipelineApi->create_nextflow_pipeline") from e
 
-    return api_response
+    return get_project_pipeline_obj(
+        project_id=project_id,
+        pipeline_id=api_response.pipeline.id
+    )

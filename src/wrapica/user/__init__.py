@@ -1,5 +1,5 @@
 # libica imports
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     User,
     UserList
 )

@@ -170,3 +170,11 @@ class AnalysisStepDict(TypedDict):
     queue_date: Optional[datetime]
     start_date: Optional[datetime]
     end_date: Optional[datetime]
+
+
+ResourceType = Literal[
+    "f1",
+    "f2",
+    "gpu",
+    "software_only",
+]
