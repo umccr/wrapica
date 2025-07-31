@@ -1695,8 +1695,8 @@ def add_pipeline_file(
         # Create an additional input form file for a pipeline.
         api_response = api_instance.create_project_pipeline_file(project_id, pipeline_id, content)
     except ApiException as e:
-        logger.error("Exception when calling ProjectPipelineApi->create_additional_project_pipeline_file: %s\n" % e)
-        raise ApiException("Exception when calling ProjectPipelineApi->create_additional_project_pipeline_file") from e
+        logger.error("Exception when calling ProjectPipelineApi->create_project_pipeline_file: %s\n" % e)
+        raise ApiException("Exception when calling ProjectPipelineApi->create_project_pipeline_file") from e
 
     # Collect the pipeline id from the response json
     return api_response
@@ -1795,7 +1795,7 @@ def create_cwl_project_pipeline(
 
     # Add the html documentation file to the file list
     if workflow_html_documentation is not None:
-        html_documentation_tuple_bytes = (str(workflow_html_documentation), open(params_xml_file, 'rb').read())
+        html_documentation_tuple_bytes = (str(workflow_html_documentation), open(workflow_html_documentation, 'rb').read())
     else:
         html_documentation_tuple_bytes = None
 
