@@ -1223,8 +1223,9 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                     )
                 )
 
+                # The samplesheet is labelled as 'input' for nf-core pipelines
                 new_input_obj.update({
-                    key: str(Path(cache_uri_obj.project_id, cache_uri_obj.data.id, 'samplesheet.csv'))
+                    "input": str(Path(cache_uri_obj.project_id, cache_uri_obj.data.id, 'samplesheet.csv'))
                 })
 
                 continue
