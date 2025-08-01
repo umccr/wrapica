@@ -419,8 +419,12 @@ def get_analysis_storage_id_from_analysis_storage_size(project_id: str,
     return get_analysis_storage_from_analysis_storage_size(project_id, analysis_storage_size).id
 
 
-def coerce_analysis_storage_id_or_size_to_analysis_storage(project_id: str, analysis_storage_id_or_size: Union[
-    str, AnalysisStorageSizeType]) -> AnalysisStorageType:
+def coerce_analysis_storage_id_or_size_to_analysis_storage(
+        project_id: str,
+        analysis_storage_id_or_size: Union[
+            str, AnalysisStorageSizeType
+        ]
+) -> AnalysisStorageType:
     """
     Given either an analysis storage id or analysis storage size, return the analysis storage id
 
