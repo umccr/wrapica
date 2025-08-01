@@ -537,8 +537,11 @@ def create_cwl_input_json_analysis_obj(
     return cwl_analysis
 
 
-def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlWithJsonInputAnalysis,
-                        idempotency_key=None) -> AnalysisV4:
+def launch_cwl_workflow(
+        project_id: str,
+        cwl_analysis: CreateCwlWithJsonInputAnalysis,
+        idempotency_key=None
+) -> AnalysisV4:
     """
     Launch a CWL Workflow in a specific project context
 
@@ -590,8 +593,11 @@ def launch_cwl_workflow(project_id: str, cwl_analysis: CreateCwlWithJsonInputAna
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
-        # Force default headers to v4
-        # FIXME - add accept header here
+        # Force default accept header to v4
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v4+json"
+        )
         # Create an instance of the API class
         api_instance = ProjectAnalysisApi(api_client)
 
@@ -1667,7 +1673,6 @@ def add_pipeline_file(
         file_path = Path("/path/to/file.txt")
         pipeline_file = add_pipeline_file(project_id, pipeline_id, file_path)
     """
-    # FIXME - next release these endpoints should be available in libica
     # First confirm pipeline is in draft mode
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
