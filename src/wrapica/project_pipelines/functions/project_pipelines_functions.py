@@ -1229,8 +1229,9 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                     )
                 )
 
+                # The samplesheet is labelled as 'input' for nf-core pipelines
                 new_input_obj.update({
-                    key: str(Path(cache_uri_obj.project_id, cache_uri_obj.data.id, 'samplesheet.csv'))
+                    "input": str(Path(cache_uri_obj.project_id, cache_uri_obj.data.id, 'samplesheet.csv'))
                 })
 
                 continue
@@ -2184,6 +2185,12 @@ def create_nextflow_project_pipeline(
         )
 
     # Add params xml file to the file list
+    if params_xml_file is None:
+        params_xml_temp_file_obj = NamedTemporaryFile(prefix="params", suffix=".xml")
+        params_xml_file = Path(params_xml_temp_file_obj.name)
+        create_blank_params_xml(output_file_path=params_xml_file)
+
+    # Add params xml file to the file list
     params_xml_file_tuple_bytes = ('params.xml', open(params_xml_file, 'rb').read())
 
     # Add tool paths to the file list
@@ -2206,7 +2213,10 @@ def create_nextflow_project_pipeline(
         other_nextflow_files_tuple_bytes_list = []
 
     # Add the html documentation file to the file list
-    workflow_html_documentation_tuple_bytes = (str(workflow_html_documentation), open(workflow_html_documentation, 'rb').read())
+    if workflow_html_documentation is not None:
+        workflow_html_documentation_tuple_bytes = (str(workflow_html_documentation), open(workflow_html_documentation, 'rb').read())
+    else:
+        workflow_html_documentation_tuple_bytes = None
 
     # Check if the resource type is set
     if resource_type is not None:
