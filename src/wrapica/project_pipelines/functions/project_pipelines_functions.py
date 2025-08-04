@@ -391,8 +391,10 @@ def get_analysis_storage_from_analysis_storage_size(project_id: str,
         raise ValueError
 
 
-def get_analysis_storage_id_from_analysis_storage_size(project_id: str,
-                                                       analysis_storage_size: AnalysisStorageSizeType) -> str:
+def get_analysis_storage_id_from_analysis_storage_size(
+        project_id: str,
+        analysis_storage_size: AnalysisStorageSizeType
+) -> str:
     """
     Given an analysis storage size, return the analysis storage id
 
@@ -434,8 +436,10 @@ def coerce_analysis_storage_id_or_size_to_analysis_storage(
     """
     if is_uuid_format(analysis_storage_id_or_size):
         return get_analysis_storage_from_analysis_storage_id(project_id, analysis_storage_id_or_size)
-    return get_analysis_storage_from_analysis_storage_size(project_id,
-                                                           cast(AnalysisStorageSizeType, analysis_storage_id_or_size))
+    return get_analysis_storage_from_analysis_storage_size(
+        project_id,
+        cast(AnalysisStorageSizeType, analysis_storage_id_or_size)
+    )
 
 
 def create_cwl_input_json_analysis_obj(
@@ -1937,7 +1941,7 @@ def create_nextflow_pipeline_from_zip(
         project_id: str,
         pipeline_code: str,
         zip_path: Path,
-        workflow_description: Optional[str] = None,
+        workflow_description: str = None,
         html_documentation_path: Optional[Path] = None,
         resource_type: Optional[ResourceType] = None
 ) -> ProjectPipelineV4:
@@ -1962,12 +1966,17 @@ def create_nextflow_pipeline_from_zip(
         local_workflow_and_module_paths = list(
             filter(
                 lambda file_iter: (
-                        file_iter.is_file() and
-                        not (
-                                file_iter == main_nf_path or
-                                file_iter == config_file or
-                                file_iter == params_xml_file_path
+                        file_iter.is_file() and not (
+                            file_iter == main_nf_path or
+                            file_iter == config_file or
+                            file_iter == params_xml_file_path
                         )
+                        # It's not placed in a subdirectory that is a hidden directory in the top directory
+                        and not (
+                            file_iter.absolute().resolve().relative_to(zip_dir).parts[0].startswith(".")
+                        )
+                        # And the file isn't empty
+                        and file_iter.stat().st_size > 0
                 ),
                 zip_dir.rglob("*")
             )
@@ -2071,7 +2080,7 @@ def create_nextflow_pipeline_from_nf_core_zip(
     local_workflow_and_module_paths = list(
         filter(
             lambda sub_path: (
-                # Make sure we have a file in the workflow directory
+                    # Make sure we have a file in the workflow directory
                     sub_path.is_file() and
                     sub_path.is_relative_to(workflow_dir) and
                     # And it's not one of the main.nf or nextflow.config files
@@ -2090,13 +2099,13 @@ def create_nextflow_pipeline_from_nf_core_zip(
                     )
                     # Also not a test file
                     and not (
-                    sub_path.name.endswith(".test") or
-                    sub_path.name.endswith(".test.snap")
-            )
+                        sub_path.name.endswith(".test") or
+                        sub_path.name.endswith(".test.snap")
+                    )
                     # And not a conda environment file or meta file
                     and not (
-                    sub_path.name in ["environment.yml", "environment.yaml", "meta.yml", "meta.yaml"]
-            )
+                        sub_path.name in ["environment.yml", "environment.yaml", "meta.yml", "meta.yaml"]
+                    )
             ),
             workflow_dir.rglob("*")
         )
@@ -2155,7 +2164,7 @@ def create_nextflow_project_pipeline(
         main_nextflow_file: Path,
         nextflow_config_file: Path,
         other_nextflow_files: List[Path],
-        workflow_description: Optional[str] = None,
+        workflow_description: str = None,
         params_xml_file: Optional[Path] = None,
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
