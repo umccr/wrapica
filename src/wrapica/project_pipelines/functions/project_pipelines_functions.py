@@ -2186,7 +2186,7 @@ def create_nextflow_project_pipeline(
 
     # Add params xml file to the file list
     if params_xml_file is None:
-        params_xml_temp_file_obj = NamedTemporaryFile(prefix="params", suffix=".xml")
+        params_xml_temp_file_obj = NamedTemporaryFile(prefix="params", suffix=".xml", delete=False)
         params_xml_file = Path(params_xml_temp_file_obj.name)
         create_blank_params_xml(output_file_path=params_xml_file)
 
