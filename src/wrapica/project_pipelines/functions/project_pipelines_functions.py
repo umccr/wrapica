@@ -1941,7 +1941,7 @@ def create_nextflow_pipeline_from_zip(
         project_id: str,
         pipeline_code: str,
         zip_path: Path,
-        workflow_description: str = None,
+        workflow_description: str,
         html_documentation_path: Optional[Path] = None,
         resource_type: Optional[ResourceType] = None
 ) -> ProjectPipelineV4:
@@ -2164,7 +2164,7 @@ def create_nextflow_project_pipeline(
         main_nextflow_file: Path,
         nextflow_config_file: Path,
         other_nextflow_files: List[Path],
-        workflow_description: str = None,
+        workflow_description: str,
         params_xml_file: Optional[Path] = None,
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
