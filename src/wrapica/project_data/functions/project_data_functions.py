@@ -16,7 +16,7 @@ from urllib.parse import urlparse, urlunparse
 import requests
 
 # Libica Api imports
-from libica.openapi.v3 import ApiException
+from libica.openapi.v3 import ApiException, CreateFileAndUploadUrl, ProjectFileAndUploadUrl
 from libica.openapi.v3.api.project_data_api import ProjectDataApi
 from libica.openapi.v3.api.project_data_copy_batch_api import ProjectDataCopyBatchApi
 
@@ -2251,6 +2251,42 @@ def read_icav2_file_contents_to_string(
 
         with open(temp_file_h.name, "r") as f:
             return f.read()
+
+
+def create_file_with_upload_url(
+        project_id: str,
+        folder_id: str,
+        file_name: str
+) -> str:
+    """
+    Create a new file in a project and return the upload URL
+
+    :param project_id:  The owning project id of the file
+    :param folder_id:  The folder id to create the file in
+    :param file_name:  The name of the file to create
+    :return:
+    """
+
+    # Enter a context with an instance of the API client
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectDataApi(api_client)
+
+    # example passing only required values which don't have defaults set
+    try:
+        # Retrieve an upload URL for this data.
+        api_response: ProjectFileAndUploadUrl = api_instance.create_file_with_upload_url(
+            project_id=project_id,
+            create_file_and_upload_url=CreateFileAndUploadUrl(
+                name=file_name,
+                folderId=folder_id,
+            )
+        )
+    except ApiException as e:
+        logger.error("Exception when calling ProjectDataApi->create_upload_url_for_data: %s\n" % e)
+        raise ApiException("Exception when calling ProjectDataApi->create_upload_url_for_data: %s\n" % e) from e
+
+    return api_response.upload_url
 
 
 def get_project_data_upload_url(
