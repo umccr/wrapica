@@ -6,28 +6,28 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wrapica"
-version = "2.27.1.post20240830140737"
+version = "2.37.0.dev20250801071834"
 authors = [
     { name = "Alexis Lucattini", email = "alexis.lucattini@umccr.org" },
 ]
 description = "Secondary level functions for ICAv2 based off libica"
 readme = "Readme.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.15"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "libica >= 2.5.0, < 3",
+    "libica >= 3.1, < 4",
     "PyJWT >= 2.8.0, < 3",
     "ruamel.base >= 1.0.0, < 2",
     "ruamel.yaml >= 0.18.0, < 0.19",
     "verboselogs >= 1.7, < 2",
     "websocket_client >= 1.4.2, < 2",
     "beautifulsoup4 >= 4.10.0, < 5",
-    "cwl_utils >= 0.33, < 1",
-    "pandas >= 2.2.2",
+    "cwl_utils >= 0.38, < 1",
+    "pandas >= 2.2.2, < 3",
 ]
 
 [project.urls]

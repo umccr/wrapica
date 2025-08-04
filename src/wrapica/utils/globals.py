@@ -4,7 +4,7 @@
 List of globals to use for icav2 cli plugins
 """
 import re
-from ..enums import AnalysisStorageSize
+from ..literals import AnalysisStorageSizeType, UriType,  DataType
 
 DEFAULT_ICAV2_BASE_URL = "https://ica.illumina.com/ica/rest"
 
@@ -23,7 +23,7 @@ ICAV2_MAX_STEP_CHARACTERS = 23
 
 ICAV2_CLI_PLUGINS_HOME_ENV_VAR = "ICAV2_CLI_PLUGINS_HOME"
 
-ICAV2_DEFAULT_ANALYSIS_STORAGE_SIZE = AnalysisStorageSize.SMALL
+ICAV2_DEFAULT_ANALYSIS_STORAGE_SIZE: AnalysisStorageSizeType = "Small"
 
 PARAMS_XML_FILE_NAME = "params.xml"
 
@@ -57,6 +57,14 @@ NEXTFLOW_TASK_POD_MAPPING = {
 
 NEXTFLOW_PROCESS_LABEL_RE_OBJ = re.compile(r"withLabel:process_(\w+) \{")
 
-# NEXTFLOW_VERSION = "24.04.2"
-NEXTFLOW_VERSION = "22.04.3"
-NEXTFLOW_VERSION_UUID = "b1585d18-f88c-4ca0-8d47-34f6c01eb6f3"
+DEFAULT_NEXTFLOW_VERSION = "24.10.2"
+
+# Other literals
+
+# URI Types
+ICAV2_URI_SCHEME: UriType = "icav2"
+S3_URI_SCHEME: UriType = "s3"
+
+# Data Types
+FILE_DATA_TYPE: DataType = "FILE"
+FOLDER_DATA_TYPE: DataType = "FOLDER"

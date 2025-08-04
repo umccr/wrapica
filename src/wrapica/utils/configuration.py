@@ -10,15 +10,21 @@ from os import environ
 from typing import Optional, OrderedDict
 from urllib.parse import urlparse
 from jwt import decode, InvalidTokenError
-from ruamel.yaml import YAML
 
 # Libica imports
-from libica.openapi.v2 import Configuration
+from libica.openapi.v3 import Configuration
 
 # Local imports
-from .globals import ICAV2_CONFIG_FILE_PATH, ICAV2_CONFIG_FILE_SERVER_URL_KEY, DEFAULT_ICAV2_BASE_URL, \
-    ICAV2_ACCESS_TOKEN_AUDIENCE, ICAV2_SESSION_FILE_PATH, ICAV2_SESSION_FILE_ACCESS_TOKEN_KEY, \
+from .globals import (
+    ICAV2_CONFIG_FILE_PATH,
+    ICAV2_CONFIG_FILE_SERVER_URL_KEY,
+    DEFAULT_ICAV2_BASE_URL,
+    ICAV2_ACCESS_TOKEN_AUDIENCE,
+    ICAV2_SESSION_FILE_PATH,
+    ICAV2_SESSION_FILE_ACCESS_TOKEN_KEY,
     ICAV2_SESSION_FILE_PROJECT_ID_KEY
+)
+
 from .logger import get_logger
 from .subprocess_handler import run_subprocess_proc
 
@@ -150,7 +156,7 @@ def get_access_token_from_session_file(refresh: bool = True) -> str:
     """
     session_data: OrderedDict = read_session_file()
 
-    access_token: str = session_data.get(ICAV2_SESSION_FILE_ACCESS_TOKEN_KEY, None)
+    access_token: Optional[str] = session_data.get(ICAV2_SESSION_FILE_ACCESS_TOKEN_KEY, None)
 
     if access_token is None:
         logger.error("Could not get access token from session file")
@@ -169,7 +175,7 @@ def get_access_token_from_session_file(refresh: bool = True) -> str:
 def get_project_id_from_session_file() -> str:
     session_data: OrderedDict = read_session_file()
 
-    project_id: str = session_data.get(ICAV2_SESSION_FILE_PROJECT_ID_KEY, None)
+    project_id: Optional[str] = session_data.get(ICAV2_SESSION_FILE_PROJECT_ID_KEY, None)
 
     if project_id is None:
         logger.error("Could not get project id from session file")

@@ -10,13 +10,13 @@ as their parent class
 # Standard imports
 import json
 from pathlib import Path
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional, Union, Dict, Any, cast
 from urllib.parse import urlparse
 from datetime import datetime, timezone
 from uuid import uuid4
 
 # Libica imports
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     AnalysisV3,
     AnalysisV4,
     AnalysisOutputMapping,
@@ -25,21 +25,28 @@ from libica.openapi.v2.models import (
     CreateNextflowAnalysis,
     CwlAnalysisJsonInput,
     CwlAnalysisStructuredInput,
-    NextflowAnalysisInput,
     ProjectData
 )
 
+from libica.openapi.v3 import (
+    CreateNextflowWithCustomInputAnalysis,
+    CreateCwlWithJsonInputAnalysis,
+    CwlAnalysisWithJsonInput,
+    NextflowAnalysisWithCustomInput
+)
+
 # Local imports
-from ...utils import recursively_build_open_api_body_from_libica_item
-from ...enums import AnalysisStorageSize, DataType
+from ...literals import AnalysisStorageSizeType
 from ...utils.miscell import sanitise_dict_keys
 from ...utils.logger import get_logger
+from ...utils.globals import (
+    FOLDER_DATA_TYPE
+)
 
 # Set logger
 logger = get_logger()
 
 Analysis = Union[AnalysisV3, AnalysisV4]
-CwlAnalysisInput = Union[CwlAnalysisJsonInput, CwlAnalysisStructuredInput]
 
 
 class ICAv2AnalysisInput:
@@ -48,18 +55,14 @@ class ICAv2AnalysisInput:
     """
     def __init__(
         self,
-        object_type: str,
     ):
-        # Set the object type
-        self.object_type = object_type
+        pass
 
     def __call__(
             self
     ) -> Union[
-        CwlAnalysisInput,
-        CwlAnalysisJsonInput,
-        CwlAnalysisStructuredInput,
-        NextflowAnalysisInput
+        CwlAnalysisWithJsonInput,
+        NextflowAnalysisWithCustomInput,
     ]:
         """
         Create the analysis input
@@ -114,6 +117,8 @@ class ICAv2PipelineAnalysisTags:
     def clean_tags(self):
         # Now clean up
         for tag_type in ["technical_tags", "user_tags", "reference_tags"]:
+            if getattr(self, tag_type) is None:
+                continue
             if not isinstance(getattr(self, tag_type), (list, dict)):
                 raise ValueError(f"{tag_type} must be a list or a dictionary")
             # For each key-value pair in the dictionary, convert it to a string split by '='
@@ -143,9 +148,9 @@ class ICAv2PipelineAnalysisTags:
 
     def __call__(self) -> CreateAnalysisTag:
         return CreateAnalysisTag(
-            technical_tags=self.technical_tags,
-            user_tags=self.user_tags,
-            reference_tags=self.reference_tags
+            technicalTags=self.technical_tags,
+            userTags=self.user_tags,
+            referenceTags=self.reference_tags
         )
 
     def combine_tags(self, analysis_tags: 'ICAv2PipelineAnalysisTags') -> 'ICAv2PipelineAnalysisTags':
@@ -185,12 +190,11 @@ class ICAv2EngineParameters:
             self,
             project_id: Optional[str] = None,
             pipeline_id: Optional[str] = None,
-            analysis_input: Optional[Union[CwlAnalysisInput, NextflowAnalysisInput]] = None,
+            analysis_input: Optional[Union[CwlAnalysisWithJsonInput, NextflowAnalysisWithCustomInput]] = None,
             analysis_output: Optional[List[AnalysisOutputMapping]] = None,
             tags: Optional[ICAv2PipelineAnalysisTags] = None,
             analysis_storage_id: Optional[str] = None,
-            analysis_storage_size: Optional[AnalysisStorageSize] = None,
-            activation_id: Optional[str] = None,
+            analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
     ):
         # Initialise parameters
 
@@ -198,12 +202,11 @@ class ICAv2EngineParameters:
         self.project_id: Optional[str] = project_id
         self.pipeline_id: Optional[str] = pipeline_id
         self.analysis_storage_id: Optional[str] = analysis_storage_id
-        self.analysis_storage_size: Optional[AnalysisStorageSize] = analysis_storage_size
-        self.activation_id: Optional[str] = activation_id
+        self.analysis_storage_size: Optional[AnalysisStorageSizeType] = analysis_storage_size
 
         # Output parameters
         self.analysis_output: Optional[List[AnalysisOutputMapping]] = analysis_output
-        self.analysis_input: Optional[Union[CwlAnalysisInput, NextflowAnalysisInput]] = analysis_input
+        self.analysis_input: Optional[Union[CwlAnalysisWithJsonInput, NextflowAnalysisWithCustomInput]] = analysis_input
 
         # Meta parameters
         self.tags: ICAv2PipelineAnalysisTags = tags
@@ -240,14 +243,12 @@ class ICAv2EngineParameters:
         project_id: Optional[str] = None,
         pipeline_id: Optional[str] = None,
         analysis_storage_id: Optional[str] = None,
-        analysis_storage_size: Optional[AnalysisStorageSize] = None,
-        activation_id: Optional[str] = None,
+        analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         analysis_input: Optional[Union[CwlAnalysisJsonInput, CwlAnalysisStructuredInput]] = None
     ):
         # Local import of functions from classes to avoid circular imports
         from ..functions.project_pipelines_functions import (
             get_default_analysis_storage_id_from_project_pipeline,
-            get_activation_id,
             get_analysis_storage_id_from_analysis_storage_size
         )
         # Check for project id
@@ -273,7 +274,8 @@ class ICAv2EngineParameters:
         # If analysis storage size is set, but analysis storage id is not set
         if self.analysis_storage_size is not None and self.analysis_storage_id is None:
             self.analysis_storage_id = get_analysis_storage_id_from_analysis_storage_size(
-                self.analysis_storage_size
+                project_id=self.project_id,
+                analysis_storage_size=self.analysis_storage_size
             )
 
         elif self.analysis_storage_size is None and self.analysis_storage_id is None:
@@ -287,28 +289,13 @@ class ICAv2EngineParameters:
                 self.pipeline_id
             )
 
-        # Check for activation id
-        if activation_id is not None:
-            self.activation_id = activation_id
-        elif self.activation_id is None:
-            # Ensure that both project_id and pipeline_id are set at this point
-            if self.project_id is None or self.pipeline_id is None or self.analysis_input is None:
-                logger.error("Cannot get the activation id without project id and pipeline id or analysis input")
-                raise ValueError
-            self.activation_id = get_activation_id(
-                project_id=self.project_id,
-                pipeline_id=self.pipeline_id,
-                analysis_input=self.analysis_input,
-                workflow_language=self.workflow_language
-            )
-
     def check_launch_parameters(self):
         """
         Check the launch parameters have been set
         :return:
         """
         has_error = False
-        for parameter in ["project_id", "pipeline_id", "analysis_storage_id", "activation_id"]:
+        for parameter in ["project_id", "pipeline_id", "analysis_storage_id"]:
             if self.__getattribute__(parameter) is None:
                 logger.error(f"{parameter} has not been set")
                 has_error = True
@@ -380,7 +367,6 @@ class ICAv2PipelineAnalysis:
     * name / user-reference  # The pipeline name
     * pipeline-id  # The pipeline id
     * tags - Tags used on the analysis ICAv2PipelineAnalysisTags class
-    * activationCodeDetailsId - Collection of the activation code is implemented in the subclass
     * analysisStorageId
     * analysisOutput ( we skip the outputParentFolderId, it doesn't give us much control)
         * This should be a path-based uri
@@ -393,10 +379,9 @@ class ICAv2PipelineAnalysis:
         user_reference: str,
         project_id: str,
         pipeline_id: str,
-        analysis_input: Union[CwlAnalysisInput, NextflowAnalysisInput],
+        analysis_input: Union[CwlAnalysisWithJsonInput, NextflowAnalysisWithCustomInput],
         analysis_storage_id: Optional[str] = None,
-        analysis_storage_size: Optional[AnalysisStorageSize] = None,
-        activation_id: Optional[str] = None,
+        analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         analysis_output_uri: Optional[str] = None,
         ica_logs_uri: Optional[str] = None,
         # Meta parameters
@@ -411,7 +396,6 @@ class ICAv2PipelineAnalysis:
         * tags - Tags used on the analysis ICAv2PipelineAnalysisTags class  - Required
         * analysis_storage_size - The size of the analysis storage - Optional
             * We can figure this out later
-        * activation_id - Collection of the activation code is implemented in the subclass - Optional
             * We can figure this out later
         * analysisOutput ( we skip the outputParentFolderId, it doesn't give us much control)
             * This should be a path-based uri - Required
@@ -421,7 +405,6 @@ class ICAv2PipelineAnalysis:
         self.user_reference = user_reference
         self.project_id = project_id
         self.pipeline_id = pipeline_id
-        self.activation_id = activation_id
         self.analysis_output_uri = analysis_output_uri
         self.ica_logs_uri = ica_logs_uri
 
@@ -434,7 +417,7 @@ class ICAv2PipelineAnalysis:
         self.engine_parameters: Optional[ICAv2EngineParameters] = None
 
         if self.analysis_output_uri is not None:
-            self.analysis_output: List[AnalysisOutputMapping] = [self.get_analysis_output_mapping_from_uri()]
+            self.analysis_output = cast(List[AnalysisOutputMapping], [self.get_analysis_output_mapping_from_uri()])
         else:
             self.analysis_output = None
 
@@ -448,7 +431,7 @@ class ICAv2PipelineAnalysis:
         self.set_engine_parameters()
 
         # Set the analysis
-        self.analysis: Optional[Union[CreateCwlAnalysis, CreateNextflowAnalysis]] = None
+        self.analysis: Optional[Union[CreateCwlWithJsonInputAnalysis, CreateNextflowWithCustomInputAnalysis]] = None
 
     def __call__(self, idempotency_key: Optional[str] = None) -> Analysis:
         """
@@ -479,10 +462,10 @@ class ICAv2PipelineAnalysis:
         )
 
         return AnalysisOutputMapping(
-            source_path="out/",  # Hardcoded, all workflow outputs should be placed in the out folder,
-            type=DataType.FOLDER.value,  # Hardcoded, out directory is a folder
-            target_project_id=analysis_output_obj.project_id,
-            target_path=analysis_output_obj.data.details.path
+            sourcePath="out/",  # Hardcoded, all workflow outputs should be placed in the out folder,
+            type=FOLDER_DATA_TYPE,  # Hardcoded, out directory is a folder
+            targetProjectId=analysis_output_obj.project_id,
+            targetPath=analysis_output_obj.data.details.path
         )
 
     def get_ica_logs_mapping_from_uri(self) -> AnalysisOutputMapping:
@@ -497,10 +480,10 @@ class ICAv2PipelineAnalysis:
         )
 
         return AnalysisOutputMapping(
-            source_path="ica_logs/",  # Hardcoded, all logs should be placed in the ica_logs folder,
-            type=DataType.FOLDER.value,  # Hardcoded, out directory is a folder
-            target_project_id=ica_logs_project_data_obj.project_id,
-            target_path=ica_logs_project_data_obj.data.details.path
+            sourcePath="ica_logs/",  # Hardcoded, all logs should be placed in the ica_logs folder,
+            type=FOLDER_DATA_TYPE,  # Hardcoded, out directory is a folder
+            targetProjectId=ica_logs_project_data_obj.project_id,
+            targetPath=ica_logs_project_data_obj.data.details.path
         )
 
     def set_engine_parameters(self):
@@ -521,7 +504,7 @@ class ICAv2PipelineAnalysis:
         # Implemented in subclass
         raise NotImplementedError
 
-    def launch_analysis(self, idempotenty_key: Optional[str] = None) -> Analysis:
+    def launch_analysis(self, idempotency_key: Optional[str] = None) -> Analysis:
         # Implemented in subclass
         raise NotImplementedError
 
@@ -530,9 +513,7 @@ class ICAv2PipelineAnalysis:
         Save the analysis launch json
         :return:
         """
-        return recursively_build_open_api_body_from_libica_item(
-            self.analysis
-        )
+        return self.analysis.to_dict()
 
     def save_analysis(self, json_path: Path):
         """

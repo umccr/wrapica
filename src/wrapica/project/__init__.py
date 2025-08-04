@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Import libica models
-from libica.openapi.v2.models import Project
+from libica.openapi.v3.models import Project
 
 
 # Import local functions

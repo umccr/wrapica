@@ -1,11 +1,12 @@
+# Standard imports
+from typing import Union
+
 # Libica model imports
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     PipelineFile,
     PipelineV3,
     PipelineV4
 )
-
-from typing import Union
 
 # Local imports
 from .functions.pipelines_functions import (

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 # Libica Api imports
-from libica.openapi.v2.api.user_api import UserApi
-from libica.openapi.v2 import ApiClient, ApiException
+from libica.openapi.v3.api.user_api import UserApi
+from libica.openapi.v3 import ApiClient, ApiException
 
 # Libica model imports
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     User,
     UserList
 )

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
+# Standard imports
 """
 All the enums!
 """
-
 from enum import Enum
 
 
@@ -13,9 +13,13 @@ class BundleStatus(Enum):
     DEPRECATED = "DEPRECATED"
 
 
-class DataType(Enum):
+class Data(Enum):
     FOLDER = "FOLDER"
     FILE = "FILE"
+
+
+# Deprecated: Use Data instead or literal DataType from literals
+DataType = Data
 
 
 class AnalysisStorageSize(Enum):
@@ -145,6 +149,21 @@ class JobStatus(Enum):
     FAILED = "FAILED"
 
 
-class UriType(Enum):
+class Uri(Enum):
     S3 = "s3"
     ICAV2 = "icav2"
+
+
+class DataTag(Enum):
+    TECHNICAL_TAG = "technical_tag"
+    USER_TAG = "user_tag"
+    CONNECTOR_TAG = "connector_tag"
+    RUN_IN_TAG = "run_in_tag"
+    RUN_OUT_TAG = "run_out_tag"
+    REFERENCE_TAG = "reference_tag"
+
+
+class AnalysisTag(Enum):
+    USER_TAG = "user_tag"
+    TECHNICAL_TAG = "technical_tag"
+    REFERENCE_TAG = "reference_tag"

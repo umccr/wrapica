@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Import models
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     AnalysisInputExternalData,
     AwsTempCredentials,
     CreateData,
@@ -60,12 +60,14 @@ from .functions.project_data_functions import (
     presign_cwl_directory_with_external_data_mounts,
     read_icav2_file_contents,
     read_icav2_file_contents_to_string,
+    create_file_with_upload_url,
     get_project_data_upload_url,
     write_icav2_file_contents,
     get_file_by_file_name_from_project_data_list,
     project_data_copy_batch_handler,
     delete_project_data,
-    move_project_data
+    move_project_data,
+    add_tag_to_data_object
 )
 
 __all__ = [
@@ -124,11 +126,13 @@ __all__ = [
     'presign_cwl_directory_with_external_data_mounts',
     'read_icav2_file_contents',
     'read_icav2_file_contents_to_string',
+    'create_file_with_upload_url',
     'get_project_data_upload_url',
     'write_icav2_file_contents',
     'get_file_by_file_name_from_project_data_list',
     'project_data_copy_batch_handler',
     'delete_project_data',
-    'move_project_data'
+    'move_project_data',
+    'add_tag_to_data_object'
 ]
 

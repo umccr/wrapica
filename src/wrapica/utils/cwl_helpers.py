@@ -8,10 +8,10 @@ Generate an input yaml template for the cwl object
 
 Can also generate the overrides template from a cwl object
 """
+# External imports
 from copy import deepcopy
 from pathlib import Path
-# External imports
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 import re
 from urllib.parse import urlparse
 
@@ -20,8 +20,13 @@ from ruamel.yaml import YAML, CommentedMap
 
 # Local imports
 from .logger import get_logger
-from .cwl_typing_helpers import WorkflowInputParameterType, InputEnumSchemaType, RecordSchemaType, InputArraySchemaType, \
+from .cwl_typing_helpers import (
+    WorkflowInputParameterType,
+    InputEnumSchemaType,
+    RecordSchemaType,
+    InputArraySchemaType,
     InputRecordSchemaType
+)
 
 # Get logger
 logger = get_logger()
@@ -40,7 +45,7 @@ class CWLSchema:
         if not self.cwl_obj.type_.get("type") == "record":
             logger.error("Expected record type")
 
-    def get_input_from_str_type(self, workflow_input: Dict) -> Union[Dict, str, List]:
+    def get_input_from_str_type(self, workflow_input: Dict) -> Optional[Union[Dict, str, List]]:
         if workflow_input.get("type").endswith("[]"):
             new_workflow_input = deepcopy(workflow_input)
             new_workflow_input["type"] = re.sub(r"\[]$", "", workflow_input.get("type"))
@@ -63,6 +68,8 @@ class CWLSchema:
             return workflow_input.get("default") if workflow_input.get("default") is not None else "string"
         elif workflow_input.get("type").rstrip("?") == "string":
             return workflow_input.get("default") if workflow_input.get("default") is not None else "string"
+        logger.warning("Don't know what to do here with {workflow_input.get('type')}")
+        return None
 
     def get_input_from_array_type(self, workflow_input: Dict) -> Union[Dict, str, List]:
         """
@@ -116,7 +123,7 @@ class CWLSchema:
                 logger.warning(f"Don't know what to do with type {type(field_dict.get('type'))} for key {field_key}")
         return workflow_inputs
 
-    def get_input_from_dict_type(self, workflow_input: Dict) -> Union[Dict, List]:
+    def get_input_from_dict_type(self, workflow_input: Dict) -> Optional[Union[Dict, List]]:
         """
         Dict type
         :param workflow_input:
@@ -145,6 +152,9 @@ class CWLSchema:
                 workflow_input.get("type").get("$import").split("#", 1)[0]
             ).resolve()
             return CWLSchema.load_schema_from_uri(schema_path.as_uri()).get_inputs_template()
+        logger.warning(f"Got an unexpected type {workflow_input.get("type")}")
+        return None
+
 
     def get_inputs_template(self) -> Dict:
         """
@@ -198,8 +208,9 @@ def get_workflow_input_type(workflow_input: WorkflowInputParameterType):
         return get_workflow_input_type_from_record_schema(workflow_input)
     elif isinstance(workflow_input.type_, List):
         return get_workflow_input_type_from_array_type(workflow_input)
-    else:
-        logger.warning(f"Don't know what to do here with {type(workflow_input.type_)}")
+
+    logger.warning(f"Don't know what to do here with {type(workflow_input.type_)}")
+    return None
 
 
 def get_workflow_input_type_from_str_type(workflow_input: WorkflowInputParameterType):
@@ -230,8 +241,9 @@ def get_workflow_input_type_from_str_type(workflow_input: WorkflowInputParameter
         return workflow_input.default if workflow_input.default is not None else "string"
     elif workflow_input.type_ == "string":
         return workflow_input.default if workflow_input.default is not None else "string"
-    else:
-        logger.warning(f"Don't know what to do here with {workflow_input.type_}")
+
+    logger.warning(f"Don't know what to do here with {workflow_input.type_}")
+    return None
 
 
 def get_workflow_input_type_from_array_type(workflow_input: WorkflowInputParameterType):

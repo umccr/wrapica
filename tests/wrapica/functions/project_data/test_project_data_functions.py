@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
 
-import pytest
-from libica.openapi.v2.api.project_data_api import ProjectDataApi
-from libica.openapi.v2.model.data import Data
-from libica.openapi.v2.model.data_details import DataDetails
-from libica.openapi.v2.model.project_data import ProjectData
-from libica.openapi.v2.model.project_data_paged_list import ProjectDataPagedList
-from mockito import when
-
-from pathlib import Path
-
-from wrapica.functions.project_data.project_data_functions import get_project_file_id_from_project_id_and_path
-
-from uuid import uuid4
-from random import randint
+# import pytest
+# from mockito import when
+#
+# from pathlib import Path
+#
+# from wrapica.project_data import get_project_data_id_from_project_id_and_path
+#
+# from uuid import uuid4
+# from random import randint
 
 
 # Mock up a ProjectDataPagedList object

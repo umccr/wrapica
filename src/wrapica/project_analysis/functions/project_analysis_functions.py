@@ -7,20 +7,26 @@ from datetime import datetime
 from io import TextIOWrapper
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import List, Union, Dict, Any, Optional
+from typing import List, Union, Dict, Any, Optional, cast
 import re
 
 # Libica apis
-from libica.openapi.v2.api.project_analysis_api import ProjectAnalysisApi
-from libica.openapi.v2.api_client import ApiClient
-from libica.openapi.v2.exceptions import ApiException
+from libica.openapi.v3.api.project_analysis_api import ProjectAnalysisApi
+from libica.openapi.v3.api_client import ApiClient
+from libica.openapi.v3.exceptions import ApiException
 
 # Wrapica imports
-from ...enums import ProjectAnalysisStatus, ProjectAnalysisSortParameters, AnalysisLogStreamName, \
-    ProjectAnalysisStepStatus
+from ...literals import (
+    ProjectAnalysisStatusType,
+    ProjectAnalysisSortParametersType,
+    AnalysisTagType,
+    AnalysisStepDict,
+    ProjectAnalysisStepStatusType,
+    AnalysisLogStreamNameType,
+)
 
 # Libica models
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     AnalysisQueryParameters,
     AnalysisV3,
     AnalysisV4,
@@ -299,7 +305,7 @@ def get_cwl_outputs_json_from_analysis_id(
 def get_analysis_obj_from_analysis_id(
     project_id: str,
     analysis_id: str
-) -> AnalysisType:
+) -> AnalysisV4:
     """
     Get an analysis object given a project id and analysis id
 
@@ -326,13 +332,22 @@ def get_analysis_obj_from_analysis_id(
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
+        # Set as V4 headers
+        api_client.set_default_header(
+            header_name="Content-Type",
+            header_value="application/vnd.illumina.v4+json"
+        )
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v4+json"
+        )
         # Create an instance of the API class
         api_instance = ProjectAnalysisApi(api_client)
 
     # example passing only required values which don't have defaults set
     try:
         # Retrieve an analysis.
-        api_response: AnalysisType = api_instance.get_analysis(project_id, analysis_id)
+        api_response: AnalysisV4 = api_instance.get_analysis(project_id, analysis_id)
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->get_analysis: %s\n" % e)
         raise ApiException
@@ -432,7 +447,7 @@ def get_analysis_log_from_analysis_step(
 def write_analysis_step_logs(
     project_id: str,
     step_logs: AnalysisStepLogs,
-    log_name: AnalysisLogStreamName,
+    log_name: AnalysisLogStreamNameType,
     output_path: Union[Path | TextIOWrapper],
     is_cwltool_log: Optional[bool] = False
 ) -> None:
@@ -494,7 +509,7 @@ def write_analysis_step_logs(
             continue
         non_empty_log_attrs.append(attr)
 
-    if log_name == AnalysisLogStreamName.STDOUT:
+    if log_name == "stderr":
         if hasattr(step_logs, "std_out_stream") and step_logs.std_out_stream is not None:
             is_stream = True
             log_stream = step_logs.std_out_stream
@@ -590,12 +605,12 @@ def list_analyses(
     project_id: str,
     pipeline_id: Optional[str] = None,
     user_reference: Optional[str] = None,
-    status: Optional[Union[ProjectAnalysisStatus, List[ProjectAnalysisStatus]]] = None,
+    status: Optional[Union[ProjectAnalysisStatusType, List[ProjectAnalysisStatusType]]] = None,
     creation_date_before: Optional[datetime] = None,
     creation_date_after: Optional[datetime] = None,
     modification_date_before: Optional[datetime] = None,
     modification_date_after: Optional[datetime] = None,
-    sort: Optional[Union[ProjectAnalysisSortParameters, List[ProjectAnalysisSortParameters]]] = None,
+    sort: Optional[Union[ProjectAnalysisSortParametersType, List[ProjectAnalysisSortParametersType]]] = None,
     max_items: Optional[int] = None
 ) -> List[AnalysisV4]:
     """
@@ -642,39 +657,31 @@ def list_analyses(
     else:
         user_reference_regex = None
 
-    if isinstance(status, ProjectAnalysisStatus):
+    if status is not None and not isinstance(status, list):
         status = [status]
 
     if sort is not None:
-        if isinstance(sort, ProjectAnalysisSortParameters):
+        if not isinstance(sort, list):
             sort = [sort]
-        elif isinstance(sort, str):
-            sort = [ProjectAnalysisSortParameters(sort)]
 
         # Complete a comma join of the sort parameters
-        sort = ",".join([sort_param.value for sort_param in sort])
+        sort = ",".join(sort)
 
     # AnalysisQueryParameters
     analysis_query_parameters = {
-        "status": list(map(lambda status_iter: status_iter.value, status)) if status is not None else None,
+        "status": status if status is not None else None,
         "user_reference": user_reference,
     }
     analysis_query_parameters = AnalysisQueryParameters(
-        # Filter out None values
-        **{k: v for k, v in analysis_query_parameters.items() if v is not None}
+        # Filter out None values and parse into query parameters
+        **dict(filter(
+            lambda kv_iter_: kv_iter_[1] is not None,
+            analysis_query_parameters.items()
+        ))
     )
 
     # Enter a context with an instance of the API client
     with ApiClient(configuration) as api_client:
-        # Force default headers for endpoints with a ':' in the name
-        api_client.set_default_header(
-            header_name="Content-Type",
-            header_value="application/vnd.illumina.v3+json"
-        )
-        api_client.set_default_header(
-            header_name="Accept",
-            header_value="application/vnd.illumina.v3+json"
-        )
         # Create an instance of the API class
         api_instance = ProjectAnalysisApi(api_client)
 
@@ -716,7 +723,7 @@ def list_analyses(
                 )
             )
         except ApiException as e:
-            raise ValueError("Exception when calling ProjectDataApi->get_project_data_list: %s\n" % e)
+            raise ValueError("Exception when calling ProjectAnalysisApi->get_project_data_list: %s\n" % e)
 
         # Extend items list
         analysis_list.extend(api_response.items)
@@ -881,7 +888,7 @@ def get_cwl_analysis_output_json(project_id: str, analysis_id: str) -> Dict:
     return json.loads(api_response.output_json)
 
 
-def analysis_step_to_dict(analysis_step: AnalysisStep) -> Dict:
+def analysis_step_to_dict(analysis_step: AnalysisStep) -> AnalysisStepDict:
     """
     Convert an analysis step object to a dictionary
 
@@ -898,7 +905,7 @@ def analysis_step_to_dict(analysis_step: AnalysisStep) -> Dict:
     """
     return {
         "name": analysis_step.name.split("#", 1)[-1],
-        "status": ProjectAnalysisStepStatus(analysis_step.status),
+        "status": cast(ProjectAnalysisStepStatusType, analysis_step.status),
         "queue_date": analysis_step.queue_date if hasattr(analysis_step, "queue_date") else None,
         "start_date": analysis_step.start_date if hasattr(analysis_step, "start_date") else None,
         "end_date": analysis_step.end_date if hasattr(analysis_step, "end_date") else None
@@ -1000,3 +1007,69 @@ def coerce_analysis_id_or_user_reference_to_analysis_id(
         project_id=project_id,
         user_reference=analysis_id_or_user_reference
     ).id
+
+
+def update_analysis_obj(
+    project_id: str,
+    analysis_id: str,
+    analysis_obj: AnalysisType
+) -> AnalysisType:
+    """
+    Given an analysis id, update the analysis object
+    :param project_id:
+    :param analysis_id:
+    :param analysis_obj:
+    :return:
+    """
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectAnalysisApi(api_client)
+
+    try:
+        # Retrieve the input json of a CWL analysis.
+        api_response: AnalysisType = api_instance.update_analysis(project_id, analysis_id, analysis_obj)
+    except ApiException as e:
+        logger.error("Exception when calling ProjectAnalysisApi->update_analysis: %s\n" % e)
+        raise e
+
+    return api_response
+
+
+def add_tag_to_analysis(
+    project_id: str,
+    analysis_id: str,
+    tag: str,
+    tag_type: AnalysisTagType
+):
+    # Check project id and analysis id are in uuid formats
+    if not is_uuid_format(project_id):
+        raise ValueError("Project id is not in UUID format")
+
+    if not is_uuid_format(analysis_id):
+        raise ValueError("Analysis id is not in UUID format")
+
+    # Get the current analysis object
+    analysis_obj: AnalysisType = get_analysis_obj_from_analysis_id(
+        project_id=project_id,
+        analysis_id=analysis_id
+    )
+
+    if tag_type == "user_tag":
+        analysis_obj.tags.user_tags.append(tag)
+    elif tag_type == "technical_tag":
+        analysis_obj.tags.technical_tags.append(tag)
+    elif tag_type == "reference_tag":
+        analysis_obj.tags.reference_tags.append(tag)
+    else:
+        raise ValueError("Tag type not recognised")
+
+    # Update the analysis object
+    analysis_obj = update_analysis_obj(
+        project_id=project_id,
+        analysis_id=analysis_id,
+        analysis_obj=analysis_obj
+    )
+
+    return analysis_obj
+
+

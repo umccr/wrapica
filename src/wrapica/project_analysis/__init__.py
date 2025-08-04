@@ -4,7 +4,7 @@
 from typing import Union
 
 # Import libica models
-from libica.openapi.v2.models import (
+from libica.openapi.v3.models import (
     AnalysisQueryParameters,
     AnalysisV3,
     AnalysisV4,
@@ -42,6 +42,8 @@ from .functions.project_analysis_functions import (
     coerce_analysis_id_or_user_reference_to_analysis_id,
     get_analysis_obj_from_user_reference,
     coerce_analysis_id_or_user_reference_to_analysis_obj,
+    update_analysis_obj,
+    add_tag_to_analysis
 )
 
 __all__ = [
@@ -77,5 +79,7 @@ __all__ = [
     'analysis_step_to_dict',
     'coerce_analysis_id_or_user_reference_to_analysis_id',
     'get_analysis_obj_from_user_reference',
-    'coerce_analysis_id_or_user_reference_to_analysis_obj'
+    'coerce_analysis_id_or_user_reference_to_analysis_obj',
+    'update_analysis_obj',
+    'add_tag_to_analysis'
 ]

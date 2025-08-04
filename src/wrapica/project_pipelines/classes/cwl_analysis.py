@@ -5,18 +5,16 @@ Generate a CWL analysis
 """
 # Imports
 import json
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional
 
 # Libica imports
-from libica.openapi.v2.models import (
-    AnalysisV3,
-    AnalysisV4,
+from libica.openapi.v3.models import (
+    AnalysisV4 as Analysis,
     AnalysisInputDataMount,
     AnalysisInputExternalData,
     AnalysisOutputMapping,
-    CreateCwlAnalysis,
-    CwlAnalysisStructuredInput,
-    CwlAnalysisJsonInput
+    CreateCwlWithJsonInputAnalysis,
+    CwlAnalysisWithJsonInput
 )
 
 # Local parent imports
@@ -28,11 +26,8 @@ from .analysis import (
 )
 
 # Local imports
-from ...enums import AnalysisStorageSize, WorkflowLanguage
+from ...literals import WorkflowLanguageType, AnalysisStorageSizeType
 from ...utils.logger import get_logger
-
-Analysis = Union[AnalysisV3, AnalysisV4]
-CwlAnalysisInput = Union[CwlAnalysisStructuredInput, CwlAnalysisJsonInput]
 
 # Set logger
 logger = get_logger()
@@ -43,16 +38,12 @@ class ICAv2CwlAnalysisJsonInput(ICAv2AnalysisInput):
     Generate a CWL Analysis input from a JSON input
     """
 
-    object_type = "JSON"
-
     def __init__(
         self,
         input_json: Dict
     ):
         # Initialise parent class
-        super().__init__(
-            object_type=self.object_type
-        )
+        super().__init__()
 
         # Set inputs
         self.input_json: Dict = input_json
@@ -73,7 +64,7 @@ class ICAv2CwlAnalysisJsonInput(ICAv2AnalysisInput):
         """
         pass
 
-    def create_analysis_input(self) -> CwlAnalysisJsonInput:
+    def create_analysis_input(self) -> CwlAnalysisWithJsonInput:
         # Deference cwl input json
         self.deference_cwl_input_json()
 
@@ -81,12 +72,11 @@ class ICAv2CwlAnalysisJsonInput(ICAv2AnalysisInput):
         self.set_input_json()
 
         # Generate a CWL analysis input
-        return CwlAnalysisJsonInput(
-            object_type=self.object_type,
-            input_json=self.input_json_str,
+        return CwlAnalysisWithJsonInput(
+            inputJson=self.input_json_str,
             mounts=self.mount_paths_list,
-            external_data=self.external_mounts_list,
-            data_ids=self.data_ids
+            externalData=self.external_mounts_list,
+            dataIds=self.data_ids
         )
 
     def deference_cwl_input_json(self):
@@ -112,18 +102,17 @@ class ICAv2CWLEngineParameters(ICAv2EngineParameters):
     The ICAv2 EngineParameters has the following properties
     """
 
-    workflow_language = WorkflowLanguage.CWL
+    workflow_language: WorkflowLanguageType = "CWL"
 
     def __init__(
         self,
         project_id: Optional[str] = None,
         pipeline_id: Optional[str] = None,
         analysis_output: Optional[List[AnalysisOutputMapping]] = None,
-        analysis_input: Optional[CwlAnalysisInput] = None,
+        analysis_input: Optional[CwlAnalysisWithJsonInput] = None,
         tags: Optional[ICAv2PipelineAnalysisTags] = None,
         analysis_storage_id: Optional[str] = None,
-        analysis_storage_size: Optional[AnalysisStorageSize] = None,
-        activation_id: Optional[str] = None,
+        analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         cwltool_overrides: Optional[Dict] = None
     ):
         # Initialise parameters
@@ -134,14 +123,12 @@ class ICAv2CWLEngineParameters(ICAv2EngineParameters):
             analysis_input=analysis_input,
             tags=tags,
             analysis_storage_id=analysis_storage_id,
-            analysis_storage_size=analysis_storage_size,
-            activation_id=activation_id
+            analysis_storage_size=analysis_storage_size
         )
 
         # Input parameters
         self.cwltool_overrides: Dict = cwltool_overrides
-        # self.stream_all_files: Optional[bool] = stream_all_files
-        # self.stream_all_directories: Optional[bool] = stream_all_directories
+
 
     def get_overrides_from_engine_parameters(self, inputs_overrides: Optional[Dict] = None) -> Dict:
         """
@@ -195,7 +182,6 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
     tags: ICAv2PipelineAnalysisTags,
     analysis_input: Union[CwlAnalysisJsonInput, NextflowAnalysisInput],
     analysis_output: str,
-    activation_code_details_id: Optional[str] = None,
     analysis_storage_size: Optional[AnalysisStorageSize] = None
 
     """
@@ -206,10 +192,9 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
         user_reference: str,
         project_id: str,
         pipeline_id: str,
-        analysis_input: CwlAnalysisInput,
+        analysis_input: CwlAnalysisWithJsonInput,
         analysis_storage_id: Optional[str] = None,
-        analysis_storage_size: Optional[AnalysisStorageSize] = None,
-        activation_id: Optional[str] = None,
+        analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         # Output parameters
         analysis_output_uri: Optional[str] = None,
         ica_logs_uri: Optional[str] = None,
@@ -226,7 +211,6 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
         :param analysis_input
         :param analysis_storage_id
         :param analysis_storage_size
-        :param activation_id
         :param analysis_output_uri
         :param ica_logs_uri
         :param tags
@@ -246,7 +230,6 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
             analysis_input=analysis_input,
             analysis_storage_id=analysis_storage_id,
             analysis_storage_size=analysis_storage_size,
-            activation_id=activation_id,
             analysis_output_uri=analysis_output_uri,
             ica_logs_uri=ica_logs_uri,
             tags=tags
@@ -261,19 +244,17 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
             tags=self.tags,
             analysis_storage_id=self.analysis_storage_id,
             analysis_storage_size=self.analysis_storage_size,
-            activation_id=self.activation_id,
             cwltool_overrides=self.cwltool_overrides
         )
 
-    def create_analysis(self) -> CreateCwlAnalysis:
-        return CreateCwlAnalysis(
-            user_reference=self.user_reference,
-            pipeline_id=self.pipeline_id,
+    def create_analysis(self) -> CreateCwlWithJsonInputAnalysis:
+        return CreateCwlWithJsonInputAnalysis(
+            userReference=self.user_reference,
+            pipelineId=self.pipeline_id,
             tags=self.engine_parameters.tags(),
-            activation_code_detail_id=self.engine_parameters.activation_id,
-            analysis_input=self.analysis_input,
-            analysis_storage_id=self.engine_parameters.analysis_storage_id,
-            analysis_output=self.engine_parameters.analysis_output
+            analysisInput=self.analysis_input,
+            analysisStorageId=self.engine_parameters.analysis_storage_id,
+            analysisOutput=self.engine_parameters.analysis_output
         )
 
     def launch_analysis(self, idempotency_key: Optional[str] = None) -> Analysis:

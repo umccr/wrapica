@@ -1,5 +1,5 @@
 # Model imports
-from libica.openapi.v2.models import Region
+from libica.openapi.v3.models import Region
 
 # Local function imports
 from .functions.region_functions import (
