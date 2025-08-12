@@ -13,6 +13,7 @@ import uuid
 from pathlib import Path
 from zipfile import ZipFile
 import pandas as pd
+import re
 from cwl_utils.parser import load_document_by_uri
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
@@ -23,7 +24,8 @@ from libica.openapi.v3 import (
     ProjectAnalysisStorageApi,
     ProjectPipelineV4,
     PipelineConfigurationParameter,
-    PipelineResources
+    PipelineResources,
+    AnalysisS3DataDetails
 )
 from libica.openapi.v3.api.project_pipeline_api import ProjectPipelineApi
 from libica.openapi.v3.api.project_analysis_api import ProjectAnalysisApi
@@ -55,9 +57,10 @@ from ...utils.globals import (
     FILE_DATA_TYPE,
     FOLDER_DATA_TYPE,
     ICAV2_URI_SCHEME,
-    S3_URI_SCHEME
+    S3_URI_SCHEME,
+    URI_REGEX_OBJ
 )
-from ...literals import DataType, PipelineStatusType, UriType, AnalysisStorageSizeType, ResourceType
+from ...literals import DataType, PipelineStatusType, AnalysisStorageSizeType, ResourceType
 from ...utils.miscell import is_uuid_format, is_uri_format
 from ...utils.nextflow_helpers import (
     convert_base_config_to_icav2_base_config, get_default_nextflow_pipeline_version_id,
@@ -67,7 +70,6 @@ if typing.TYPE_CHECKING:
     # Import type hints for IDE only, not at runtime
     # Prevents circular imports
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis
-    from ..classes.analysis import ICAv2PipelineAnalysisTags
 
 DEFAULT_ANALYSIS_STORAGE_SIZE: AnalysisStorageSizeType = "Small"
 
@@ -930,11 +932,11 @@ def convert_uris_to_data_ids_from_cwl_input_json(
     """
     # Importing from another functions directory should be done locally
     from ...project_data import (
-        convert_icav2_uri_to_project_data_obj,
-        presign_cwl_directory,
-        create_download_url,
-        get_project_data_obj_by_id,
-        presign_cwl_directory_with_external_data_mounts
+        convert_uri_to_project_data_obj
+    )
+    from ...storage_credentials import (
+        get_storage_credential_id_from_s3_uri,
+        get_relative_path_from_credentials_prefix
     )
 
     # Set default mount list
@@ -972,105 +974,63 @@ def convert_uris_to_data_ids_from_cwl_input_json(
                         f"Please add a trailing slash and try again")
                     raise ValueError
 
-                # Get relative location path
-                input_obj_new: ProjectData = convert_icav2_uri_to_project_data_obj(input_obj.get("location"))
-                data_type: DataType = input_obj_new.data.details.data_type
-                owning_project_id: str = input_obj_new.data.details.owning_project_id
-                data_id = input_obj_new.data.id
-                basename = input_obj_new.data.details.name
+                # Get the uri object
+                uri_str = input_obj.get("location")
+                # Check data types match
+                if uri_str.endswith("/") and input_obj["class"] == "File":
+                    logger.error("Got mismatch on data type and class for input object")
+                    logger.error(
+                        f"Class of {input_obj.get('location')} is set to file but found directory {uri_str}")
+                    raise ValueError
+                if not uri_str.endswith("/") and input_obj["class"] == "Directory":
+                    logger.error("Got mismatch on data type and class for input object")
+                    logger.error(
+                        f"Class of {input_obj.get('location')} is set to directory but found file id {uri_str}")
 
-                # TODO functionalise this section, may need this for cross-tenant data collection later
-                # Check presign,
-                presign_list = list(
-                    filter(
-                        lambda x: x == "presign=true",
-                        urlparse(input_obj.get("location")).query.split("&")
+                # Try to get the storage credential id from the uri
+                storage_credential_id = get_storage_credential_id_from_s3_uri(cast(str, uri_str))
+
+                # Prioritise the external data configuration where possible
+                # Note that this may change in the future
+                if storage_credential_id is not None:
+                    # Get relative location path
+                    mount_path = get_relative_path_from_credentials_prefix(
+                        storage_credential_id,
+                        cast(str, uri_str),
                     )
-                )
-                if len(presign_list) > 0:
-                    is_presign = True
-                else:
-                    is_presign = False
-
-                # Check stage
-                stage_list = list(
-                    filter(
-                        lambda x: x == "stage=false",
-                        urlparse(input_obj.get("location")).query.split("&")
+                    external_data_list.append(
+                        AnalysisInputExternalData(
+                            url=cast(str, uri_str),
+                            type=S3_URI_SCHEME,
+                            mountPath=mount_path,
+                            s3Details=AnalysisS3DataDetails(
+                                storageCredentialsId=storage_credential_id
+                            )
+                        )
                     )
-                )
-
-                if len(stage_list) > 0:
-                    # We must generate a presigned url for this file for the location attribute
-                    is_stage = False
-                    is_presign = True
                 else:
-                    is_stage = True
-
-                if is_stage:
+                    input_obj_new: ProjectData = convert_uri_to_project_data_obj(input_obj.get("location"))
+                    data_type: DataType = input_obj_new.data.details.data_type
+                    owning_project_id: str = input_obj_new.data.details.owning_project_id
+                    data_id = input_obj_new.data.id
+                    basename = input_obj_new.data.details.name
                     # Set mount path
                     mount_path = str(
                         Path(owning_project_id) /
                         Path(data_id) /
                         Path(basename)
                     )
-                else:
-                    # We don't want to add a mount path to this file.
-                    mount_path = None
-
-                # Check data types match
-                if data_type == FOLDER_DATA_TYPE and input_obj["class"] == "File":
-                    logger.error("Got mismatch on data type and class for input object")
-                    logger.error(
-                        f"Class of {input_obj.get('location')} is set to file but found directory id {data_id} instead")
-                    raise ValueError
-                if data_type == FILE_DATA_TYPE and input_obj["class"] == "Directory":
-                    logger.error("Got mismatch on data type and class for input object")
-                    logger.error(
-                        f"Class of {input_obj.get('location')} is set to directory but found file id {data_id} instead")
-
-                # Set file to presigned url
-                # File cannot be set to 'stage' without also being a presigned url
-                if is_presign and not is_stage:
-                    # No mounting
-                    if data_type == FILE_DATA_TYPE:
-                        input_obj["location"] = create_download_url(owning_project_id, data_id)
-                    elif data_type == FOLDER_DATA_TYPE:
-                        # We need a basename for the directory now, not a location
-                        input_obj["basename"] = get_project_data_obj_by_id(owning_project_id, data_id).data.details.name
-                        _ = input_obj.pop("location")
-                        input_obj["listing"] = presign_cwl_directory(
-                            owning_project_id, data_id
-                        )
-                elif is_presign and is_stage:
-                    if data_type == FILE_DATA_TYPE:
-                        input_obj["location"] = mount_path
-                        external_data_list.append(
-                            AnalysisInputExternalData(
-                                url=create_download_url(owning_project_id, data_id),
-                                type="http",
-                                mountPath=input_obj.get("location")
-                            )
-                        )
-                    elif data_type == FOLDER_DATA_TYPE:
-                        input_obj["basename"] = get_project_data_obj_by_id(owning_project_id, data_id).data.details.name
-                        # We need a basename for the directory, not a location
-                        _ = input_obj.pop("location")
-                        external_data_list_new, input_obj["listing"] = presign_cwl_directory_with_external_data_mounts(
-                            owning_project_id, data_id
-                        )
-                        external_data_list.extend(
-                            external_data_list_new
-                        )
-
-                else:
                     mount_list.append(
                         AnalysisInputDataMount(
                             dataId=data_id,
                             mountPath=mount_path
                         )
                     )
-                    input_obj["location"] = mount_path
+                    # Readd in the folder data type if it exists
+                    if data_type == FOLDER_DATA_TYPE:
+                        mount_path += "/"
+
+                input_obj["location"] = mount_path
             # Check for presigned urls in location, and check for 'stage' attribute
             elif input_obj.get("location", "").startswith("https://"):
                 if not input_obj.get("stage", True):
@@ -1118,9 +1078,6 @@ def convert_uris_to_data_ids_from_cwl_input_json(
                 external_data_list.extend(external_data_list_new)
             return input_obj_dict, mount_list, external_data_list
 
-    logger.warning(f"Not sure what to do with this input {type(input_obj)}: {input_obj}")
-    return None
-
 
 def convert_uris_to_data_ids_from_nextflow_input_json(
         input_obj: Union[str, int, bool, Dict[str, Any], List],
@@ -1154,12 +1111,17 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
     """
     # Importing from another functions directory should be done locally
     from ...project_data import (
-        convert_icav2_uri_to_project_data_obj,
+        convert_uri_to_project_data_obj,
         get_project_data_obj_from_project_id_and_path,
         coerce_data_id_uri_or_path_to_project_data_obj,
         # Needed for uploading samplesheet
         write_icav2_file_contents
     )
+    from ...storage_credentials import (
+        get_storage_credential_id_from_s3_uri,
+        get_relative_path_from_credentials_prefix
+    )
+
     # Set default mount list
     input_obj_new_list: List[Union[Dict, List]] = []
     mount_list: List[AnalysisInputDataMount] = []
@@ -1270,31 +1232,64 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                 continue
 
             if (
-                    isinstance(value, str) and
-                    is_uri_format(value) and
-                    cast(UriType, urlparse(cast(str, value)).scheme) in [ICAV2_URI_SCHEME, S3_URI_SCHEME]
+                    isinstance(value, str)
             ):
-                # Get relative location path
-                input_obj_new: ProjectData = convert_icav2_uri_to_project_data_obj(cast(str, value))
-                owning_project_id: str = input_obj_new.data.details.owning_project_id
-                data_id = input_obj_new.data.id
-                basename = input_obj_new.data.details.name
-                # Set mount path
-                mount_path = str(
-                    Path(owning_project_id) /
-                    Path(data_id) /
-                    Path(basename)
-                )
-                # Append the mount list
-                mount_list.append(
-                    AnalysisInputDataMount(
-                        dataId=data_id,
-                        mountPath=mount_path
-                    )
-                )
-                # Create the new deferenced input object
+                # Start with the existing value
+                new_value = value
+
+                for uri_match in URI_REGEX_OBJ.findall(value):
+                    # Try to get the storage credential id from the uri
+                    storage_credential_id = get_storage_credential_id_from_s3_uri(cast(str, uri_match))
+                    if storage_credential_id is not None:
+                        mount_path = get_relative_path_from_credentials_prefix(
+                            storage_credential_id,
+                            cast(str, uri_match),
+                        )
+                        external_data_list.append(
+                            AnalysisInputExternalData(
+                                url=cast(str, uri_match),
+                                type=S3_URI_SCHEME,
+                                mountPath=mount_path,
+                                s3Details=AnalysisS3DataDetails(
+                                    storageCredentialsId=storage_credential_id
+                                )
+                            )
+                        )
+
+                    # Otherwise use the standard mount path approach
+                    else:
+                        # Get relative location path
+                        input_obj_new: ProjectData = convert_uri_to_project_data_obj(cast(str, uri_match))
+                        owning_project_id: str = input_obj_new.data.details.owning_project_id
+                        data_id = input_obj_new.data.id
+                        basename = input_obj_new.data.details.name
+
+                        # Set mount path
+                        mount_path = str(
+                            Path(owning_project_id) /
+                            Path(data_id) /
+                            Path(basename)
+                        )
+
+                        # Append the mount list
+                        mount_list.append(
+                            AnalysisInputDataMount(
+                                dataId=data_id,
+                                mountPath=mount_path
+                            )
+                        )
+
+                        # Add a trailing '/' to mount path if this is a directory
+                        if input_obj_new.data.details.data_type == FOLDER_DATA_TYPE and not mount_path.endswith("/"):
+                            mount_path += "/"
+
+                    # Replace the URI in the new value
+                    # With the mount path
+                    new_value = re.sub(uri_match, mount_path, new_value)
+
+                # Now update the new input value with the substituted mount path values
                 new_input_obj.update({
-                    key: mount_path
+                    key: new_value
                 })
                 continue
 
@@ -1305,9 +1300,6 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
             })
 
         return new_input_obj, mount_list, external_data_list
-
-    logger.warning("Not sure what to do with this input %s: %s", type(input_obj), input_obj)
-    return None
 
 
 def list_project_pipelines(
