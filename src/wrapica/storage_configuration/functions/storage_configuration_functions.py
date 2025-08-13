@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-
 # Standard imports
+from os import environ
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Optional, Tuple, TypedDict, NotRequired, cast
 from urllib.parse import urlunparse, urlparse
+import json
+from ruamel.yaml import YAML
 
 # Libica imports
 from libica.openapi.v3 import ApiException, ApiClient
 from libica.openapi.v3.api.storage_configuration_api import StorageConfigurationApi
 from libica.openapi.v3.models import (
-    StorageConfigurationWithDetails,
     ProjectData,
-    AWSDetails
 )
 
 # Local imports
@@ -27,125 +27,189 @@ from ...utils.globals import (
 logger = get_logger()
 
 
+class StorageConfigurationObjectModel(TypedDict):
+    id: str
+    bucketName: str
+    keyPrefix: str
 
-# { "s3-key-prefix": {"storage_configuration_id": [project_id_1, project_id_2, ...]}
-STORAGE_CONFIGURATION_MAPPING_DICT: Optional[Dict[str, Dict[str, List[str]]]] = None
 
-def get_storage_configuration_list() -> List[StorageConfigurationWithDetails]:
+class ProjectToStorageMappingDictModel(TypedDict):
+    id: str
+    name: str
+    storageConfigurationId: str
+    prefix: NotRequired[str]
+
+
+STORAGE_CONFIGURATION_OBJECT_LIST: Optional[List[StorageConfigurationObjectModel]] = None
+STORAGE_CONFIGURATION_OBJECT_LIST_ENV_VAR = "ICAV2_STORAGE_CONFIGURATION_LIST_FILE"
+
+PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST: Optional[List[ProjectToStorageMappingDictModel]] = None
+PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST_ENV_VAR = "ICAV2_PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST_FILE"
+
+
+def get_storage_configuration_env_list() -> Optional[List[StorageConfigurationObjectModel]]:
+    if (
+            environ.get(STORAGE_CONFIGURATION_OBJECT_LIST_ENV_VAR) is not None and
+            Path(environ.get(STORAGE_CONFIGURATION_OBJECT_LIST_ENV_VAR)).is_file()
+    ):
+        yaml = YAML()
+
+        with open(environ.get(STORAGE_CONFIGURATION_OBJECT_LIST_ENV_VAR)) as file_handle:
+            # Load the YAML file
+            return list(map(
+                lambda item_iter_: cast(
+                    StorageConfigurationObjectModel,
+                    item_iter_
+                ),
+                yaml.load(file_handle)
+            ))
+    return None
+
+
+def get_storage_configuration_api_list() -> List[StorageConfigurationObjectModel]:
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
         api_instance = StorageConfigurationApi(api_client)
 
-        # example, this endpoint has no required or optional parameters
-        try:
-            # Retrieve a list of storage configurations.
-            api_response = api_instance.get_storage_configurations()
-        except ApiException as e:
-            logger.error("Exception when calling StorageConfigurationApi->get_storage_configurations: %s\n" % e)
-            raise ApiException
+    # example, this endpoint has no required or optional parameters
+    try:
+        # Retrieve a list of storage configurations.
+        api_response = api_instance.get_storage_configurations()
+    except ApiException as e:
+        logger.error("Exception when calling StorageConfigurationApi->get_storage_configurations: %s\n" % e)
+        raise ApiException from e
 
-    return api_response.items
+    return list(map(
+        lambda item_iter_: (
+            cast(
+                StorageConfigurationObjectModel,
+                {
+                    "id": item_iter_.id,
+                    "bucketName": f"s3://{item_iter_.storage_configuration_details.aws_s3.bucket_name}",
+                    "keyPrefix": str(Path(item_iter_.storage_configuration_details.aws_s3.key_prefix)) + "/"
+                }
+            )
+        ),
+        api_response.items
+    ))
 
 
-def set_storage_configuration_mapping():
-    global STORAGE_CONFIGURATION_MAPPING_DICT
+def set_storage_configuration_list():
+    global STORAGE_CONFIGURATION_OBJECT_LIST
+    if STORAGE_CONFIGURATION_OBJECT_LIST is None:
+        STORAGE_CONFIGURATION_OBJECT_LIST = get_storage_configuration_env_list()
+
+    if STORAGE_CONFIGURATION_OBJECT_LIST is not None:
+        return
+
+    # No environment variable set, so we need to get the list from the API
+    # Which takes longer
+    STORAGE_CONFIGURATION_OBJECT_LIST = get_storage_configuration_api_list()
+
+
+def get_storage_configuration_list() -> List[StorageConfigurationObjectModel]:
+    if STORAGE_CONFIGURATION_OBJECT_LIST is None:
+        set_storage_configuration_list()
+        return get_storage_configuration_list()
+    return STORAGE_CONFIGURATION_OBJECT_LIST
+
+
+def get_project_to_storage_env_mapping() -> Optional[List[ProjectToStorageMappingDictModel]]:
+    if (
+            environ.get(PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST_ENV_VAR) is not None and
+            Path(environ.get(PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST_ENV_VAR)).is_file()
+    ):
+        yaml = YAML()
+
+        with open(environ.get(PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST_ENV_VAR)) as file_handle:
+            # Load the YAML file
+            return list(map(
+                lambda item_iter_: cast(
+                    ProjectToStorageMappingDictModel,
+                    item_iter_
+                ),
+                yaml.load(file_handle)
+            ))
+    return None
+
+
+def get_project_to_storage_configuration_api_mapping() -> List[ProjectToStorageMappingDictModel]:
     from wrapica.project import list_projects
 
-    def get_s3_uri_from_aws_details(aws_details: AWSDetails) -> str:
-        return str(
-            urlunparse(
-                (
-                    S3_URI_SCHEME,
-                    aws_details.bucket_name,
-                    str(Path(aws_details.key_prefix)) + "/",
-                    None, None, None
-                )
-            )
-        )
-
     # Get the storage configuration list
-    storage_configuration_list: List[StorageConfigurationWithDetails] = get_storage_configuration_list()
+    storage_configuration_list: List[StorageConfigurationObjectModel] = get_storage_configuration_list()
+
+    # If there are no storage configurations, return an empty list
+    if not storage_configuration_list:
+        return []
 
     # Map the storage configuration id to each project
-    storage_configuration_mapping_by_project = dict(
-        map(
-            lambda byob_project_iter: (byob_project_iter.id, byob_project_iter.self_managed_storage_configuration.id),
-            filter(
-                lambda project_iter: (
-                    hasattr(project_iter, 'self_managed_storage_configuration') and
-                    project_iter.self_managed_storage_configuration is not None
-                ),
-                list_projects()
-            )
-        )
-    )
-
-    # Flip the storage configuration mapping from by project to by storage configuration
-    storage_configuration_mapping = {}
-    for storage_configuration in storage_configuration_list:
-        storage_configuration_mapping[storage_configuration.id] = list(
-            map(
-                lambda kv: kv[0],
-                filter(
-                    lambda kv: kv[1] == storage_configuration.id,
-                    storage_configuration_mapping_by_project.items()
-                )
-            )
-        )
-
-    # For each storage configuration, get the s3 key prefix
-    STORAGE_CONFIGURATION_MAPPING_DICT = dict(
-        map(
-            lambda kv: (
-                get_s3_uri_from_aws_details(
-                    next(
-                        filter(
-                            lambda storage_config_iter: storage_config_iter.id == kv[0],
-                            storage_configuration_list
-                        )
-                    ).storage_configuration_details.aws_s3
-                ),
-                {kv[0]: kv[1]}
-            ),
-            storage_configuration_mapping.items()
-        )
-    )
+    return list(map(
+      lambda project_iter: (
+          cast(
+              ProjectToStorageMappingDictModel,
+              {
+                    "id": project_iter.id,
+                    "name": project_iter.name,
+                    "storageConfigurationId": project_iter.self_managed_storage_configuration.id,
+                    "prefix": project_iter.name,
+              }
+          )
+      ),
+      list(filter(
+          lambda project_iter: (
+              project_iter.self_managed_storage_configuration is not None
+          ),
+          list_projects()
+      ))
+    ))
 
 
-def get_storage_configuration_mapping() -> Dict[str, Dict[str, List[str]]]:
-    # Check if the mapping is already set
-    if STORAGE_CONFIGURATION_MAPPING_DICT is not None:
-        return STORAGE_CONFIGURATION_MAPPING_DICT
+def set_project_to_storage_configuration_mapping():
+    global PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST
+    if PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST is None:
+        PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST = get_project_to_storage_env_mapping()
 
-    # Set the mapping
-    set_storage_configuration_mapping()
+    if PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST is not None:
+        return
 
-    # Return the mapping
-    return get_storage_configuration_mapping()
+    # No environment variable set, so we need to get the list from the API
+    # Which takes longer
+    PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST = get_project_to_storage_configuration_api_mapping()
+
+
+def get_project_to_storage_configuration_mapping_list() -> List[ProjectToStorageMappingDictModel]:
+    if PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST is None:
+        set_project_to_storage_configuration_mapping()
+        return get_project_to_storage_configuration_mapping_list()
+    return PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST
 
 
 def get_project_id_by_s3_key_prefix(s3_key_prefix: str) -> Optional[str]:
-    from ...project import get_project_id_from_project_name
-
     # Iterate through the storage configuration mapping dict
-    for configuration_s3_key_prefix, project_configuration_dict in get_storage_configuration_mapping().items():
-        # Check if the s3 key prefix is in the storage configuration dict
-        if s3_key_prefix.startswith(configuration_s3_key_prefix):
-            # Get the project name as the first part after the configuration s3 prefix
-            project_name = Path(urlparse(s3_key_prefix).path).relative_to(Path(urlparse(configuration_s3_key_prefix).path)).parts[0]
+    for project_model in get_project_to_storage_configuration_mapping_list():
 
-            try:
-                project_id = get_project_id_from_project_name(project_name)
-            except (StopIteration, ApiException):
-                logger.error(f"Could not find project id for project name: {project_name}")
-                return None
+        # Configuration model
+        configuration_model = next(
+            filter(
+                lambda config_iter: (
+                    config_iter['id'] == project_model['storageConfigurationId']
+                ),
+                get_storage_configuration_list()
+            )
+        )
 
-            # Check project id is in this project configuration dict
-            for storage_configuration_id, project_ids_list in project_configuration_dict.items():
-                if project_id in project_ids_list:
-                    return project_id
-            logger.error(f"Got project name as '{project_name}' but could not find project id '{project_id}' in project configuration dict")
+        # Join the storage configuration prefix with the project prefix
+        project_s3_key_prefix = str(urlunparse((
+            S3_URI_SCHEME,
+            configuration_model['bucketName'],
+            str(Path(configuration_model['keyPrefix']) / project_model['prefix']) + "/",
+            None, None, None
+        )))
+
+        if s3_key_prefix.startswith(project_s3_key_prefix):
+            return project_model['id']
 
     logger.error(f"Could not find project id for s3 key prefix: {s3_key_prefix}")
     return None
@@ -154,26 +218,32 @@ def get_project_id_by_s3_key_prefix(s3_key_prefix: str) -> Optional[str]:
 # And vice-versa
 def get_s3_key_prefix_by_project_id(project_id: str) -> Optional[str]:
     # Local imports
-    from ...project import get_project_name_from_project_id
     # Return Key Prefix with project name extension
-    for configuration_s3_key_prefix, project_configuration_dict in get_storage_configuration_mapping().items():
-        for configuration_id, project_list in project_configuration_dict.items():
-            if project_id in project_list:
-                return str(urlunparse(
-                    (
-                        urlparse(configuration_s3_key_prefix).scheme,
-                        urlparse(configuration_s3_key_prefix).netloc,
-                        str(
-                            Path(
-                                urlparse(configuration_s3_key_prefix).path
-                            ) /
-                            get_project_name_from_project_id(project_id)
-                        ) + "/",
-                        None, None, None
-                    )
-                ))
-    logger.warning("Could not get S3 key prefix for project id: %s", project_id)
-    return None
+    project_model = next(filter(
+        lambda project_iter: (
+            project_iter['id'] == project_id
+        ),
+        get_project_to_storage_configuration_mapping_list()
+    ))
+
+    # Configuration model
+    configuration_model = next(
+        filter(
+            lambda config_iter: (
+                    config_iter['id'] == project_model['storageConfigurationId']
+            ),
+            get_storage_configuration_list()
+        )
+    )
+
+    # Join the storage configuration prefix with the project prefix
+    return str(urlunparse((
+        S3_URI_SCHEME,
+        configuration_model['bucketName'],
+        str(Path(configuration_model['keyPrefix']) / project_model['prefix']) + "/",
+        None, None, None
+    )))
+
 
 def convert_s3_uri_to_icav2_uri(s3_uri: str) -> str:
     # Convert S3 URI to ICAv2 URI

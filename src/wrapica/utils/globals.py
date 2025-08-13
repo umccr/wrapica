@@ -68,3 +68,6 @@ S3_URI_SCHEME: UriType = "s3"
 # Data Types
 FILE_DATA_TYPE: DataType = "FILE"
 FOLDER_DATA_TYPE: DataType = "FOLDER"
+
+# URI REGEX OBJ
+URI_REGEX_OBJ = re.compile(rf'(?:{ICAV2_URI_SCHEME}|{S3_URI_SCHEME})://[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+')
