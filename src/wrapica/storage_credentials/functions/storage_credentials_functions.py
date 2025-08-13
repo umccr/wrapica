@@ -37,8 +37,8 @@ class S3UriListModel(TypedDict):
 
 
 class StorageCredentialMappingModel(TypedDict):
-    storageCredentialsId: str
-    storageCredentialsName: str
+    id: str
+    name: str
     s3UriList: List[S3UriListModel]
 
 
@@ -84,8 +84,8 @@ def get_storage_credential_api_list() -> List[StorageCredentialMappingModel]:
             cast(
                 StorageCredentialMappingModel,
                 {
-                    "storageCredentialsId": item_iter_.id,
-                    "storageCredentialsName": item_iter_.name,
+                    "id": item_iter_.id,
+                    "name": item_iter_.name,
                     # Unfortunately there is no way to link storage configurations to storage credentials at the moment
                     # I have raised the issue with the Illumina team
                     "s3UriList": []
@@ -134,7 +134,7 @@ def get_storage_credential_id_from_s3_uri(s3_uri: str) -> Optional[str]:
                         )))
                     )
             ):
-                return credential_obj['storageCredentialsId']
+                return credential_obj['id']
 
     return None
 
