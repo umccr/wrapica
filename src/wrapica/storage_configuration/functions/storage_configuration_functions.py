@@ -191,14 +191,17 @@ def get_project_id_by_s3_key_prefix(s3_key_prefix: str) -> Optional[str]:
     for project_model in get_project_to_storage_configuration_mapping_list():
 
         # Configuration model
-        configuration_model = next(
-            filter(
-                lambda config_iter: (
-                    config_iter['id'] == project_model['storageConfigurationId']
-                ),
-                get_storage_configuration_list()
+        try:
+            configuration_model = next(
+                filter(
+                    lambda config_iter: (
+                        config_iter['id'] == project_model['storageConfigurationId']
+                    ),
+                    get_storage_configuration_list()
+                )
             )
-        )
+        except StopIteration:
+            continue
 
         # Join the storage configuration prefix with the project prefix
         project_s3_key_prefix = str(urlunparse((
