@@ -190,6 +190,12 @@ def get_project_id_by_s3_key_prefix(s3_key_prefix: str) -> Optional[str]:
     # Iterate through the storage configuration mapping dict
     for project_model in get_project_to_storage_configuration_mapping_list():
 
+        project_model_prefix = (
+            project_model.get('prefix', None)
+            if project_model.get('prefix', None) is not None
+            else ""
+        )
+
         # Configuration model
         try:
             configuration_model = next(
@@ -207,7 +213,7 @@ def get_project_id_by_s3_key_prefix(s3_key_prefix: str) -> Optional[str]:
         project_s3_key_prefix = str(urlunparse((
             S3_URI_SCHEME,
             configuration_model['bucketName'],
-            str(Path(configuration_model['keyPrefix']) / project_model['prefix']) + "/",
+            str(Path(configuration_model['keyPrefix']) / project_model_prefix) + "/",
             None, None, None
         )))
 
