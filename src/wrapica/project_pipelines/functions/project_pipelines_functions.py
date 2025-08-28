@@ -14,8 +14,10 @@ from pathlib import Path
 from zipfile import ZipFile
 import pandas as pd
 import re
+from botocore.exceptions import ClientError
 from cwl_utils.parser import load_document_by_uri
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+import boto3
 
 # Libica imports
 from libica.openapi.v3 import (
@@ -49,6 +51,7 @@ from libica.openapi.v3.models import (
 )
 
 # Local imports
+from ...utils import parse_s3_uri
 from ...utils.logger import get_logger
 from ...utils.configuration import get_icav2_configuration
 from ...utils.cwl_typing_helpers import WorkflowInputParameterType, WorkflowType
@@ -70,6 +73,7 @@ if typing.TYPE_CHECKING:
     # Import type hints for IDE only, not at runtime
     # Prevents circular imports
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis
+    from mypy_boto3_s3 import S3Client
 
 DEFAULT_ANALYSIS_STORAGE_SIZE: AnalysisStorageSizeType = "Small"
 
@@ -704,7 +708,7 @@ def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowW
 
     # Collect kwargs
     analysis_kwargs = {
-        "idempotency_key": idempotency_key
+        "idempotency_key": idempotency_key + "A"  # FIXME
     }
 
     # Reduce analysis_kwargs to only those that are not None
@@ -1238,6 +1242,10 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                 new_value = value
 
                 for uri_match in URI_REGEX_OBJ.findall(value):
+                    # We only need to mount each once but the ways in which we mount are different
+                    # For folders, we need to first check if we can list all the files since external data mounts only support files
+                    is_mounted = False
+
                     # Try to get the storage credential id from the uri
                     storage_credential_id = get_storage_credential_id_from_s3_uri(cast(str, uri_match))
                     if storage_credential_id is not None:
@@ -1245,19 +1253,71 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                             storage_credential_id,
                             cast(str, uri_match),
                         )
-                        external_data_list.append(
-                            AnalysisInputExternalData(
-                                url=cast(str, uri_match),
-                                type=S3_URI_SCHEME,
-                                mountPath=mount_path,
-                                s3Details=AnalysisS3DataDetails(
-                                    storageCredentialsId=storage_credential_id
+
+                        if uri_match.endswith("/"):
+                            # Recursively add ALL files in the directory to the external data list
+                            # Assuming we can list the directory
+                            s3_client: 'S3Client' = boto3.client('s3')
+                            bucket, prefix = parse_s3_uri(cast(str, uri_match))
+                            continuation_token = None
+
+                            while True:
+                                try:
+                                    objects_response = s3_client.list_objects_v2(**dict(filter(
+                                        lambda kv_iter_: kv_iter_[1] is not None,
+                                        {
+                                            "Bucket": bucket,
+                                            "Prefix": prefix,
+                                            "ContinuationToken": continuation_token
+                                        }.items()
+                                    )))
+                                except ClientError as e:
+                                    logger.warning(
+                                        f"Could not list objects in S3 URI %s, "
+                                        f"wrapica does not have permissions to list-objects in {uri_match}. "
+                                        f"Falling back to standard mount",
+                                    )
+                                    break
+
+                                for s3_object in objects_response.get('Contents', []):
+                                    file_s3_uri = f"s3://{bucket}/{s3_object['Key']}"
+                                    file_mount_path = str(
+                                        Path(mount_path) /
+                                        Path(s3_object['Key']).relative_to(Path(prefix))
+                                    )
+                                    external_data_list.append(
+                                        AnalysisInputExternalData(
+                                            url=file_s3_uri,
+                                            type=S3_URI_SCHEME,
+                                            mountPath=file_mount_path,
+                                            s3Details=AnalysisS3DataDetails(
+                                                storageCredentialsId=storage_credential_id
+                                            )
+                                        )
+                                    )
+
+                                # Is Truncated indicates there are more objects to retrieve
+                                if not objects_response.get('IsTruncated', False):
+                                    break
+
+                                continuation_token=objects_response['NextContinuationToken']
+                            is_mounted = True
+
+                        else:
+                            external_data_list.append(
+                                AnalysisInputExternalData(
+                                    url=cast(str, uri_match),
+                                    type=S3_URI_SCHEME,
+                                    mountPath=mount_path,
+                                    s3Details=AnalysisS3DataDetails(
+                                        storageCredentialsId=storage_credential_id
+                                    )
                                 )
                             )
-                        )
+                            is_mounted = True
 
                     # Otherwise use the standard mount path approach
-                    else:
+                    if not is_mounted:
                         # Get relative location path
                         input_obj_new: ProjectData = convert_uri_to_project_data_obj(cast(str, uri_match))
                         owning_project_id: str = input_obj_new.data.details.owning_project_id
@@ -1282,6 +1342,12 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                         # Add a trailing '/' to mount path if this is a directory
                         if input_obj_new.data.details.data_type == FOLDER_DATA_TYPE and not mount_path.endswith("/"):
                             mount_path += "/"
+
+                        is_mounted = True
+
+                    if not is_mounted:
+                        logger.error("Could not mount uri %s, either it is not available in ICAv2, or it is a folder and we do not have the credentials to map the file", uri_match)
+                        raise FileNotFoundError(f"Could not mount uri {uri_match}, either it is not available in ICAv2, or it is a folder and we do not have the credentials to map the file")
 
                     # Replace the URI in the new value
                     # With the mount path

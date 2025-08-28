@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 import re
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Tuple
+from urllib.parse import urlparse
+
 
 def fill_placeholder_path(
     output_path: Path,
@@ -23,3 +25,12 @@ def fill_placeholder_path(
     return output_path
 
 
+def parse_s3_uri(s3_uri: str) -> Tuple[str, str]:
+    """
+    Return the bucket and key / prefix from an S3 URI.
+    :param s3_uri:
+    :return:
+    """
+    url_obj = urlparse(s3_uri)
+
+    return url_obj.netloc, url_obj.path.lstrip('/')
