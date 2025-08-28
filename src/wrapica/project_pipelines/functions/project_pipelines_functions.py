@@ -708,7 +708,7 @@ def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowW
 
     # Collect kwargs
     analysis_kwargs = {
-        "idempotency_key": idempotency_key + "A"  # FIXME
+        "idempotency_key": idempotency_key
     }
 
     # Reduce analysis_kwargs to only those that are not None
@@ -1273,7 +1273,7 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                                     )))
                                 except ClientError as e:
                                     logger.warning(
-                                        f"Could not list objects in S3 URI %s, "
+                                        f"Could not list objects in S3 URI {uri_match}, "
                                         f"wrapica does not have permissions to list-objects in {uri_match}. "
                                         f"Falling back to standard mount",
                                     )
@@ -1300,7 +1300,7 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                                 if not objects_response.get('IsTruncated', False):
                                     break
 
-                                continuation_token=objects_response['NextContinuationToken']
+                                continuation_token = objects_response['NextContinuationToken']
                             is_mounted = True
 
                         else:
@@ -1346,7 +1346,7 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                         is_mounted = True
 
                     if not is_mounted:
-                        logger.error("Could not mount uri %s, either it is not available in ICAv2, or it is a folder and we do not have the credentials to map the file", uri_match)
+                        logger.error(f"Could not mount uri {uri_match}, either it is not available in ICAv2, or it is a folder and we do not have the credentials to map the file", uri_match)
                         raise FileNotFoundError(f"Could not mount uri {uri_match}, either it is not available in ICAv2, or it is a folder and we do not have the credentials to map the file")
 
                     # Replace the URI in the new value
