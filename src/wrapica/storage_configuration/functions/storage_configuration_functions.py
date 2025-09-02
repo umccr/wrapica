@@ -249,7 +249,10 @@ def get_s3_key_prefix_by_project_id(project_id: str) -> Optional[str]:
     return str(urlunparse((
         S3_URI_SCHEME,
         configuration_model['bucketName'],
-        str(Path(configuration_model['keyPrefix']) / project_model['prefix']) + "/",
+        str(
+            Path(configuration_model['keyPrefix']) /
+            (project_model.get('prefix', None) if project_model.get('prefix', None) is not None else "")
+        ) + "/",
         None, None, None
     )))
 
