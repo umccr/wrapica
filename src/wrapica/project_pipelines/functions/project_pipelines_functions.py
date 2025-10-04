@@ -1090,6 +1090,21 @@ def convert_uris_to_data_ids_from_str(
     List[AnalysisInputDataMount],
     List[AnalysisInputExternalData]
 ]:
+    """
+    Convert uris to data ids from str
+
+    :param input_str: The input string containing one or more uris
+
+    :return: The converted input object, mount list and external data list
+
+    :rtype: Tuple[
+        Union[str, Dict, List],
+        List[AnalysisInputDataMount],
+        List[AnalysisInputExternalData]
+    ]
+
+    :raises: ValueError, ApiException
+    """
     # Local imports
     from ...storage_credentials import (
         get_storage_credential_id_from_s3_uri,
@@ -1159,10 +1174,17 @@ def convert_uris_to_data_ids_from_str(
 
         if not is_mounted:
             logger.error(
-                f"Could not mount uri {uri_match}, either it is not available in ICAv2, or it is a folder and we do not have the credentials to map the file",
-                uri_match)
+                f"Could not mount uri {uri_match}, "
+                f"either it is not available in ICAv2, "
+                f"or it is a folder and we do not have the credentials to "
+                f"map the file"
+            )
             raise FileNotFoundError(
-                f"Could not mount uri {uri_match}, either it is not available in ICAv2, or it is a folder and we do not have the credentials to map the file")
+                f"Could not mount uri {uri_match}, "
+                f"either it is not available in ICAv2, "
+                f"or it is a folder and we do not have the credentials to "
+                f"map the file"
+            )
 
         # Replace the URI in the new value
         # With the mount path
