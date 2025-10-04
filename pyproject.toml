@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wrapica"
-version = "2.38.0.dev20250902211000"
+version = "2.40.0.dev20251004171531"
 authors = [
     { name = "Alexis Lucattini", email = "alexis.lucattini@umccr.org" },
 ]
@@ -28,7 +28,7 @@ dependencies = [
     "beautifulsoup4 >= 4.10.0, < 5",
     "cwl_utils >= 0.38, < 1",
     "pandas >= 2.2.2, < 3",
-    "binaryornot >= 0.4.4, < 1"
+    "binaryornot >= 0.4.4, < 1",
 ]
 
 [project.urls]
