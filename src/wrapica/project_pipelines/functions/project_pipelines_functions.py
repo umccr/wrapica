@@ -1082,12 +1082,123 @@ def convert_uris_to_data_ids_from_cwl_input_json(
             return input_obj_dict, mount_list, external_data_list
 
 
+def convert_uris_to_data_ids_from_str(
+        input_str: str
+) -> Tuple[
+    str,
+    List[AnalysisInputDataMount],
+    List[AnalysisInputExternalData]
+]:
+    """
+    Convert uris to data ids from str
+
+    :param input_str: The input string containing one or more uris
+
+    :return: The converted input object, mount list and external data list
+
+    :rtype: Tuple[
+        Union[str, Dict, List],
+        List[AnalysisInputDataMount],
+        List[AnalysisInputExternalData]
+    ]
+
+    :raises: ValueError, ApiException
+    """
+    # Local imports
+    from ...storage_credentials import (
+        get_storage_credential_id_from_s3_uri,
+        get_relative_path_from_credentials_prefix
+    )
+    from ...project_data import convert_uri_to_project_data_obj
+
+    # Initialise lists
+    mount_list: List[AnalysisInputDataMount] = []
+    external_data_list: List[AnalysisInputExternalData] = []
+    new_value = input_str
+
+    for uri_match in URI_REGEX_OBJ.findall(input_str):
+        # We only need to mount each once but the ways in which we mount are different
+        # For folders, we need to first check if we can list all the files since external data mounts only support files
+        is_mounted = False
+
+        # Try to get the storage credential id from the uri
+        storage_credential_id = get_storage_credential_id_from_s3_uri(cast(str, uri_match))
+        if storage_credential_id is not None:
+            mount_path = get_relative_path_from_credentials_prefix(
+                storage_credential_id,
+                cast(str, uri_match),
+            )
+
+            external_data_list.append(
+                AnalysisInputExternalData(
+                    url=cast(str, uri_match),
+                    type=S3_URI_SCHEME,
+                    mountPath=mount_path,
+                    s3Details=AnalysisS3DataDetails(
+                        storageCredentialsId=storage_credential_id
+                    )
+                )
+            )
+            is_mounted = True
+
+
+        # Otherwise use the standard mount path approach
+        if not is_mounted:
+            # Get relative location path
+            input_obj_new: ProjectData = convert_uri_to_project_data_obj(cast(str, uri_match))
+            owning_project_id: str = input_obj_new.data.details.owning_project_id
+            data_id = input_obj_new.data.id
+            basename = input_obj_new.data.details.name
+
+            # Set mount path
+            mount_path = str(
+                Path(owning_project_id) /
+                Path(data_id) /
+                Path(basename)
+            )
+
+            # Append the mount list
+            mount_list.append(
+                AnalysisInputDataMount(
+                    dataId=data_id,
+                    mountPath=mount_path
+                )
+            )
+
+            # Add a trailing '/' to mount path if this is a directory
+            if input_obj_new.data.details.data_type == FOLDER_DATA_TYPE and not mount_path.endswith("/"):
+                mount_path += "/"
+
+            is_mounted = True
+
+        if not is_mounted:
+            logger.error(
+                f"Could not mount uri {uri_match}, "
+                f"either it is not available in ICAv2, "
+                f"or it is a folder and we do not have the credentials to "
+                f"map the file"
+            )
+            raise FileNotFoundError(
+                f"Could not mount uri {uri_match}, "
+                f"either it is not available in ICAv2, "
+                f"or it is a folder and we do not have the credentials to "
+                f"map the file"
+            )
+
+        # Replace the URI in the new value
+        # With the mount path
+        new_value = re.sub(uri_match, mount_path, new_value)
+
+    # Return the new value, mount list and external data list
+    return new_value, mount_list, external_data_list
+
+
 def convert_uris_to_data_ids_from_nextflow_input_json(
         input_obj: Union[str, int, bool, Dict[str, Any], List],
         cache_uri: Optional[str] = None,
         is_top_level: bool = True
 ) -> Optional[Tuple[
-    Union[str, Dict, List],
+    Union[str, Dict, List, bool, int],
     List[AnalysisInputDataMount],
     List[AnalysisInputExternalData]
 ]]:
@@ -1114,15 +1225,10 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
     """
     # Importing from another functions directory should be done locally
     from ...project_data import (
-        convert_uri_to_project_data_obj,
         get_project_data_obj_from_project_id_and_path,
         coerce_data_id_uri_or_path_to_project_data_obj,
         # Needed for uploading samplesheet
         write_icav2_file_contents
-    )
-    from ...storage_credentials import (
-        get_storage_credential_id_from_s3_uri,
-        get_relative_path_from_credentials_prefix
     )
 
     # Set default mount list
@@ -1131,8 +1237,14 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
     external_data_list: List[AnalysisInputExternalData] = []
 
     # Convert basic types
-    if isinstance(input_obj, bool) or isinstance(input_obj, int) or isinstance(input_obj, str):
+    if isinstance(input_obj, bool) or isinstance(input_obj, int):
         return input_obj, mount_list, external_data_list
+
+    if isinstance(input_obj, str):
+        new_value, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_str(input_obj)
+        mount_list.extend(mount_list_new)
+        external_data_list.extend(external_data_list_new)
+        return new_value, mount_list, external_data_list
 
     # Convert dict of list types recursively
     if isinstance(input_obj, List):
@@ -1232,130 +1344,21 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                 new_input_obj.update({
                     key: input_obj_new_item
                 })
+                mount_list.extend(mount_list_new)
+                external_data_list.extend(external_data_list_new)
                 continue
 
             if (
                     isinstance(value, str)
             ):
-                # Start with the existing value
-                new_value = value
-
-                for uri_match in URI_REGEX_OBJ.findall(value):
-                    # We only need to mount each once but the ways in which we mount are different
-                    # For folders, we need to first check if we can list all the files since external data mounts only support files
-                    is_mounted = False
-
-                    # Try to get the storage credential id from the uri
-                    storage_credential_id = get_storage_credential_id_from_s3_uri(cast(str, uri_match))
-                    if storage_credential_id is not None:
-                        mount_path = get_relative_path_from_credentials_prefix(
-                            storage_credential_id,
-                            cast(str, uri_match),
-                        )
-
-                        if uri_match.endswith("/"):
-                            # Recursively add ALL files in the directory to the external data list
-                            # Assuming we can list the directory
-                            s3_client: 'S3Client' = boto3.client('s3')
-                            bucket, prefix = parse_s3_uri(cast(str, uri_match))
-                            continuation_token = None
-
-                            while True:
-                                try:
-                                    objects_response = s3_client.list_objects_v2(**dict(filter(
-                                        lambda kv_iter_: kv_iter_[1] is not None,
-                                        {
-                                            "Bucket": bucket,
-                                            "Prefix": prefix,
-                                            "ContinuationToken": continuation_token
-                                        }.items()
-                                    )))
-                                except ClientError as e:
-                                    logger.warning(
-                                        f"Could not list objects in S3 URI {uri_match}, "
-                                        f"wrapica does not have permissions to list-objects in {uri_match}. "
-                                        f"Falling back to standard mount",
-                                    )
-                                    break
-
-                                for s3_object in objects_response.get('Contents', []):
-                                    file_s3_uri = f"s3://{bucket}/{s3_object['Key']}"
-                                    file_mount_path = str(
-                                        Path(mount_path) /
-                                        Path(s3_object['Key']).relative_to(Path(prefix))
-                                    )
-                                    external_data_list.append(
-                                        AnalysisInputExternalData(
-                                            url=file_s3_uri,
-                                            type=S3_URI_SCHEME,
-                                            mountPath=file_mount_path,
-                                            s3Details=AnalysisS3DataDetails(
-                                                storageCredentialsId=storage_credential_id
-                                            )
-                                        )
-                                    )
-
-                                # Is Truncated indicates there are more objects to retrieve
-                                if not objects_response.get('IsTruncated', False):
-                                    break
-
-                                continuation_token = objects_response['NextContinuationToken']
-                            is_mounted = True
-
-                        else:
-                            external_data_list.append(
-                                AnalysisInputExternalData(
-                                    url=cast(str, uri_match),
-                                    type=S3_URI_SCHEME,
-                                    mountPath=mount_path,
-                                    s3Details=AnalysisS3DataDetails(
-                                        storageCredentialsId=storage_credential_id
-                                    )
-                                )
-                            )
-                            is_mounted = True
-
-                    # Otherwise use the standard mount path approach
-                    if not is_mounted:
-                        # Get relative location path
-                        input_obj_new: ProjectData = convert_uri_to_project_data_obj(cast(str, uri_match))
-                        owning_project_id: str = input_obj_new.data.details.owning_project_id
-                        data_id = input_obj_new.data.id
-                        basename = input_obj_new.data.details.name
-
-                        # Set mount path
-                        mount_path = str(
-                            Path(owning_project_id) /
-                            Path(data_id) /
-                            Path(basename)
-                        )
-
-                        # Append the mount list
-                        mount_list.append(
-                            AnalysisInputDataMount(
-                                dataId=data_id,
-                                mountPath=mount_path
-                            )
-                        )
-
-                        # Add a trailing '/' to mount path if this is a directory
-                        if input_obj_new.data.details.data_type == FOLDER_DATA_TYPE and not mount_path.endswith("/"):
-                            mount_path += "/"
-
-                        is_mounted = True
-
-                    if not is_mounted:
-                        logger.error(f"Could not mount uri {uri_match}, either it is not available in ICAv2, or it is a folder and we do not have the credentials to map the file", uri_match)
-                        raise FileNotFoundError(f"Could not mount uri {uri_match}, either it is not available in ICAv2, or it is a folder and we do not have the credentials to map the file")
-
-                    # Replace the URI in the new value
-                    # With the mount path
-                    new_value = re.sub(uri_match, mount_path, new_value)
+                new_value, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_str(value)
 
                 # Now update the new input value with the substituted mount path values
                 new_input_obj.update({
                     key: new_value
                 })
+                mount_list.extend(mount_list_new)
+                external_data_list.extend(external_data_list_new)
                 continue
 
             # Otherwise we assume this is a normal value

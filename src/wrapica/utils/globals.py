@@ -51,7 +51,15 @@ NEXTFLOW_TASK_POD_MAPPING = {
     "single": "standard-small",
     "low": "standard-medium",
     "medium": "standard-large",
-    "high": "standard-xlarge",
+    "high": "himem-medium",
+    "high_memory": "himem-large"
+}
+
+NEXTFLOW_TASK_POD_MAPPING_RETRY = {
+    "single": "standard-medium",
+    "low": "standard-large",
+    "medium": "standard-xlarge",
+    "high": "himem-large",
     "high_memory": "himem-large"
 }
 
