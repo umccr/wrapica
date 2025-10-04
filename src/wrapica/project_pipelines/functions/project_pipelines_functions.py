@@ -14,10 +14,9 @@ from pathlib import Path
 from zipfile import ZipFile
 import pandas as pd
 import re
-from botocore.exceptions import ClientError
 from cwl_utils.parser import load_document_by_uri
 from tempfile import NamedTemporaryFile, TemporaryDirectory
-import boto3
+from binaryornot.check import is_binary
 
 # Libica imports
 from libica.openapi.v3 import (
@@ -2278,7 +2277,10 @@ def create_nextflow_project_pipeline(
                 ),
                 open(nf_file_iter_, 'rb').read()
             ),
-            other_nextflow_files
+            list(filter(
+                lambda file_iter: not is_binary(str(file_iter)),
+                other_nextflow_files
+            ))
         ))
     else:
         other_nextflow_files_tuple_bytes_list = []
@@ -2335,7 +2337,30 @@ def create_nextflow_project_pipeline(
         logger.error("Exception when calling ProjectPipelineApi->create_nextflow_pipeline: %s\n" % e)
         raise ApiException("Exception when calling ProjectPipelineApi->create_nextflow_pipeline") from e
 
+    # Get the pipeline id from the response
+    pipeline_id = api_response.pipeline.id
+
+    # Binary files need to be added to the pipeline separately
+    binary_files = list(filter(
+        lambda file_iter: is_binary(str(file_iter)),
+        other_nextflow_files
+    ))
+
+    # Add in the binary files
+    for binary_file in binary_files:
+        logger.info(f"Adding in {binary_file} to pipeline separately")
+        add_pipeline_file(
+            project_id=project_id,
+            pipeline_id=pipeline_id,
+            file_path=binary_file,
+            relative_path=binary_file.parent.absolute().resolve().relative_to(
+                main_nextflow_file.parent.absolute().resolve()
+            ).joinpath(
+                binary_file.name
+            )
+        )
+
     return get_project_pipeline_obj(
         project_id=project_id,
-        pipeline_id=api_response.pipeline.id
+        pipeline_id=pipeline_id
     )
