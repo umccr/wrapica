@@ -235,6 +235,12 @@ def get_s3_key_prefix_by_project_id(project_id: str) -> Optional[str]:
         get_project_to_storage_configuration_mapping_list()
     ))
 
+    project_model_prefix = (
+        project_model.get('prefix', None)
+        if project_model.get('prefix', None) is not None
+        else ""
+    )
+
     # Configuration model
     configuration_model = next(
         filter(
@@ -251,7 +257,7 @@ def get_s3_key_prefix_by_project_id(project_id: str) -> Optional[str]:
         configuration_model['bucketName'],
         str(
             Path(configuration_model['keyPrefix']) /
-            (project_model.get('prefix', None) if project_model.get('prefix', None) is not None else "")
+            project_model_prefix
         ) + "/",
         None, None, None
     )))
