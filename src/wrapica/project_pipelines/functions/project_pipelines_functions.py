@@ -12,8 +12,12 @@ from urllib.parse import urlparse
 import uuid
 from pathlib import Path
 from zipfile import ZipFile
+
+import boto3
 import pandas as pd
 import re
+
+from botocore.exceptions import ClientError
 from cwl_utils.parser import load_document_by_uri
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from binaryornot.check import is_binary
@@ -1129,18 +1133,65 @@ def convert_uris_to_data_ids_from_str(
                 cast(str, uri_match),
             )
 
-            external_data_list.append(
-                AnalysisInputExternalData(
-                    url=cast(str, uri_match),
-                    type=S3_URI_SCHEME,
-                    mountPath=mount_path,
-                    s3Details=AnalysisS3DataDetails(
-                        storageCredentialsId=storage_credential_id
+            if uri_match.endswith("/"):
+                # Recursively add ALL files in the directory to the external data list
+                # Assuming we can list the directory
+                s3_client: 'S3Client' = boto3.client('s3')
+                bucket, prefix = parse_s3_uri(cast(str, uri_match))
+                continuation_token = None
+
+                while True:
+                    try:
+                        objects_response = s3_client.list_objects_v2(**dict(filter(
+                            lambda kv_iter_: kv_iter_[1] is not None,
+                            {
+                                "Bucket": bucket,
+                                "Prefix": prefix,
+                                "ContinuationToken": continuation_token
+                            }.items()
+                        )))
+                    except ClientError as e:
+                        logger.warning(
+                            f"Could not list objects in S3 URI {uri_match}, "
+                            f"wrapica does not have permissions to list-objects in {uri_match}. "
+                            f"Falling back to standard mount",
+                        )
+                        break
+
+                    for s3_object in objects_response.get('Contents', []):
+                        file_s3_uri = f"s3://{bucket}/{s3_object['Key']}"
+                        file_mount_path = str(
+                            Path(mount_path) /
+                            Path(s3_object['Key']).relative_to(Path(prefix))
+                        )
+                        external_data_list.append(
+                            AnalysisInputExternalData(
+                                url=file_s3_uri,
+                                type=S3_URI_SCHEME,
+                                mountPath=file_mount_path,
+                                s3Details=AnalysisS3DataDetails(
+                                    storageCredentialsId=storage_credential_id
+                                )
+                            )
+                        )
+
+                    # Is Truncated indicates there are more objects to retrieve
+                    if not objects_response.get('IsTruncated', False):
+                        break
+
+                    continuation_token = objects_response['NextContinuationToken']
+            else:
+                external_data_list.append(
+                    AnalysisInputExternalData(
+                        url=cast(str, uri_match),
+                        type=S3_URI_SCHEME,
+                        mountPath=mount_path,
+                        s3Details=AnalysisS3DataDetails(
+                            storageCredentialsId=storage_credential_id
+                        )
                     )
                 )
-            )
             is_mounted = True
-
 
         # Otherwise use the standard mount path approach
         if not is_mounted:
