@@ -1,6 +1,7 @@
 PyJWT >= 2.8.0, < 3
 beautifulsoup4 >= 4.10.0, < 5
 binaryornot >= 0.4.4, < 1
+boto3 >= 1.40.67
 cwl_utils >= 0.38, < 1
 libica >= 3.2, < 4
 pandas >= 2.2.2, < 3

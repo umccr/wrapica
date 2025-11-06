@@ -51,4 +51,5 @@ docs = [
     "sphinx-rtd-theme >= 2.0.0, < 3",
     "sphinx_autodoc_typehints",
     "toml-to-requirements",
+    "boto3 >= 1.40.67"
 ]
