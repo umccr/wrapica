@@ -39,6 +39,10 @@ def sanitise_dict_keys(input_dict: Dict) -> Dict:
 def is_uuid_format(
         project_id: Union[UUID4, str]
 ) -> bool:
+    # First check if it's already a UUID4 object
+    if isinstance(project_id, UUID4):
+        return True
+    # Next check if it's a valid UUID4 string
     try:
         _ = UUID(project_id, version=4)
         return True

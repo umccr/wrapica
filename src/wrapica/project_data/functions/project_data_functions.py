@@ -163,7 +163,7 @@ def get_project_data_file_id_from_project_id_and_path(
                 data_items
             )
         )
-    except StopIteration:
+    except StopIteration as e:
         if create_file_if_not_found:
             # Create the folder
             file_id = create_file_in_project(
@@ -172,7 +172,7 @@ def get_project_data_file_id_from_project_id_and_path(
             )
         else:
             logger.error("Could not find file id for file: %s\n" % file_path)
-            raise NotADirectoryError
+            raise FileNotFoundError(f"Could not find file id for file: {file_path}") from e
 
     return file_id.data.id
 
@@ -1653,7 +1653,7 @@ def get_aws_credentials_access_for_project_folder(
     :param project_id: The project id of the data
     :param folder_id: The folder id (alternative to folder_path)
     :param folder_path: The folder path (alternative to folder_id)
-    :param read_only: True to create read only credentials,
+    :param read_only: True to create read only credentials, otherwise defaults to read+write credentials
 
     :return: An object with the following attributes:
       * access_key
@@ -2718,9 +2718,9 @@ def copy_project_data(
 
     .. code-block:: python
 
-        from wrapica.project_data import move_data
+        from wrapica.project_data import copy_project_data
 
-        job = move_data(
+        job = copy_project_data(
             dest_project_id="abcd-1234-efab-5678",
             dest_folder_id="fol.abcdef1234567890",
             src_data_list=[

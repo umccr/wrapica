@@ -1454,6 +1454,8 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
 
         return new_input_obj, mount_list, external_data_list
 
+    raise ValueError(f"Could not parse input object, input object is of type {type(input_obj)}")
+
 
 def list_project_pipelines(
         project_id: Union[UUID4, str]
@@ -1847,7 +1849,7 @@ def add_pipeline_file(
         logger.error("Pipeline is not in draft status, cannot add a pipeline file if it has been released")
         raise ValueError
 
-    # CHeck file is not empty
+    # Check file is not empty
     if file_path.stat().st_size == 0:
         logger.warning(f"Cannot add an empty file to a pipeline, skipping {relative_path}")
         return None

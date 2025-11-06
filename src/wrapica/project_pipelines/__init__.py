@@ -88,7 +88,7 @@ from .classes.nextflow_analysis import (
     ICAv2NextflowPipelineAnalysis
 )
 
-Analysis = Union[AnalysisV3, AnalysisV4]
+AnalysisType = Union[AnalysisV3, AnalysisV4]
 AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
 ProjectPipelineType = Union[ProjectPipeline, ProjectPipelineV4]
 
@@ -97,7 +97,6 @@ __all__ = [
     'ActivationCodeDetail',
     'AnalysisInputDataMount',
     'AnalysisInputExternalData',
-    'Analysis',
     'AnalysisStorageType',
     'CreateCwlAnalysis',
     'CreateNextflowAnalysis',
@@ -114,6 +113,10 @@ __all__ = [
     'ProjectPipeline',
     'SearchMatchingActivationCodesForCwlAnalysis',
     'SearchMatchingActivationCodesForNextflowAnalysis',
+    # Type Unions
+    'AnalysisType',
+    'AnalysisStorageType',
+    'ProjectPipelineType',
     # Functions
     'get_project_pipeline_obj',
     'get_project_pipeline_obj_from_pipeline_code',

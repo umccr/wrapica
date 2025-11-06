@@ -114,7 +114,7 @@ def generate_empty_bundle(
         categories=categories,
         links=Links(
             links=[
-                # Drop link +while https://github.com/umccr-illumina/ica_v2/issues/156 is still active
+                # Drop link while https://github.com/umccr-illumina/ica_v2/issues/156 is still active
                 # Link(
                 #     name="GitHub CWL-ICA Release Page",
                 #     url=pipeline_release_url
