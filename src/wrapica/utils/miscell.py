@@ -40,7 +40,7 @@ def is_uuid_format(
         project_id: Union[UUID4, str]
 ) -> bool:
     # First check if it's already a UUID4 object
-    if isinstance(project_id, UUID4):
+    if isinstance(project_id, UUID):
         return True
     # Next check if it's a valid UUID4 string
     try:
@@ -105,7 +105,7 @@ def coerce_to_uuid4_obj(
     :param uuid_str:
     :return:
     """
-    if isinstance(uuid_str, UUID4):
+    if isinstance(uuid_str, UUID):
         return uuid_str
     elif isinstance(uuid_str, str):
         return UUID4(uuid_str)
