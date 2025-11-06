@@ -14,6 +14,7 @@ import re
 from libica.openapi.v3.api.project_analysis_api import ProjectAnalysisApi
 from libica.openapi.v3.api_client import ApiClient
 from libica.openapi.v3.exceptions import ApiException
+from pydantic import UUID4
 
 # Wrapica imports
 from ...literals import (
@@ -42,7 +43,7 @@ from libica.openapi.v3.models import (
 # Local imports
 from ...utils.globals import LIBICAV2_DEFAULT_PAGE_SIZE, IS_REGEX_MATCH
 from ...utils.configuration import get_icav2_configuration
-from ...utils.miscell import is_uuid_format
+from ...utils.miscell import is_uuid_format, coerce_to_uuid4_obj
 from ...utils.websocket_helpers import write_websocket_to_file, convert_html_to_text
 from ...utils.logger import get_logger
 
@@ -52,8 +53,8 @@ logger = get_logger()
 
 
 def get_project_analysis_inputs(
-    project_id: str,
-    analysis_id: str
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str]
 ) -> List[AnalysisInput]:
     """
     Get the analysis inputs for a given analysis
@@ -62,7 +63,7 @@ def get_project_analysis_inputs(
     :param analysis_id: The analysis id to query
 
     :return: List of analysis inputs
-    :rtype: List[`AnalysisInput <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisInput>`_]
+    :rtype: List[`AnalysisInput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInput>`_]
 
     :raises: ApiException
 
@@ -89,7 +90,8 @@ def get_project_analysis_inputs(
         try:
             # Retrieve the outputs of an analysis.
             analysis_input_list: List[AnalysisInput] = api_instance.get_analysis_inputs(
-                project_id, analysis_id
+                project_id=str(project_id),
+                analysis_id=str(analysis_id)
             ).items
         except ApiException as e:
             logger.error("Exception when calling ProjectAnalysisApi->get_analysis_outputs: %s\n" % e)
@@ -99,8 +101,8 @@ def get_project_analysis_inputs(
 
 
 def get_analysis_input_object_from_analysis_input_code(
-    project_id: str,
-    analysis_id: str,
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str],
     analysis_input_code: str
 ) -> AnalysisInput:
     """
@@ -112,7 +114,7 @@ def get_analysis_input_object_from_analysis_input_code(
     :param analysis_input_code: The analysis input code to query
 
     :return: The analysis input object
-    :rtype: `AnalysisInput <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisInput>`_
+    :rtype: `AnalysisInput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInput>`_
 
     :raises: StopIteration, ValueError, ApiException
 
@@ -158,8 +160,8 @@ def get_analysis_input_object_from_analysis_input_code(
 
 
 def get_outputs_object_from_analysis_id(
-    project_id: str,
-    analysis_id: str
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str]
 ) -> List[AnalysisOutput]:
     """
     Query the outputs object from the analysis id
@@ -168,7 +170,7 @@ def get_outputs_object_from_analysis_id(
     :param analysis_id: The analysis id to query
 
     :return: List of analysis outputs
-    :rtype: List[`AnalysisOutput <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisOutput>`_]
+    :rtype: List[`AnalysisOutput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisOutput>`_]
 
     :raises: ApiException
 
@@ -193,7 +195,10 @@ def get_outputs_object_from_analysis_id(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve the outputs of an analysis
-        api_response: AnalysisOutputList = api_instance.get_analysis_outputs(project_id, analysis_id)
+        api_response: AnalysisOutputList = api_instance.get_analysis_outputs(
+            project_id=str(project_id),
+            analysis_id=str(analysis_id)
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->get_analysis_outputs: %s\n" % e)
         raise ApiException
@@ -202,8 +207,8 @@ def get_outputs_object_from_analysis_id(
 
 
 def get_analysis_output_object_from_analysis_output_code(
-    project_id: str,
-    analysis_id: str,
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str],
     analysis_output_code: str
 ) -> AnalysisOutput:
     """
@@ -214,7 +219,7 @@ def get_analysis_output_object_from_analysis_output_code(
     :param analysis_output_code: The analysis output code to collect
 
     :return: The analysis output object
-    :rtype: `AnalysisOutput <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisOutput>`_
+    :rtype: `AnalysisOutput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisOutput>`_
 
     :raises: StopIteration, ValueError, ApiException
 
@@ -257,8 +262,8 @@ def get_analysis_output_object_from_analysis_output_code(
 
 
 def get_cwl_outputs_json_from_analysis_id(
-    project_id: str,
-    analysis_id: str
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str]
 ) -> Dict[str, Any]:
     """
     Query the outputs object from the analysis id
@@ -293,7 +298,8 @@ def get_cwl_outputs_json_from_analysis_id(
     try:
         # Retrieve the outputs of an analysis
         api_response: CwlAnalysisOutputJson = api_instance.get_cwl_output_json(
-            project_id, analysis_id
+            project_id=str(project_id),
+            analysis_id=coerce_to_uuid4_obj(analysis_id)
         )
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->get_analysis_outputs: %s\n" % e)
@@ -303,8 +309,8 @@ def get_cwl_outputs_json_from_analysis_id(
 
 
 def get_analysis_obj_from_analysis_id(
-    project_id: str,
-    analysis_id: str
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str]
 ) -> AnalysisV4:
     """
     Get an analysis object given a project id and analysis id
@@ -313,7 +319,7 @@ def get_analysis_obj_from_analysis_id(
     :param analysis_id: The analysis id to query
 
     :return: The analysis object
-    :rtype: `Analysis <https://umccr-illumina.github.io/libica/openapi/v2/docs/Analysis>`_
+    :rtype: `Analysis <https://umccr.github.io/libica/openapi/v3/docs/Analysis>`_
 
     :raises: ApiException
 
@@ -347,7 +353,10 @@ def get_analysis_obj_from_analysis_id(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve an analysis.
-        api_response: AnalysisV4 = api_instance.get_analysis(project_id, analysis_id)
+        api_response: AnalysisV4 = api_instance.get_analysis(
+            project_id=str(project_id),
+            analysis_id=str(analysis_id)
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->get_analysis: %s\n" % e)
         raise ApiException
@@ -356,8 +365,8 @@ def get_analysis_obj_from_analysis_id(
 
 
 def get_analysis_steps(
-    project_id: str,
-    analysis_id: str,
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str],
     include_technical_steps: bool = False
 ) -> List[AnalysisStep]:
     """
@@ -368,7 +377,7 @@ def get_analysis_steps(
     :param include_technical_steps:
 
     :return: List of analysis steps
-    :rtype: List[`AnalysisStep <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisStep>`_]
+    :rtype: List[`AnalysisStep <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStep>`_]
 
     :raises: ApiException
 
@@ -394,8 +403,8 @@ def get_analysis_steps(
     try:
         # Retrieve the individual steps of an analysis.
         api_response = api_instance.get_analysis_steps(
-            project_id,
-            analysis_id
+            project_id=str(project_id),
+            analysis_id=str(analysis_id)
         )
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->get_analysis_steps: %s\n" % e)
@@ -424,7 +433,7 @@ def get_analysis_log_from_analysis_step(
     :param analysis_step:
 
     :return: Get the logs attribute of an analysis step
-    :rtype: `AnalysisStepLogs <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisStepLogs>`_
+    :rtype: `AnalysisStepLogs <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStepLogs>`_
 
     :Examples:
 
@@ -445,7 +454,7 @@ def get_analysis_log_from_analysis_step(
 
 
 def write_analysis_step_logs(
-    project_id: str,
+    project_id: Union[UUID4, str],
     step_logs: AnalysisStepLogs,
     log_name: AnalysisLogStreamNameType,
     output_path: Union[Path | TextIOWrapper],
@@ -514,7 +523,7 @@ def write_analysis_step_logs(
             is_stream = True
             log_stream = step_logs.std_out_stream
         elif hasattr(step_logs, "std_out_data") and step_logs.std_out_data is not None:
-            log_data_id: str = step_logs.std_out_data.id
+            log_data_id: str = str(step_logs.std_out_data.id)
         else:
             logger.error("Could not get either file output or stream of logs")
             logger.error(f"The available attributes were {', '.join(non_empty_log_attrs)}")
@@ -524,7 +533,7 @@ def write_analysis_step_logs(
             is_stream = True
             log_stream = step_logs.std_err_stream
         elif hasattr(step_logs, "std_err_data") and step_logs.std_err_data is not None:
-            log_data_id: str = step_logs.std_err_data.id
+            log_data_id: str = str(step_logs.std_err_data.id)
         else:
             logger.error("Could not get either file output or stream of logs")
             logger.error(f"The available attributes were {', '.join(non_empty_log_attrs)}")
@@ -547,8 +556,8 @@ def write_analysis_step_logs(
 
 
 def abort_analysis(
-    project_id: str,
-    analysis_id: str,
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str],
 ) -> None:
     """
     Abort an analysis
@@ -595,15 +604,18 @@ def abort_analysis(
     # example passing only required values which don't have defaults set
     try:
         # Abort an analysis.
-        api_instance.abort_analysis(project_id, analysis_id)
+        api_instance.abort_analysis(
+            project_id=str(project_id),
+            analysis_id=str(analysis_id)
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->abort_analysis: %s\n" % e)
         raise ApiException
 
 
 def list_analyses(
-    project_id: str,
-    pipeline_id: Optional[str] = None,
+    project_id: Union[UUID4, str],
+    pipeline_id: Optional[Union[UUID4, str]] = None,
     user_reference: Optional[str] = None,
     status: Optional[Union[ProjectAnalysisStatusType, List[ProjectAnalysisStatusType]]] = None,
     creation_date_before: Optional[datetime] = None,
@@ -630,7 +642,7 @@ def list_analyses(
     :raises: ApiException
 
     :return: List of analyses
-    :rtype: `List[Analysis] <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisV4/>`_
+    :rtype: `List[Analysis] <https://umccr.github.io/libica/openapi/v3/docs/AnalysisV4/>`_
 
     :Examples:
 
@@ -712,7 +724,7 @@ def list_analyses(
                         lambda x: x[1] is not None,
                         {
                             "status": status,
-                            "project_id": project_id,
+                            "project_id": str(project_id),
                             "page_size": str(page_size),
                             "page_offset": str(page_offset),
                             "page_token": page_token,
@@ -759,7 +771,7 @@ def list_analyses(
             lambda analysis_iter: (
                 (
                     pipeline_id is None or
-                    analysis_iter.pipeline.id == pipeline_id
+                    str(analysis_iter.pipeline.id) == str(pipeline_id)
                 ) and
                 (
                     user_reference_regex is None or
@@ -790,8 +802,8 @@ def list_analyses(
 
 
 def get_cwl_analysis_input_json(
-    project_id: str,
-    analysis_id: str
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str]
 ) -> Dict:
     """
     Get the CWL Analysis Input JSON
@@ -832,7 +844,10 @@ def get_cwl_analysis_input_json(
 
     try:
         # Retrieve the input json of a CWL analysis.
-        api_response: CwlAnalysisInputJson = api_instance.get_cwl_input_json(project_id, analysis_id)
+        api_response: CwlAnalysisInputJson = api_instance.get_cwl_input_json(
+            project_id=project_id,
+            analysis_id=analysis_id
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->get_cwl_input_json: %s\n" % e)
         raise ApiException
@@ -840,7 +855,10 @@ def get_cwl_analysis_input_json(
     return json.loads(api_response.input_json)
 
 
-def get_cwl_analysis_output_json(project_id: str, analysis_id: str) -> Dict:
+def get_cwl_analysis_output_json(
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str]
+) -> Dict:
     """
     Get the CWL Analysis Input JSON
 
@@ -880,7 +898,10 @@ def get_cwl_analysis_output_json(project_id: str, analysis_id: str) -> Dict:
 
     try:
         # Retrieve the input json of a CWL analysis.
-        api_response: CwlAnalysisOutputJson = api_instance.get_cwl_output_json(project_id, analysis_id)
+        api_response: CwlAnalysisOutputJson = api_instance.get_cwl_output_json(
+            str(project_id),
+            coerce_to_uuid4_obj(analysis_id)
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->get_cwl_output_json: %s\n" % e)
         raise ApiException
@@ -913,7 +934,7 @@ def analysis_step_to_dict(analysis_step: AnalysisStep) -> AnalysisStepDict:
 
 
 def get_analysis_obj_from_user_reference(
-    project_id: str,
+    project_id: Union[UUID4, str],
     user_reference: str
 ) -> AnalysisType:
     """
@@ -949,8 +970,8 @@ def get_analysis_obj_from_user_reference(
 
 
 def coerce_analysis_id_or_user_reference_to_analysis_obj(
-    project_id: str,
-    analysis_id_or_user_reference: str
+    project_id: Union[UUID4, str],
+    analysis_id_or_user_reference: Union[Union[UUID4, str], str]
 ) -> AnalysisType:
     """
     Given either an analysis id or user reference, coerce to an analysis object
@@ -958,7 +979,7 @@ def coerce_analysis_id_or_user_reference_to_analysis_obj(
     :param project_id:
     :param analysis_id_or_user_reference:
     :return: The analysis object
-    :rtype: `Analysis <https://umccr-illumina.github.io/libica/openapi/v2/docs/Analysis>`_
+    :rtype: `Analysis <https://umccr.github.io/libica/openapi/v3/docs/Analysis>`_
 
     :raises: ValueError
 
@@ -989,7 +1010,7 @@ def coerce_analysis_id_or_user_reference_to_analysis_obj(
 
 
 def coerce_analysis_id_or_user_reference_to_analysis_id(
-    project_id: str,
+    project_id: Union[UUID4, str],
     analysis_id_or_user_reference: str
 ) -> str:
     """
@@ -1003,15 +1024,17 @@ def coerce_analysis_id_or_user_reference_to_analysis_id(
     if is_uuid_format(analysis_id_or_user_reference):
         return analysis_id_or_user_reference
 
-    return get_analysis_obj_from_user_reference(
-        project_id=project_id,
-        user_reference=analysis_id_or_user_reference
-    ).id
+    return str(
+        get_analysis_obj_from_user_reference(
+            project_id=project_id,
+            user_reference=analysis_id_or_user_reference
+        ).id
+    )
 
 
 def update_analysis_obj(
-    project_id: str,
-    analysis_id: str,
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str],
     analysis_obj: AnalysisType
 ) -> AnalysisType:
     """
@@ -1027,7 +1050,18 @@ def update_analysis_obj(
 
     try:
         # Retrieve the input json of a CWL analysis.
-        api_response: AnalysisType = api_instance.update_analysis(project_id, analysis_id, analysis_obj)
+        api_response: AnalysisType = api_instance.update_analysis(
+            project_id=str(project_id),
+            analysis_id=str(analysis_id),
+            analysis_v4=(
+                analysis_obj
+                if isinstance(analysis_obj, AnalysisV4)
+                else get_analysis_obj_from_analysis_id(
+                    project_id=project_id,
+                    analysis_id=analysis_id
+                )
+            )
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->update_analysis: %s\n" % e)
         raise e
@@ -1036,8 +1070,8 @@ def update_analysis_obj(
 
 
 def add_tag_to_analysis(
-    project_id: str,
-    analysis_id: str,
+    project_id: Union[UUID4, str],
+    analysis_id: Union[UUID4, str],
     tag: str,
     tag_type: AnalysisTagType
 ):

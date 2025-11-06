@@ -16,7 +16,14 @@ from urllib.parse import urlparse, urlunparse
 import requests
 
 # Libica Api imports
-from libica.openapi.v3 import ApiException, CreateFileAndUploadUrl, ProjectFileAndUploadUrl
+from libica.openapi.v2.model.create_project_data_move_batch import CreateProjectDataMoveBatch
+from libica.openapi.v3 import (
+    ApiException,
+    CreateFileAndUploadUrl,
+    ProjectFileAndUploadUrl,
+    ProjectDataMoveBatchApi,
+    CreateProjectDataMoveBatchItem
+)
 from libica.openapi.v3.api.project_data_api import ProjectDataApi
 from libica.openapi.v3.api.project_data_copy_batch_api import ProjectDataCopyBatchApi
 
@@ -41,6 +48,7 @@ from libica.openapi.v3 import ApiClient
 from libica.openapi.v3 import (
     CreateFileData, CreateFolder,
 )
+from pydantic import UUID4
 
 # Local imports
 from ...literals import (
@@ -63,7 +71,7 @@ from ...utils.miscell import is_uuid_format, is_uri_format
 
 
 def get_project_data_file_id_from_project_id_and_path(
-        project_id: str,
+        project_id: Union[UUID4, str],
         file_path: Path,
         create_file_if_not_found: bool = False
 ) -> str:
@@ -129,7 +137,7 @@ def get_project_data_file_id_from_project_id_and_path(
     try:
         # Retrieve the list of project data.
         data_items: List[ProjectData] = api_instance.get_project_data_list(
-            project_id=project_id,
+            project_id=str(project_id),
             parent_folder_path=parent_folder_path,
             filename=filename,
             filename_match_mode="EXACT",
@@ -156,14 +164,21 @@ def get_project_data_file_id_from_project_id_and_path(
             )
         )
     except StopIteration:
-        logger.error("Could not find file id for file: %s\n" % file_path)
-        raise FileNotFoundError
+        if create_file_if_not_found:
+            # Create the folder
+            file_id = create_file_in_project(
+                project_id=project_id,
+                file_path=file_path
+            )
+        else:
+            logger.error("Could not find file id for file: %s\n" % file_path)
+            raise NotADirectoryError
 
     return file_id.data.id
 
 
 def create_data_in_project(
-        project_id: str,
+        project_id: Union[UUID4, str],
         parent_folder_path: Path,
         data_name: str,
         data_type: DataType
@@ -177,7 +192,7 @@ def create_data_in_project(
     :param data_type:  One of "FILE" or "FOLDER"
 
     :return: The newly created project data object
-    :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_]
+    :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v3/docs/ProjectData/>`_]
 
     :raises: ApiException
 
@@ -226,11 +241,13 @@ def create_data_in_project(
         # Create a project data.
         # Note that this is a deprecated function and will be removed in the future.
         api_response: ProjectData = api_instance.create_data_in_project(
-            project_id=project_id,
+            project_id=str(project_id),
             create_data=CreateData(
                 name=data_name,
                 folderPath=parent_folder_path,
                 dataType=data_type,
+                folderId=None,
+                formatCode=None,
             )
         )
     except ApiException as e:
@@ -242,7 +259,7 @@ def create_data_in_project(
 
 
 def create_file_in_project(
-        project_id: str,
+        project_id: Union[UUID4, str],
         file_path: Path,
 ) -> ProjectData:
     """
@@ -253,7 +270,7 @@ def create_file_in_project(
 
     :return: The newly created file
 
-    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
 
     :raises: ApiException
 
@@ -291,10 +308,12 @@ def create_file_in_project(
     try:
         # Create a project data.
         api_response: ProjectData = api_instance.create_file(
-            project_id=project_id,
+            project_id=str(project_id),
             create_file_data=CreateFileData(
                 name=file_path.name,
                 folderPath=parent_folder_path,
+                folderId=None,
+                formatCode=None,
             )
         )
     except ApiException as e:
@@ -306,7 +325,7 @@ def create_file_in_project(
 
 
 def create_folder_in_project(
-        project_id: str,
+        project_id: Union[UUID4, str],
         folder_path: Path,
 ) -> ProjectData:
     """
@@ -316,7 +335,7 @@ def create_folder_in_project(
     :param folder_path:  The path to the folder to create
 
     :return: The newly created folder project data object
-    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
 
     :raises: ApiException
 
@@ -355,10 +374,11 @@ def create_folder_in_project(
     try:
         # Create a project data.
         api_response: ProjectData = api_instance.create_folder(
-            project_id=project_id,
+            project_id=str(project_id),
             create_folder=CreateFolder(
                 name=folder_path.name,
-                folderPath=parent_folder_path
+                folderPath=parent_folder_path,
+                folderId=None
             )
         )
     except ApiException as e:
@@ -370,7 +390,7 @@ def create_folder_in_project(
 
 
 def get_project_data_folder_id_from_project_id_and_path(
-        project_id: str,
+        project_id: Union[UUID4, str],
         folder_path: Path,
         create_folder_if_not_found: bool = False
 ) -> str:
@@ -427,7 +447,7 @@ def get_project_data_folder_id_from_project_id_and_path(
     try:
         # Retrieve the list of project data.
         data_items: List[ProjectData] = api_instance.get_project_data_list(
-            project_id=project_id,
+            project_id=str(project_id),
             parent_folder_path=parent_folder_path,
             filename=folder_name,
             filename_match_mode="EXACT",
@@ -461,7 +481,7 @@ def get_project_data_folder_id_from_project_id_and_path(
 
 
 def get_project_data_id_from_project_id_and_path(
-        project_id: str,
+        project_id: Union[UUID4, str],
         data_path: Path,
         data_type: DataType,
         create_data_if_not_found: bool = False
@@ -523,8 +543,8 @@ def get_project_data_id_from_project_id_and_path(
 
 
 def get_project_data_obj_by_id(
-        project_id: str,
-        data_id: str
+        project_id: Union[UUID4, str],
+        data_id: Union[UUID4, str]
 ) -> ProjectData:
     """
     Given a project_id and a data_id, return the data object
@@ -533,7 +553,7 @@ def get_project_data_obj_by_id(
     :param data_id: The data id
 
     :return: The project data object
-    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
 
     :raises: ApiException
 
@@ -566,8 +586,8 @@ def get_project_data_obj_by_id(
     try:
         # Retrieve the list of project data.
         data_obj: ProjectData = api_instance.get_project_data(
-            project_id=project_id,
-            data_id=data_id
+            project_id=str(project_id),
+            data_id=str(data_id)
         )
     except ApiException as e:
         logger.error("Exception when calling ProjectDataApi->get_project_data_list: %s\n" % e)
@@ -577,7 +597,7 @@ def get_project_data_obj_by_id(
 
 
 def get_project_data_obj_from_project_id_and_path(
-        project_id: str,
+        project_id: Union[UUID4, str],
         data_path: Path,
         data_type: DataType,
         create_data_if_not_found: bool = False
@@ -592,7 +612,7 @@ def get_project_data_obj_from_project_id_and_path(
     :param create_data_if_not_found: If the data is not found, and create_data_if_not_found is True, create the data
 
     :return: The project data object
-    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
 
     :raises: FileNotFoundError, NotADirectoryError, ApiException
 
@@ -630,7 +650,7 @@ def get_project_data_obj_from_project_id_and_path(
         # fil.abcdef1234567890
     """
     # Collect the data id, either fol.id or fil.id
-    project_data_id: str = get_project_data_id_from_project_id_and_path(
+    project_data_id = get_project_data_id_from_project_id_and_path(
         project_id=project_id,
         data_path=data_path,
         data_type=data_type,
@@ -645,8 +665,8 @@ def get_project_data_obj_from_project_id_and_path(
 
 
 def get_project_data_path_by_id(
-        project_id: str,
-        data_id: str
+        project_id: Union[UUID4, str],
+        data_id: Union[UUID4, str]
 ) -> Path:
     """
     Given a project id and data id, return the path of the data
@@ -687,8 +707,8 @@ def get_project_data_path_by_id(
 
 
 def list_project_data_non_recursively(
-        project_id: str,
-        parent_folder_id: Optional[str] = None,
+        project_id: Union[UUID4, str],
+        parent_folder_id: Optional[Union[UUID4, str]] = None,
         parent_folder_path: Optional[Path] = None,
         file_name: Optional[Union[str, List[str]]] = None,
         status: Optional[Union[ProjectDataStatusValuesType, List[ProjectDataStatusValuesType]]] = None,
@@ -726,7 +746,7 @@ def list_project_data_non_recursively(
       * willBeDeletedAt - Sort by when the data will be deleted
 
     :return: List of data objects
-    :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_]
+    :rtype: List[`ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__]
 
     :raises: AssertionError, ApiException, ValueError
 
@@ -799,19 +819,20 @@ def list_project_data_non_recursively(
         sort = None
 
     if sort is not None:
-        if isinstance(sort, ProjectDataSortParameterType):
+        if isinstance(sort, str) and not sort in ProjectDataSortParameterType.__args__:
+            logger.error("Invalid sort parameter provided: %s" % sort)
+            raise ValueError("Invalid sort parameter provided")
+        elif isinstance(sort, List) and any(map(lambda sort_iter_: sort_iter_ not in ProjectDataSortParameterType.__args__, sort)):
+            logger.error("Invalid sort parameter(s) provided: %s" % ", ".join(list(filter(
+                lambda sort_iter_: sort_iter_ not in ProjectDataSortParameterType.__args__, sort
+            ))))
+            raise ValueError("Invalid sort parameter(s) provided")
+
+        if isinstance(sort, str):
             sort = [sort]
-        elif isinstance(sort, str):
-            sort = [ProjectDataSortParameterType(sort)]
+
         # Complete a comma join of the sort parameters
-        sort = ", ".join(
-            list(
-                map(
-                    lambda sort_iter: sort_iter.value,
-                    sort
-                )
-            )
-        )
+        sort = ", ".join(sort)
 
     # Collect api instance
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -827,7 +848,7 @@ def list_project_data_non_recursively(
         page_offset = ""
 
     # Initialise data ids - we may need to extend the items multiple times
-    data_ids: List[ProjectData] = []
+    data_obj_list: List[ProjectData] = []
 
     # Loop through the pages
     while True:
@@ -861,7 +882,7 @@ def list_project_data_non_recursively(
             raise ValueError("Exception when calling ProjectDataApi->get_project_data_list: %s\n" % e)
 
         # Extend items list
-        data_ids.extend(api_response.items)
+        data_obj_list.extend(api_response.items)
 
         # Determine page iteration method by if we have a 'sort' parameter
         if sort is not None:
@@ -875,12 +896,12 @@ def list_project_data_non_recursively(
                 break
             page_token = api_response.next_page_token
 
-    return data_ids
+    return data_obj_list
 
 
 def find_project_data_recursively(
-        project_id: str,
-        parent_folder_id: Optional[str] = None,
+        project_id: Union[UUID4, str],
+        parent_folder_id: Optional[Union[UUID4, str]] = None,
         parent_folder_path: Optional[Path] = None,
         name: Optional[str] = None,
         data_type: Optional[DataType] = None,
@@ -901,7 +922,7 @@ def find_project_data_recursively(
     :param max_depth: The maximum depth to search
 
     :return: List of data objects
-    :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_]
+    :rtype: List[`ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__]
 
     :raises: ApiException, AssertionError, ValueError
 
@@ -1009,8 +1030,8 @@ def find_project_data_recursively(
 
 
 def find_project_data_bulk(
-        project_id: str,
-        parent_folder_id: Optional[str] = None,
+        project_id: Union[UUID4, str],
+        parent_folder_id: Optional[Union[UUID4, str]] = None,
         parent_folder_path: Optional[Path] = None,
         data_type: Optional[DataType] = None
 ) -> List[ProjectData]:
@@ -1023,7 +1044,7 @@ def find_project_data_bulk(
     :param data_type: The type of the data, one of "FILE", "FOLDER"
 
     :return: List of data objects
-    :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_]
+    :rtype: List[`ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__]
 
     :raises: ApiException, AssertionError
 
@@ -1078,7 +1099,7 @@ def find_project_data_bulk(
         try:
             # Retrieve the list of project data
             api_response = api_instance.get_project_data_list(
-                project_id=project_id,
+                project_id=str(project_id),
                 file_path=[parent_folder_path],
                 file_path_match_mode="STARTS_WITH_CASE_INSENSITIVE",
                 page_size=str(page_size),
@@ -1103,8 +1124,8 @@ def find_project_data_bulk(
 
 
 def create_download_url(
-        project_id: str,
-        file_id: str
+        project_id: Union[UUID4, str],
+        file_id: Union[UUID4, str]
 ) -> str:
     """
     Given a project_id and a data_id, create a presigned url for a file
@@ -1149,8 +1170,8 @@ def create_download_url(
         try:
             # Retrieve a download URL for this data.
             api_response: Download = api_instance.create_download_url_for_data(
-                project_id,
-                file_id
+                project_id=str(project_id),
+                file_id=str(file_id)
             )
         except ApiException as e:
             logger.error("Exception when calling ProjectDataApi->create_download_url_for_data: %s\n" % e)
@@ -1160,8 +1181,8 @@ def create_download_url(
 
 
 def create_download_urls(
-        project_id: str,
-        folder_id: str,
+        project_id: Union[UUID4, str],
+        folder_id: Union[UUID4, str],
         recursive: bool = False
 ) -> List[DataUrlWithPath]:
     """
@@ -1172,7 +1193,7 @@ def create_download_urls(
     :param recursive:  Whether to provide download urls recursively
 
     :return: List of download urls
-    :rtype: List[`DataUrlWithPath <https://umccr-illumina.github.io/libica/openapi/v2/docs/DataUrlWithPathList/>`_]
+    :rtype: List[`DataUrlWithPath <https://umccr.github.io/libica/openapi/v3/docs/DataUrlWithPathList/>`_]
 
     :Examples:
 
@@ -1222,7 +1243,8 @@ def create_download_urls(
                 lambda project_file_iter: project_file_iter.data.id,
                 project_data_list
             )
-        )
+        ),
+        dataPaths=None
     )
 
     # Enter a context with an instance of the API client
@@ -1237,7 +1259,10 @@ def create_download_urls(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve download URLs for the data.
-        api_response = api_instance.create_download_urls_for_data(project_id, data_id_paths_list)
+        api_response = api_instance.create_download_urls_for_data(
+            project_id=str(project_id),
+            data_id_or_path_list=data_id_paths_list
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectDataApi->create_download_urls_for_data: %s\n" % e)
         raise ApiException
@@ -1278,7 +1303,7 @@ def convert_uri_to_project_data_obj(
     :param create_data_if_not_found:  If the data is not found, and create_data_if_not_found is True, create the data
 
     :return: libica v2 Project Data Object
-    :rtype: `Project Data <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+    :rtype: `Project Data <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
 
     :raises: ValueError, ApiException
 
@@ -1363,7 +1388,7 @@ def convert_project_data_obj_to_uri(
         return str(
             urlunparse((
                 uri_type,
-                project_data.project_id,
+                str(project_data.project_id),
                 project_data.data.details.path.rstrip("/") + (
                     "/" if project_data.data.details.data_type == FOLDER_DATA_TYPE else ""),
                 None, None, None
@@ -1379,7 +1404,7 @@ def convert_project_data_obj_to_uri(
 
 
 def convert_project_id_and_data_path_to_icav2_uri(
-        project_id: str,
+        project_id: Union[UUID4, str],
         data_path: Path,
         data_type: DataType
 ) -> str:
@@ -1394,7 +1419,7 @@ def convert_project_id_and_data_path_to_icav2_uri(
 
 
 def convert_project_id_and_data_path_to_uri(
-        project_id: str,
+        project_id: Union[UUID4, str],
         data_path: Path,
         data_type: DataType,
         uri_type: UriType = ICAV2_URI_SCHEME
@@ -1433,7 +1458,7 @@ def convert_project_id_and_data_path_to_uri(
         return str(
             urlunparse((
                 ICAV2_URI_SCHEME,
-                project_id,
+                str(project_id),
                 str(data_path) + ("/" if data_type == FOLDER_DATA_TYPE else ""),
                 None, None, None
             ))
@@ -1442,7 +1467,7 @@ def convert_project_id_and_data_path_to_uri(
         return str(
             urlunparse((
                 S3_URI_SCHEME,
-                project_id,
+                str(project_id),
                 str(
                     Path(get_s3_key_prefix_by_project_id(project_id)) / data_path
                 ) + ("/" if data_type == FOLDER_DATA_TYPE else ""),
@@ -1567,7 +1592,7 @@ def coerce_data_id_uri_or_path_to_project_data_obj(
     :param create_data_if_not_found:
 
     :return: A ProjectData object
-    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
 
     :raises: ValueError, ApiException
 
@@ -1617,9 +1642,10 @@ def coerce_data_id_uri_or_path_to_project_data_obj(
 
 
 def get_aws_credentials_access_for_project_folder(
-        project_id: str,
-        folder_id: Optional[str] = None,
-        folder_path: Optional[Path] = None
+        project_id: Union[UUID4, str],
+        folder_id: Optional[Union[UUID4, str]] = None,
+        folder_path: Optional[Path] = None,
+        read_only: Optional[bool] = None
 ) -> AwsTempCredentials:
     """
     Given a project_id and a folder_id or folder_path, collect the AWS Access Credentials for downloading this data.
@@ -1627,6 +1653,7 @@ def get_aws_credentials_access_for_project_folder(
     :param project_id: The project id of the data
     :param folder_id: The folder id (alternative to folder_path)
     :param folder_path: The folder path (alternative to folder_id)
+    :param read_only: True to create read only credentials,
 
     :return: An object with the following attributes:
       * access_key
@@ -1638,7 +1665,7 @@ def get_aws_credentials_access_for_project_folder(
       * server_side_encryption_algorithm
       * server_side_encryption_key
 
-    :rtype: `AwsTempCredentials <https://umccr-illumina.github.io/libica/openapi/v2/docs/AwsTempCredentials/>`_
+    :rtype: `AwsTempCredentials <https://umccr.github.io/libica/openapi/v3/docs/AwsTempCredentials/>`_
 
     :raises: AssertionError, ApiException, ValueError
 
@@ -1698,13 +1725,19 @@ def get_aws_credentials_access_for_project_folder(
             header_value="application/vnd.illumina.v3+json"
         )
 
-    create_temporary_credentials = CreateTemporaryCredentials()
+    # Create the temp credentials object
+    create_temporary_credentials = CreateTemporaryCredentials(
+        credentialsFormat="RCLONE",
+        readOnlyCredentials=read_only
+    )
 
     # example passing only required values which don't have defaults set
     try:
         # Retrieve temporary credentials for this data.
         api_response: TempCredentials = api_instance.create_temporary_credentials_for_data(
-            project_id, folder_id, create_temporary_credentials=create_temporary_credentials
+            project_id=str(project_id),
+            data_id=str(folder_id),
+            create_temporary_credentials=create_temporary_credentials
         )
     except ApiException as e:
         logger.warning("Exception when calling ProjectDataApi->create_temporary_credentials_for_data: %s\n" % e)
@@ -1763,7 +1796,7 @@ def is_file_id_format(
 
 
 def is_data_id_format(
-        data_id: str
+        data_id: Union[UUID4, str]
 ) -> bool:
     """
     Check if data id is a data id
@@ -1788,7 +1821,7 @@ def is_data_id_format(
 
 
 def check_folder_exists(
-        project_id: str,
+        project_id: Union[UUID4, str],
         folder_path: Path
 ) -> bool:
     """
@@ -1823,7 +1856,7 @@ def check_folder_exists(
 
 
 def check_file_exists(
-        project_id: str,
+        project_id: Union[UUID4, str],
         file_path: Path
 ) -> bool:
     """
@@ -1887,9 +1920,9 @@ def check_uri_exists(
 
 
 def presign_folder(
-        project_id: str,
+        project_id: Union[UUID4, str],
         folder_path: Optional[Path] = None,
-        folder_id: Optional[str] = None
+        folder_id: Optional[Union[UUID4, str]] = None
 ) -> List[DataUrlWithPath]:
     """
     Presign a folder recursively
@@ -1901,7 +1934,7 @@ def presign_folder(
     :param folder_id:  The folder id
 
     :return: List of presigned urls
-    :rtype: List[`DataUrlWithPath <https://umccr-illumina.github.io/libica/openapi/v2/docs/DataUrlWithPathList/>`_]
+    :rtype: List[`DataUrlWithPath <https://umccr.github.io/libica/openapi/v3/docs/DataUrlWithPathList/>`_]
 
     :Examples:
 
@@ -1938,8 +1971,8 @@ def presign_folder(
 
 
 def presign_cwl_directory(
-        project_id: str,
-        data_id: str
+        project_id: Union[UUID4, str],
+        data_id: Union[UUID4, str]
 ) -> List[
     Union[
         Dict[str, Union[Union[dict, str], Any]],
@@ -2024,8 +2057,8 @@ def presign_cwl_directory(
 
 
 def presign_cwl_directory_with_external_data_mounts(
-        project_id: str,
-        data_id: str
+        project_id: Union[UUID4, str],
+        data_id: Union[UUID4, str]
 ) -> Tuple[
     # External data mounts
     List[AnalysisInputExternalData],
@@ -2040,7 +2073,7 @@ def presign_cwl_directory_with_external_data_mounts(
     :param data_id: The data id
 
     :return: external_data_mounts, cwl_item_objs
-    :rtype: Tuple[List[`AnalysisInputExternalData <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisInputExternalData/>`_], List[Dict]]
+    :rtype: Tuple[List[`AnalysisInputExternalData <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInputExternalData/>`_], List[Dict]]
 
     :raises: ApiException
 
@@ -2132,7 +2165,9 @@ def presign_cwl_directory_with_external_data_mounts(
                 AnalysisInputExternalData(
                     url=presigned_url,
                     type="http",
-                    mountPath=mount_path
+                    mountPath=mount_path,
+                    s3Details=None,
+                    basespaceDetails=None,
                 )
             )
 
@@ -2149,8 +2184,8 @@ def presign_cwl_directory_with_external_data_mounts(
 
 
 def read_icav2_file_contents(
-        project_id: str,
-        data_id: str,
+        project_id: Union[UUID4, str],
+        data_id: Union[UUID4, str],
         output_path: Optional[Union[Path, TextIOWrapper]] = None
 ) -> Optional[str]:
     """
@@ -2208,8 +2243,8 @@ def read_icav2_file_contents(
 
 
 def read_icav2_file_contents_to_string(
-        project_id: str,
-        data_id: str
+        project_id: Union[UUID4, str],
+        data_id: Union[UUID4, str]
 ) -> str:
     """
 
@@ -2254,8 +2289,8 @@ def read_icav2_file_contents_to_string(
 
 
 def create_file_with_upload_url(
-        project_id: str,
-        folder_id: str,
+        project_id: Union[UUID4, str],
+        folder_id: Union[UUID4, str],
         file_name: str
 ) -> str:
     """
@@ -2276,10 +2311,14 @@ def create_file_with_upload_url(
     try:
         # Retrieve an upload URL for this data.
         api_response: ProjectFileAndUploadUrl = api_instance.create_file_with_upload_url(
-            project_id=project_id,
+            project_id=str(project_id),
             create_file_and_upload_url=CreateFileAndUploadUrl(
                 name=file_name,
                 folderId=folder_id,
+                folderPath=None,
+                formatCode=None,
+                fileType=None,
+                hash=None,
             )
         )
     except ApiException as e:
@@ -2290,16 +2329,16 @@ def create_file_with_upload_url(
 
 
 def get_project_data_upload_url(
-        project_id: str,
-        data_id: str
+        project_id: Union[UUID4, str],
+        data_id: Union[UUID4, str]
 ) -> str:
     """
     Get upload url for project data object
 
     This can only be used for a file that has been created but not yet written to.
 
-    :param project_id:  The owning project id of the data
-    :param data_id:  The data id
+    :param project_id: The owning project id of the data
+    :param data_id: The data id
 
     :return: The upload url
     :rtype: str
@@ -2338,7 +2377,10 @@ def get_project_data_upload_url(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve an upload URL for this data.
-        api_response: Upload = api_instance.create_upload_url_for_data(project_id, data_id)
+        api_response: Upload = api_instance.create_upload_url_for_data(
+            project_id=str(project_id),
+            data_id=str(data_id)
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectDataApi->create_upload_url_for_data: %s\n" % e)
         raise ApiException
@@ -2347,22 +2389,22 @@ def get_project_data_upload_url(
 
 
 def write_icav2_file_contents(
-        project_id: str,
+        project_id: Union[UUID4, str],
         data_path: Path,
         file_stream_or_path: Union[Path, TextIOWrapper]
 ) -> str:
     """
     Write data to an icav2 file
 
-    :param project_id:  The owning project id of the file
-    :param data_path:  The file path
-    :param file_stream_or_path:  The file stream or path to write to
+    :param project_id: The owning project id of the file
+    :param data_path: The file path
+    :param file_stream_or_path: The file stream or path to write to
 
-    :return:  The new file id
+    :return: The new file id
 
-    :rtype:  str
+    :rtype: str
 
-    :raises:  ValueError, ApiException
+    :raises: ValueError, ApiException
 
     :Examples:
 
@@ -2415,7 +2457,7 @@ def get_file_by_file_name_from_project_data_list(
     :param project_data_list: The list of project data objects to search through
 
     :return: The file object
-    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
 
     :raises: ValueError
 
@@ -2423,6 +2465,7 @@ def get_file_by_file_name_from_project_data_list(
 
     .. code-block:: python
 
+        # Imports
         from wrapica.project_data import get_file_by_file_name_from_project_data_list
 
         # Use wrapica.project.get_project_id_from_project_name
@@ -2458,7 +2501,7 @@ def get_file_by_file_name_from_project_data_list(
 
 def project_data_copy_batch_handler(
         source_data_ids: List[str],
-        destination_project_id: str,
+        destination_project_id: Union[UUID4, str],
         destination_folder_path: Path
 ) -> Job:
     """
@@ -2469,7 +2512,7 @@ def project_data_copy_batch_handler(
     :param destination_folder_path: The destination folder path
 
     :return: The job id for the project data copy batch
-    :rtype: `Job <https://umccr-illumina.github.io/libica/openapi/v2/docs/Job/>`_
+    :rtype: `Job <https://umccr.github.io/libica/openapi/v3/docs/Job/>`_
 
     :raises: ApiException
 
@@ -2534,7 +2577,10 @@ def project_data_copy_batch_handler(
     return api_response.job
 
 
-def delete_project_data(project_id: str, data_id: str):
+def delete_project_data(
+        project_id: Union[UUID4, str],
+        data_id: Union[UUID4, str]
+):
     """
     Delete a project data item using the projectData:delete endpoint
 
@@ -2580,15 +2626,84 @@ def delete_project_data(project_id: str, data_id: str):
     # example passing only required values which don't have defaults set
     try:
         # Schedule this data for deletion.
-        api_instance.delete_data(project_id, data_id)
+        api_instance.delete_data(
+            project_id=str(project_id),
+            data_id=str(data_id)
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectDataApi->delete_data: %s\n" % e)
         raise ApiException
 
 
-def move_project_data(dest_project_id: str, dest_folder_id: str, src_data_list: List[str]) -> Job:
+def move_project_data(
+        dest_project_id: Union[UUID4, str],
+        dest_folder_id: Union[UUID4, str],
+        src_data_list: List[str]
+) -> Job:
     """
     Move a list of data ids to a destination project
+    :param dest_project_id:
+    :param dest_folder_id:
+    :param src_data_list:
+
+    :return:
+
+    :rtype: Job
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        from wrapica.project_data import move_data
+
+        job = move_data(
+            dest_project_id="abcd-1234-efab-5678",
+            dest_folder_id="fol.abcdef1234567890",
+            src_data_list=[
+                "fil.abcdef1234567890",
+                "fil.abcdef1234567891"
+            ]
+        )
+
+    """
+
+    # Create an instance of the API class
+    with ApiClient(get_icav2_configuration()) as api_client:
+        api_instance = ProjectDataMoveBatchApi(api_client)
+
+    try:
+        # Create a project data copy batch.
+        api_response = api_instance.create_project_data_move_batch(
+            project_id=str(dest_project_id),
+            create_project_data_move_batch=CreateProjectDataMoveBatch(
+                items=list(
+                    map(
+                        lambda src_data_iter: CreateProjectDataMoveBatchItem(
+                            dataId=src_data_iter
+                        ),
+                        src_data_list
+                    )
+                ),
+                destinationFolderId=dest_folder_id,
+            )
+        )
+    except ApiException as e:
+        logger.error("Exception when calling ProjectDataMoveBatchApi->create_project_data_move_batch: %s\n" % e)
+        raise ApiException("Exception when calling ProjectDataMoveBatchApi->create_project_data_move_batch: %s\n") from e
+
+    # Get job from job id
+    return api_response.job
+
+
+def copy_project_data(
+        dest_project_id: Union[UUID4, str],
+        dest_folder_id: Union[UUID4, str],
+        src_data_list: List[str]
+) -> Job:
+    """
+    Copy a list of data ids to a destination project
     :param dest_project_id:
     :param dest_folder_id:
     :param src_data_list:
@@ -2623,8 +2738,8 @@ def move_project_data(dest_project_id: str, dest_folder_id: str, src_data_list: 
     try:
         # Create a project data copy batch.
         api_response = api_instance.create_project_data_copy_batch(
-            dest_project_id,
-            CreateProjectDataCopyBatch(
+            project_id=str(dest_project_id),
+            create_project_data_copy_batch=CreateProjectDataCopyBatch(
                 items=list(
                     map(
                         lambda src_data_iter: CreateProjectDataCopyBatchItem(
@@ -2649,8 +2764,8 @@ def move_project_data(dest_project_id: str, dest_folder_id: str, src_data_list: 
 
 
 def update_project_data_obj(
-        project_id: str,
-        data_id: str,
+        project_id: Union[UUID4, str],
+        data_id: Union[UUID4, str],
         project_data_obj: ProjectData
 ):
     """
@@ -2666,7 +2781,11 @@ def update_project_data_obj(
 
     try:
         # Update the project data object
-        api_response: ProjectData = api_instance.update_project_data(project_id, data_id, project_data_obj)
+        api_response: ProjectData = api_instance.update_project_data(
+            project_id=str(project_id),
+            data_id=str(data_id),
+            project_data=project_data_obj
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectDataApi->update_project_data: %s\n" % e)
         raise e
@@ -2675,8 +2794,8 @@ def update_project_data_obj(
 
 
 def add_tag_to_data_object(
-        project_id: str,
-        data_id: str,
+        project_id: Union[UUID4, str],
+        data_id: Union[UUID4, str],
         tag: str,
         tag_type: DataTagType
 ) -> ProjectData:

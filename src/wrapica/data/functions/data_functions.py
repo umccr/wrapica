@@ -6,7 +6,7 @@ Functions relating to the 'data' endpoint
 
 # Standard imports
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 # Libica api imports
 from libica.openapi.v3 import ApiClient, ApiException
@@ -18,7 +18,7 @@ from libica.openapi.v3.models import (
     Data,
     ProjectData
 )
-
+from pydantic import UUID4
 
 # Local imports
 from ...project_data import is_data_id_format
@@ -30,10 +30,14 @@ from ...utils.globals import (
     ICAV2_URI_SCHEME
 )
 
+# Log imports
 logger = get_logger()
 
 
-def get_data_obj_from_data_id(data_id: str, region_id: Optional[str] = None) -> Data:
+def get_data_obj_from_data_id(
+        data_id: Union[UUID4, str],
+        region_id: Optional[Union[UUID4, str]] = None
+) -> Data:
     """
     Get data object by id
 
@@ -41,7 +45,7 @@ def get_data_obj_from_data_id(data_id: str, region_id: Optional[str] = None) -> 
     :param region_id:
 
     :return: The data object
-    :rtype: `Data <https://umccr-illumina.github.io/libica/openapi/v2/docs/Data/>`_
+    :rtype: `Data <https://umccr.github.io/libica/openapi/v3/docs/Data/>`_
 
     :raises: ApiException
 
@@ -81,7 +85,10 @@ def get_data_obj_from_data_id(data_id: str, region_id: Optional[str] = None) -> 
     return api_response
 
 
-def get_owning_project_id(data_id: str, region_id: Optional[str] = None) -> str:
+def get_owning_project_id(
+        data_id: Union[UUID4, str],
+        region_id: Optional[Union[UUID4, str]] = None
+) -> str:
     """
     Get the owning project id of a data object
 
@@ -109,17 +116,19 @@ def get_owning_project_id(data_id: str, region_id: Optional[str] = None) -> str:
 
     """
     data_obj = get_data_obj_from_data_id(data_id, region_id)
-    return data_obj.details.owning_project_id
+    return str(data_obj.details.owning_project_id)
 
 
-def get_project_data_obj_from_data_id(data_id: str) -> ProjectData:
+def get_project_data_obj_from_data_id(
+        data_id: Union[UUID4, str]
+) -> ProjectData:
     """
     Get the project data object from a data id
 
     :param data_id:  The data id
 
     :return: The project data object
-    :rtype: `ProjectData <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectData/>`_
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
 
     :raises: ApiException
 
@@ -157,7 +166,7 @@ def convert_icav2_uri_to_data_obj(
     :param create_data_if_not_found:  If true, create the data if not found
 
     :return: The data object
-    :rtype: `Data <https://umccr-illumina.github.io/libica/openapi/v2/docs/Data/>`_
+    :rtype: `Data <https://umccr.github.io/libica/openapi/v3/docs/Data/>`_
 
     :Examples:
 
@@ -213,7 +222,7 @@ def convert_data_obj_to_icav2_uri(data_obj: Data) -> str:
         urlunparse(
             (
                 ICAV2_URI_SCHEME,
-                data_obj.details.owning_project_id,
+                str(data_obj.details.owning_project_id),
                 data_obj.details.path,
                 None, None, None
             )
@@ -232,7 +241,7 @@ def coerce_data_id_path_or_icav2_uri_to_data_obj(
     :param create_data_if_not_found:  If true, create the data if not found (only applicable to paths or uris)
 
     :return: The data object
-    :rtype: `Data <https://umccr-illumina.github.io/libica/openapi/v2/docs/Data/>`_
+    :rtype: `Data <https://umccr.github.io/libica/openapi/v3/docs/Data/>`_
 
     :Examples:
 

@@ -30,5 +30,5 @@ __all__ = [
     'list_projects',
     'coerce_project_id_or_name_to_project_id',
     'get_project_id',
-    'get_project_name_from_project_id'
+    'get_project_name_from_project_id',
 ]

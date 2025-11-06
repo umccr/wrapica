@@ -23,10 +23,10 @@ from .functions.storage_configuration_functions import (
 
 __all__ = [
     # Libica models
-    StorageConfigurationWithDetails,
+    "StorageConfigurationWithDetails",
     # Internal Models
-    StorageConfigurationObjectModel,
-    ProjectToStorageMappingDictModel,
+    "StorageConfigurationObjectModel",
+    "ProjectToStorageMappingDictModel",
     # Storage Configuration
     'get_storage_configuration_list',
     'set_storage_configuration_list',

@@ -2,9 +2,10 @@
 # Standard imports
 from os import environ
 from pathlib import Path
-from typing import List, Optional, Tuple, TypedDict, NotRequired, cast
+from typing import List, Optional, Tuple, TypedDict, NotRequired, cast, Union
 from urllib.parse import urlunparse, urlparse
-import json
+
+from pydantic import UUID4
 from ruamel.yaml import YAML
 
 # Libica imports
@@ -84,11 +85,14 @@ def get_storage_configuration_api_list() -> List[StorageConfigurationObjectModel
         lambda item_iter_: (
             cast(
                 StorageConfigurationObjectModel,
-                {
-                    "id": item_iter_.id,
-                    "bucketName": f"s3://{item_iter_.storage_configuration_details.aws_s3.bucket_name}",
-                    "keyPrefix": str(Path(item_iter_.storage_configuration_details.aws_s3.key_prefix)) + "/"
-                }
+                cast(
+                    object,
+                    {
+                        "id": item_iter_.id,
+                        "bucketName": f"s3://{item_iter_.storage_configuration_details.aws_s3.bucket_name}",
+                        "keyPrefix": str(Path(item_iter_.storage_configuration_details.aws_s3.key_prefix)) + "/"
+                    }
+                )
             )
         ),
         api_response.items
@@ -149,12 +153,15 @@ def get_project_to_storage_configuration_api_mapping() -> List[ProjectToStorageM
       lambda project_iter: (
           cast(
               ProjectToStorageMappingDictModel,
-              {
-                    "id": project_iter.id,
-                    "name": project_iter.name,
-                    "storageConfigurationId": project_iter.self_managed_storage_configuration.id,
-                    "prefix": project_iter.name,
-              }
+              cast(
+                  object,
+                  {
+                      "id": project_iter.id,
+                      "name": project_iter.name,
+                      "storageConfigurationId": project_iter.self_managed_storage_configuration.id,
+                      "prefix": project_iter.name,
+                  }
+              )
           )
       ),
       list(filter(
@@ -225,7 +232,9 @@ def get_project_id_by_s3_key_prefix(s3_key_prefix: str) -> Optional[str]:
 
 
 # And vice-versa
-def get_s3_key_prefix_by_project_id(project_id: str) -> Optional[str]:
+def get_s3_key_prefix_by_project_id(
+        project_id: Union[UUID4, str]
+) -> Optional[str]:
     # Local imports
     # Return Key Prefix with project name extension
     project_model = next(filter(

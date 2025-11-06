@@ -8,7 +8,6 @@ All the literals!
 from datetime import datetime
 from typing import Literal, TypedDict, Optional
 
-
 BundleStatusType = Literal[
     "DRAFT",
     "RELEASED",
@@ -162,6 +161,13 @@ AnalysisTagType = Literal[
     "reference_tag",
 ]
 
+ResourceType = Literal[
+    "f1",
+    "f2",
+    "gpu",
+    "software_only",
+]
+
 
 ## Typed dicts
 class AnalysisStepDict(TypedDict):
@@ -172,9 +178,4 @@ class AnalysisStepDict(TypedDict):
     end_date: Optional[datetime]
 
 
-ResourceType = Literal[
-    "f1",
-    "f2",
-    "gpu",
-    "software_only",
-]
+## Unions

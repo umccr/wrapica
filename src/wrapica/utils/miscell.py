@@ -5,9 +5,11 @@ Functions that don't quite do anywhere else
 """
 # Standard imports
 import re
-from typing import Dict, Any, Type
+from typing import Dict, Any, Type, Union
 from urllib.parse import urlparse
 from uuid import UUID
+
+from pydantic import UUID4
 
 
 def camel_to_snake_case(camel_case: str) -> str:
@@ -34,7 +36,9 @@ def sanitise_dict_keys(input_dict: Dict) -> Dict:
     return output_dict
 
 
-def is_uuid_format(project_id: str) -> bool:
+def is_uuid_format(
+        project_id: Union[UUID4, str]
+) -> bool:
     try:
         _ = UUID(project_id, version=4)
         return True
@@ -86,3 +90,21 @@ def nextflow_parameter_to_str(parameter: Any) -> str:
     if type(parameter) == bool:
         return str(parameter).lower()
     return str(parameter)
+
+
+def coerce_to_uuid4_obj(
+        uuid_str: Union[UUID4, str]
+) -> UUID4:
+    """
+    Coerce a string to a UUID4 object
+
+    :param uuid_str:
+    :return:
+    """
+    if isinstance(uuid_str, UUID4):
+        return uuid_str
+    elif isinstance(uuid_str, str):
+        return UUID4(uuid_str)
+    raise TypeError(
+        f"Expected input type to be str or UUID4, got {type(uuid_str)}"
+    )

@@ -24,41 +24,40 @@ pip install wrapica
 from pathlib import Path
 
 # Wrapica imports
-from wrapica.project import get_project_id_from_project_code
+from wrapica.project import get_project_id_from_project_name
 from wrapica.enums import Data
 from wrapica.libica_models import ProjectData
 from wrapica.project_data import (
     # Functions
     get_project_data_obj_from_project_id_and_path,
     # Types
-    ProjectData, DataType
+    ProjectData
 )
 
 # Get project data object
 my_project_folder_obj: ProjectData = get_project_data_obj_from_project_id_and_path(
-    project_id=get_project_id_from_project_code("my_project_name"),
+    project_id=get_project_id_from_project_name("my_project_name"),
     # Required value
     data_path=Path("/path/to/my/project/folder"),
     # Optional FILE or FOLDER if not specified searches for both
-    data_type=FOLDER_DATA_TYPE,
+    data_type="FOLDER",
     # Optional, default is True (cannot be created if data_type is not specified)
     create_data_if_not_found=False,
 )
 ```
 
+
 ### Project Pipeline
 
-```
-from wrapica.configuration import get_configuration
-from wrapica.project_pipeline import get_project_pipeline_id_from_pipeline_code
+```python
+from wrapica.project_pipelines import get_project_pipeline_id_from_pipeline_code
 
-
+# Get the project pipeline id
 my_pipeline_id = get_project_pipeline_id_from_pipeline_code(
-    project_id,
-    pipeline_code
+    project_id="project_id",
+    pipeline_code="my_pipeline_code",
 )
 ```
-
 
 
 ### Project Analysis
@@ -66,10 +65,10 @@ my_pipeline_id = get_project_pipeline_id_from_pipeline_code(
 ```python
 from typing import List
 
-from wrapica.project_analyses import get_workflow_steps
+from wrapica.project_analysis import get_analysis_steps
 from wrapica.libica_models import AnalysisStep
 
-workflow_steps: List[AnalysisStep] = get_workflow_steps(
+workflow_steps: List[AnalysisStep] = get_analysis_steps(
     # Required values
     project_id="my_project_id",
     analysis_id="my_analysis_id",

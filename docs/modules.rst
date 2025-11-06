@@ -23,3 +23,7 @@ Modules
     wrapica/user
 
     wrapica/job
+
+    wrapica/storage_configuration
+
+    wrapica/storage_credentials

@@ -27,5 +27,5 @@ __all__ = [
     'get_region_obj_from_project_id',
     'get_region_from_bundle_id',
     'set_default_region',
-    'get_default_region'
+    'get_default_region',
 ]

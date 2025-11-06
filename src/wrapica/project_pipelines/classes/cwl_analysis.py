@@ -5,7 +5,8 @@ Generate a CWL analysis
 """
 # Imports
 import json
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
+from pydantic import UUID4
 
 # Libica imports
 from libica.openapi.v3.models import (
@@ -14,7 +15,8 @@ from libica.openapi.v3.models import (
     AnalysisInputExternalData,
     AnalysisOutputMapping,
     CreateCwlWithJsonInputAnalysis,
-    CwlAnalysisWithJsonInput
+    CwlAnalysisWithJsonInput,
+    CreateAnalysisLogs
 )
 
 # Local parent imports
@@ -106,12 +108,13 @@ class ICAv2CWLEngineParameters(ICAv2EngineParameters):
 
     def __init__(
         self,
-        project_id: Optional[str] = None,
-        pipeline_id: Optional[str] = None,
+        project_id: Optional[Union[UUID4, str]] = None,
+        pipeline_id: Optional[Union[UUID4, str]] = None,
         analysis_output: Optional[List[AnalysisOutputMapping]] = None,
+        logs_output: Optional[CreateAnalysisLogs] = None,
         analysis_input: Optional[CwlAnalysisWithJsonInput] = None,
         tags: Optional[ICAv2PipelineAnalysisTags] = None,
-        analysis_storage_id: Optional[str] = None,
+        analysis_storage_id: Optional[Union[UUID4, str]] = None,
         analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         cwltool_overrides: Optional[Dict] = None
     ):
@@ -120,6 +123,7 @@ class ICAv2CWLEngineParameters(ICAv2EngineParameters):
             project_id=project_id,
             pipeline_id=pipeline_id,
             analysis_output=analysis_output,
+            logs_output=logs_output,
             analysis_input=analysis_input,
             tags=tags,
             analysis_storage_id=analysis_storage_id,
@@ -190,10 +194,10 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
         self,
         # Launch parameters
         user_reference: str,
-        project_id: str,
-        pipeline_id: str,
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str],
         analysis_input: CwlAnalysisWithJsonInput,
-        analysis_storage_id: Optional[str] = None,
+        analysis_storage_id: Optional[Union[UUID4, str]] = None,
         analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         # Output parameters
         analysis_output_uri: Optional[str] = None,
@@ -240,6 +244,7 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
             project_id=self.project_id,
             pipeline_id=self.pipeline_id,
             analysis_output=self.analysis_output,
+            logs_output=self.logs,
             analysis_input=self.analysis_input,
             tags=self.tags,
             analysis_storage_id=self.analysis_storage_id,
@@ -254,7 +259,9 @@ class ICAv2CWLPipelineAnalysis(ICAv2PipelineAnalysis):
             tags=self.engine_parameters.tags(),
             analysisInput=self.analysis_input,
             analysisStorageId=self.engine_parameters.analysis_storage_id,
-            analysisOutput=self.engine_parameters.analysis_output
+            analysisOutput=self.engine_parameters.analysis_output,
+            logs=self.engine_parameters.logs_output,
+            outputParentFolderId=None,
         )
 
     def launch_analysis(self, idempotency_key: Optional[str] = None) -> Analysis:

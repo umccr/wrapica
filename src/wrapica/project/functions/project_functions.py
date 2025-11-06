@@ -3,7 +3,10 @@
 """
 Functions for project management
 """
-from typing import List
+
+# Standard library imports
+from typing import List, Union
+from pydantic import UUID4
 
 # Libica imports
 from libica.openapi.v3 import ApiClient, ApiException
@@ -50,7 +53,7 @@ def _get_project_mapping_dict():
 
 
 def get_project_obj_from_project_id(
-    project_id: str
+    project_id: Union[UUID4, str]
 ) -> Project:
     """
     Given a project id return the project object
@@ -58,7 +61,7 @@ def get_project_obj_from_project_id(
     :param project_id: The id of the project
 
     :return: The project object
-    :rtype: List[`Project <https://umccr-illumina.github.io/libica/openapi/v2/docs/Project/>`_]
+    :rtype: List[`Project <https://umccr.github.io/libica/openapi/v3/docs/Project/>`_]
 
     """
 
@@ -66,7 +69,7 @@ def get_project_obj_from_project_id(
         api_instance = ProjectApi(api_client)
 
     try:
-        api_response: Project = api_instance.get_project(project_id)
+        api_response: Project = api_instance.get_project(str(project_id))
     except ApiException as e:
         logger.error("Exception when calling ProjectApi->get_project_by_id: %s\n" % e)
         raise ApiException
@@ -148,7 +151,9 @@ def get_project_id_from_project_name(
 
 
 # And vice-versa
-def get_project_name_from_project_id(project_id: str) -> str:
+def get_project_name_from_project_id(
+        project_id: Union[UUID4, str]
+) -> str:
     """
     Given a project id, get the project object and return the name attribute
     :param project_id:
@@ -163,7 +168,9 @@ def get_project_name_from_project_id(project_id: str) -> str:
         raise StopIteration("Could not find project name from project id: %s" % project_id) from e
 
 
-def check_project_has_data_sharing_enabled(project_id: str) -> bool:
+def check_project_has_data_sharing_enabled(
+        project_id: Union[UUID4, str]
+) -> bool:
     """
     Given a project id return whether the project has data sharing enabled
 
@@ -199,7 +206,7 @@ def check_project_has_data_sharing_enabled(project_id: str) -> bool:
     # and optional values
     try:
         # Retrieve a list of projects.
-        api_response: Project = api_instance.get_project(project_id)
+        api_response: Project = api_instance.get_project(str(project_id))
     except ApiException as e:
         logger.error("Exception when calling ProjectApi->get_project_by_id: %s\n" % e)
         raise ApiException
@@ -214,7 +221,7 @@ def list_projects(include_hidden_projects: bool = False) -> List[Project]:
     :param include_hidden_projects:
 
     :return: List of project objects
-    :rtype: List[`Project <https://umccr-illumina.github.io/libica/openapi/v2/docs/Project/>`_]
+    :rtype: List[`Project <https://umccr.github.io/libica/openapi/v3/docs/Project/>`_]
 
     :raises: ApiException
 
