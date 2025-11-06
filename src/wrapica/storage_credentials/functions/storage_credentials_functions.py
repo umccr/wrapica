@@ -9,10 +9,10 @@ This is particularly useful for running analyses using the 'externalData' option
 """
 # Imports
 from pathlib import Path
-from typing import TypedDict, NotRequired, List, Optional, cast
-import json
+from typing import TypedDict, NotRequired, List, Optional, cast, Union
 from os import environ
 from urllib.parse import urlunparse, urlparse
+from pydantic import UUID4
 
 # Libica imports
 from libica.openapi.v3 import ApiException, ApiClient, StorageCredentialList
@@ -83,13 +83,16 @@ def get_storage_credential_api_list() -> List[StorageCredentialMappingModel]:
         lambda item_iter_: (
             cast(
                 StorageCredentialMappingModel,
-                {
-                    "id": item_iter_.id,
-                    "name": item_iter_.name,
-                    # Unfortunately there is no way to link storage configurations to storage credentials at the moment
-                    # I have raised the issue with the Illumina team
-                    "s3UriList": []
-                }
+                cast(
+                    object,
+                    {
+                        "id": item_iter_.id,
+                        "name": item_iter_.name,
+                        # Unfortunately there is no way to link storage configurations to storage credentials at the moment
+                        # I have raised the issue with the Illumina team
+                        "s3UriList": []
+                    }
+                )
             )
         ),
         api_response.items
@@ -140,7 +143,7 @@ def get_storage_credential_id_from_s3_uri(s3_uri: str) -> Optional[str]:
 
 
 def get_relative_path_from_credentials_prefix(
-        storage_credential_id: str,
+        storage_credential_id: Union[UUID4, str],
         s3_uri: str
 ) -> str:
     """

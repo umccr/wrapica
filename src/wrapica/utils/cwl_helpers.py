@@ -14,9 +14,10 @@ from pathlib import Path
 from typing import List, Dict, Union, Optional
 import re
 from urllib.parse import urlparse
-
-from cwl_utils.parser.cwl_v1_2 import shortname, RecordSchema, WorkflowStep
 from ruamel.yaml import YAML, CommentedMap
+
+# CWL Util imports
+from cwl_utils.parser.cwl_v1_2 import shortname, RecordSchema, WorkflowStep
 
 # Local imports
 from .logger import get_logger

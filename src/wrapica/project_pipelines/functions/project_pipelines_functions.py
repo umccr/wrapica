@@ -52,6 +52,7 @@ from libica.openapi.v3.models import (
     AnalysisStorageV3,
     AnalysisStorageV4,
 )
+from pydantic import UUID4
 
 # Local imports
 from ...utils import parse_s3_uri
@@ -67,7 +68,7 @@ from ...utils.globals import (
     URI_REGEX_OBJ
 )
 from ...literals import DataType, PipelineStatusType, AnalysisStorageSizeType, ResourceType
-from ...utils.miscell import is_uuid_format, is_uri_format
+from ...utils.miscell import is_uuid_format, is_uri_format, coerce_to_uuid4_obj
 from ...utils.nextflow_helpers import (
     convert_base_config_to_icav2_base_config, get_default_nextflow_pipeline_version_id,
 )
@@ -75,6 +76,7 @@ from ...utils.nextflow_helpers import (
 if typing.TYPE_CHECKING:
     # Import type hints for IDE only, not at runtime
     # Prevents circular imports
+    from .. import ICAv2PipelineAnalysisTags
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis
     from mypy_boto3_s3 import S3Client
 
@@ -86,7 +88,10 @@ PipelineType = Union[ProjectPipeline, ProjectPipelineV4]
 logger = get_logger()
 
 
-def get_project_pipeline_obj(project_id: str, pipeline_id: str) -> ProjectPipelineV4:
+def get_project_pipeline_obj(
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str],
+) -> ProjectPipelineV4:
     """
     Given a project id and pipeline id, return the project pipeline object
 
@@ -94,7 +99,7 @@ def get_project_pipeline_obj(project_id: str, pipeline_id: str) -> ProjectPipeli
     :param pipeline_id: The pipeline id to retrieve
 
     :return: The project pipeline object
-    :rtype: `ProjectPipeline <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectPipeline/>`_
+    :rtype: `ProjectPipeline <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipeline/>`_
 
     :raises: ValueError: If the pipeline cannot be found
 
@@ -130,7 +135,10 @@ def get_project_pipeline_obj(project_id: str, pipeline_id: str) -> ProjectPipeli
     return api_response
 
 
-def get_project_pipeline_obj_from_pipeline_code(project_id: str, pipeline_code: str) -> ProjectPipeline:
+def get_project_pipeline_obj_from_pipeline_code(
+        project_id: Union[UUID4, str],
+        pipeline_code: str
+) -> ProjectPipeline:
     """
     Given a project id and pipeline code, return the project pipeline object
 
@@ -166,7 +174,10 @@ def get_project_pipeline_obj_from_pipeline_code(project_id: str, pipeline_code: 
         raise ValueError
 
 
-def get_project_pipeline_id_from_pipeline_code(project_id: str, pipeline_code: str) -> str:
+def get_project_pipeline_id_from_pipeline_code(
+        project_id: Union[UUID4, str],
+        pipeline_code: str
+) -> str:
     """
     Given a project pipeline code and project id, return the pipeline id
 
@@ -190,10 +201,13 @@ def get_project_pipeline_id_from_pipeline_code(project_id: str, pipeline_code: s
 
         pipeline_id = get_project_pipeline_id_from_pipeline_code(project_id, pipeline_code)
     """
-    return get_project_pipeline_obj_from_pipeline_code(project_id, pipeline_code).pipeline.id
+    return str(get_project_pipeline_obj_from_pipeline_code(project_id, pipeline_code).pipeline.id)
 
 
-def get_default_analysis_storage_obj_from_project_pipeline(project_id: str, pipeline_id: str) -> AnalysisStorageType:
+def get_default_analysis_storage_obj_from_project_pipeline(
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str]
+) -> AnalysisStorageType:
     """
     Given a project id and pipeline id, return the default analysis storage object for that pipeline
 
@@ -201,7 +215,7 @@ def get_default_analysis_storage_obj_from_project_pipeline(project_id: str, pipe
     :param pipeline_id:
 
     :return: The analysis storage
-    :rtype: `AnalysisStorage <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisStorage/>`_
+    :rtype: `AnalysisStorage <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStorage/>`_
 
     :raises: ValueError, ApiException
 
@@ -228,7 +242,10 @@ def get_default_analysis_storage_obj_from_project_pipeline(project_id: str, pipe
     return project_pipeline_obj.pipeline.analysis_storage
 
 
-def get_default_analysis_storage_id_from_project_pipeline(project_id: str, pipeline_id: str) -> str:
+def get_default_analysis_storage_id_from_project_pipeline(
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str]
+) -> str:
     """
     Given a project id and pipeline id, return the default analysis storage id for that pipeline
 
@@ -259,10 +276,13 @@ def get_default_analysis_storage_id_from_project_pipeline(project_id: str, pipel
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
     # Return the analysis storage id
-    return project_pipeline_obj.pipeline.analysis_storage.id
+    return str(project_pipeline_obj.pipeline.analysis_storage.id)
 
 
-def get_project_pipeline_description_from_pipeline_id(project_id: str, pipeline_id: str) -> str:
+def get_project_pipeline_description_from_pipeline_id(
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str]
+) -> str:
     """
     Get a project pipeline description from a project id and pipeline id
 
@@ -321,19 +341,27 @@ def coerce_pipeline_id_or_code_to_project_pipeline_obj(pipeline_id_or_code: str)
     return get_project_pipeline_obj_from_pipeline_code(project_id, pipeline_id_or_code)
 
 
-def get_analysis_storage_from_analysis_storage_id(project_id: str, analysis_storage_id: str) -> AnalysisStorageType:
+def get_analysis_storage_from_analysis_storage_id(
+        project_id: Union[UUID4, str],
+        analysis_storage_id: Union[UUID4, str]
+) -> AnalysisStorageType:
     """
     Given an analysis storage id, return the analysis storage object
     :param project_id:
     :param analysis_storage_id:
 
     :return: The analysis storage object
-    :rtype: `AnalysisStorage <https://umccr-illumina.github.io/libica/openapi/v2/docs/AnalysisStorage/>`_
+    :rtype: `AnalysisStorage <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStorage/>`_
 
     :raises: ValueError, ApiException
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
+        # Force the API client to send back the v4 API
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v4+json"
+        )
         # Create an instance of the API class
         api_instance = ProjectAnalysisStorageApi(api_client)
 
@@ -350,7 +378,7 @@ def get_analysis_storage_from_analysis_storage_id(project_id: str, analysis_stor
     try:
         return next(
             filter(
-                lambda storage_obj_iter: storage_obj_iter.id == analysis_storage_id,
+                lambda storage_obj_iter: str(storage_obj_iter.id) == str(analysis_storage_id),
                 api_response.items
             )
         )
@@ -359,8 +387,10 @@ def get_analysis_storage_from_analysis_storage_id(project_id: str, analysis_stor
         raise ValueError
 
 
-def get_analysis_storage_from_analysis_storage_size(project_id: str,
-                                                    analysis_storage_size: AnalysisStorageSizeType) -> AnalysisStorageType:
+def get_analysis_storage_from_analysis_storage_size(
+        project_id: Union[UUID4, str],
+        analysis_storage_size: AnalysisStorageSizeType
+) -> AnalysisStorageType:
     """
     Given an analysis storage size, return the analysis storage object
 
@@ -401,7 +431,7 @@ def get_analysis_storage_from_analysis_storage_size(project_id: str,
 
 
 def get_analysis_storage_id_from_analysis_storage_size(
-        project_id: str,
+        project_id: Union[UUID4, str],
         analysis_storage_size: AnalysisStorageSizeType
 ) -> str:
     """
@@ -427,11 +457,11 @@ def get_analysis_storage_id_from_analysis_storage_size(
 
         analysis_storage_id = get_analysis_storage_id_from_analysis_storage_size(analysis_storage_size)
     """
-    return get_analysis_storage_from_analysis_storage_size(project_id, analysis_storage_size).id
+    return str(get_analysis_storage_from_analysis_storage_size(project_id, analysis_storage_size).id)
 
 
 def coerce_analysis_storage_id_or_size_to_analysis_storage(
-        project_id: str,
+        project_id: Union[UUID4, str],
         analysis_storage_id_or_size: Union[
             str, AnalysisStorageSizeType
         ]
@@ -453,10 +483,10 @@ def coerce_analysis_storage_id_or_size_to_analysis_storage(
 
 def create_cwl_input_json_analysis_obj(
         user_reference: str,
-        project_id: str,
-        pipeline_id: str,
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str],
         analysis_input_dict: Dict,
-        analysis_storage_id: Optional[str] = None,
+        analysis_storage_id: Optional[Union[UUID4, str]] = None,
         analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         # Output parameters
         analysis_output_uri: Optional[str] = None,
@@ -488,11 +518,14 @@ def create_cwl_input_json_analysis_obj(
     .. code-block:: python
         :linenos:
 
+        from wrapica.project_analysis import (
+            # Classes
+            ICAv2PipelineAnalysisTags,
+        )
+
         from wrapica.project_pipelines import (
             # Functions
             create_cwl_input_json_analysis_obj,
-            # Classes
-            ICAv2PipelineAnalysisTags
         )
 
         user_reference = "user-123"
@@ -555,7 +588,7 @@ def create_cwl_input_json_analysis_obj(
 
 
 def launch_cwl_workflow(
-        project_id: str,
+        project_id: Union[UUID4, str],
         cwl_analysis: CreateCwlWithJsonInputAnalysis,
         idempotency_key=None
 ) -> AnalysisV4:
@@ -567,7 +600,7 @@ def launch_cwl_workflow(
     :param idempotency_key: The Idempotency-Key header can be used to prevent duplicate requests and support retries.
 
     :return: the analysis ID along with the deconstructed json used for submission to the end point
-    :rtype: `Analysis <https://umccr-illumina.github.io/libica/openapi/v2/docs/Analysis/>`_
+    :rtype: `Analysis <https://umccr.github.io/libica/openapi/v3/docs/Analysis/>`_
 
     :Examples:
 
@@ -641,8 +674,11 @@ def launch_cwl_workflow(
     return api_response
 
 
-def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowWithCustomInputAnalysis,
-                             idempotency_key=None) -> AnalysisV4:
+def launch_nextflow_workflow(
+        project_id: Union[UUID4, str],
+        nextflow_analysis: CreateNextflowWithCustomInputAnalysis,
+        idempotency_key=None
+) -> AnalysisV4:
     """
     Launch a Nextflow Workflow in a specific project context
 
@@ -651,7 +687,7 @@ def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowW
     :param idempotency_key: Prevent duplicate requests and support retries by providing an Idempotency-Key header.
 
     :return: the analysis ID along with the deconstructed json used for submission to the end point
-    :rtype: `Analysis <https://umccr-illumina.github.io/libica/openapi/v2/docs/Analysis/>`_
+    :rtype: `Analysis <https://umccr.github.io/libica/openapi/v3/docs/Analysis/>`_
 
     :Examples:
 
@@ -736,8 +772,8 @@ def launch_nextflow_workflow(project_id: str, nextflow_analysis: CreateNextflowW
 
 
 def get_project_pipeline_input_parameters(
-        project_id: str,
-        pipeline_id: str
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str]
 ) -> List[InputParameter]:
     """
     Get project pipeline input parameters, needed for structured input validation
@@ -746,7 +782,7 @@ def get_project_pipeline_input_parameters(
     :param pipeline_id:
 
     :return: The input parameters for the project pipeline
-    :rtype: List[`InputParameter <https://umccr-illumina.github.io/libica/openapi/v2/docs/InputParameter/>`_]
+    :rtype: List[`InputParameter <https://umccr.github.io/libica/openapi/v3/docs/InputParameter/>`_]
 
     :raises: ApiException
 
@@ -796,8 +832,8 @@ def get_project_pipeline_input_parameters(
 
 
 def get_project_pipeline_configuration_parameters(
-        project_id: str,
-        pipeline_id: str
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str]
 ) -> List[PipelineConfigurationParameter]:
     """
     Given a pipeline and project id, return the configuration parameters for the pipeline
@@ -806,7 +842,7 @@ def get_project_pipeline_configuration_parameters(
     :param pipeline_id:
 
     :return: The configuration parameters for the project pipeline
-    :rtype: List[`PipelineConfigurationParameter <https://umccr-illumina.github.io/libica/openapi/v2/docs/PipelineConfigurationParameter/>`_]
+    :rtype: List[`PipelineConfigurationParameter <https://umccr.github.io/libica/openapi/v3/docs/PipelineConfigurationParameter/>`_]
 
     :raises: ApiException
 
@@ -893,11 +929,7 @@ def convert_uris_to_data_ids_from_cwl_input_json(
     :param input_obj: The CWL input object to convert
 
     :return: The converted input object, mount list and external data list
-    :rtype: Tuple[
-        Union[str, Dict, List],
-        List[AnalysisInputDataMount],
-        List[AnalysisInputExternalData]
-    ]
+    :rtype: Tuple[Union[str, Dict, List], List[AnalysisInputDataMount], List[AnalysisInputExternalData]]
 
     :raises: ValueError, ApiException
 
@@ -935,7 +967,6 @@ def convert_uris_to_data_ids_from_cwl_input_json(
 
         print(external_data_list)
         # Output: []
-
     """
     # Importing from another functions directory should be done locally
     from ...project_data import (
@@ -1011,14 +1042,15 @@ def convert_uris_to_data_ids_from_cwl_input_json(
                             type=S3_URI_SCHEME,
                             mountPath=mount_path,
                             s3Details=AnalysisS3DataDetails(
-                                storageCredentialsId=storage_credential_id
-                            )
+                                storageCredentialsId=coerce_to_uuid4_obj(storage_credential_id)
+                            ),
+                            basespaceDetails=None
                         )
                     )
                 else:
                     input_obj_new: ProjectData = convert_uri_to_project_data_obj(input_obj.get("location"))
-                    data_type: DataType = input_obj_new.data.details.data_type
-                    owning_project_id: str = input_obj_new.data.details.owning_project_id
+                    data_type: DataType = cast(DataType, input_obj_new.data.details.data_type)
+                    owning_project_id: str = str(input_obj_new.data.details.owning_project_id)
                     data_id = input_obj_new.data.id
                     basename = input_obj_new.data.details.name
                     # Set mount path
@@ -1044,24 +1076,22 @@ def convert_uris_to_data_ids_from_cwl_input_json(
                     # Pop out input attribute stage object
                     _ = input_obj.pop("stage")
                 else:
-                    # Get / set basename
-                    if input_obj.get("basename", None) is None:
-                        input_obj["basename"] = Path(urlparse(input_obj.get("location")).path).name
-
                     # We stage the presigned url using a uuid for the path
                     mount_path = str(
                         Path("staged") /
                         Path(str(uuid.uuid4())) /
                         Path(urlparse(input_obj.get("location")).path).name
                     )
-                    input_obj["location"] = mount_path
                     external_data_list.append(
                         AnalysisInputExternalData(
                             url=input_obj.get("location"),
                             type="http",
-                            mountPath=mount_path
+                            mountPath=mount_path,
+                            basespaceDetails=None,
+                            s3Details=None,
                         )
                     )
+                    input_obj["location"] = mount_path
 
             # Get secondary Files
             if not len(input_obj.get("secondaryFiles", [])) == 0:
@@ -1084,6 +1114,8 @@ def convert_uris_to_data_ids_from_cwl_input_json(
                 mount_list.extend(mount_list_new)
                 external_data_list.extend(external_data_list_new)
             return input_obj_dict, mount_list, external_data_list
+
+    raise ValueError(f"Could not parse input object, input object is of type {type(input_obj)}")
 
 
 def convert_uris_to_data_ids_from_str(
@@ -1170,8 +1202,9 @@ def convert_uris_to_data_ids_from_str(
                                 type=S3_URI_SCHEME,
                                 mountPath=file_mount_path,
                                 s3Details=AnalysisS3DataDetails(
-                                    storageCredentialsId=storage_credential_id
-                                )
+                                    storageCredentialsId=coerce_to_uuid4_obj(storage_credential_id),
+                                ),
+                                basespaceDetails=None,
                             )
                         )
 
@@ -1187,8 +1220,9 @@ def convert_uris_to_data_ids_from_str(
                         type=S3_URI_SCHEME,
                         mountPath=mount_path,
                         s3Details=AnalysisS3DataDetails(
-                            storageCredentialsId=storage_credential_id
-                        )
+                            storageCredentialsId=coerce_to_uuid4_obj(storage_credential_id)
+                        ),
+                        basespaceDetails=None
                     )
                 )
             is_mounted = True
@@ -1197,7 +1231,7 @@ def convert_uris_to_data_ids_from_str(
         if not is_mounted:
             # Get relative location path
             input_obj_new: ProjectData = convert_uri_to_project_data_obj(cast(str, uri_match))
-            owning_project_id: str = input_obj_new.data.details.owning_project_id
+            owning_project_id: str = str(input_obj_new.data.details.owning_project_id)
             data_id = input_obj_new.data.id
             basename = input_obj_new.data.details.name
 
@@ -1361,13 +1395,13 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                             data_path=Path(cache_uri_obj.data.details.path, 'samplesheet.csv'),
                             data_type=FILE_DATA_TYPE
                         ).data.id,
-                        mountPath=str(Path(cache_uri_obj.project_id, cache_uri_obj.data.id, 'samplesheet.csv'))
+                        mountPath=str(Path(str(cache_uri_obj.project_id), cache_uri_obj.data.id, 'samplesheet.csv'))
                     )
                 )
 
                 # The samplesheet is labelled as 'input' for nf-core pipelines
                 new_input_obj.update({
-                    "input": str(Path(cache_uri_obj.project_id, cache_uri_obj.data.id, 'samplesheet.csv'))
+                    "input": str(Path(str(cache_uri_obj.project_id), cache_uri_obj.data.id, 'samplesheet.csv'))
                 })
 
                 continue
@@ -1420,9 +1454,11 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
 
         return new_input_obj, mount_list, external_data_list
 
+    raise ValueError(f"Could not parse input object, input object is of type {type(input_obj)}")
+
 
 def list_project_pipelines(
-        project_id: str
+        project_id: Union[UUID4, str]
 ) -> List[ProjectPipeline]:
     """
     List pipelines in project
@@ -1430,7 +1466,7 @@ def list_project_pipelines(
     :param project_id: List all pipelines avialable to this project
 
     :return: The list of pipelines
-    :rtype: List[`ProjectPipeline <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectPipeline/>`_]
+    :rtype: List[`ProjectPipeline <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipeline/>`_]
 
     :raises: ValueError, ApiException
 
@@ -1474,8 +1510,8 @@ def list_project_pipelines(
 
 
 def is_pipeline_in_project(
-        project_id: str,
-        pipeline_id: str
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str]
 ) -> bool:
     """
     Check if a pipeline is in a project
@@ -1503,7 +1539,7 @@ def is_pipeline_in_project(
     try:
         _ = next(
             filter(
-                lambda project_pipeline_iter: project_pipeline_iter.pipeline.id == pipeline_id,
+                lambda project_pipeline_iter: str(project_pipeline_iter.pipeline.id) == str(pipeline_id),
                 list_project_pipelines(project_id)
             )
         )
@@ -1513,7 +1549,7 @@ def is_pipeline_in_project(
 
 
 def list_projects_with_pipeline(
-        pipeline_id: str,
+        pipeline_id: Union[UUID4, str],
         include_hidden_projects: bool
 ) -> List[Project]:
     """
@@ -1523,7 +1559,7 @@ def list_projects_with_pipeline(
     :param include_hidden_projects: Include hidden projects in the list
 
     :return: The list of projects
-    :rtype: :rtype: List[`Project <https://umccr-illumina.github.io/libica/openapi/v2/docs/Project/>`_]
+    :rtype: :rtype: List[`Project <https://umccr.github.io/libica/openapi/v3/docs/Project/>`_]
     :raises: ValueError, ApiException
 
     :Examples:
@@ -1597,7 +1633,10 @@ def create_params_xml(inputs: List[WorkflowInputParameterType], output_path: Pat
     return create_blank_params_xml(output_path)
 
 
-def release_project_pipeline(project_id: str, pipeline_id: str):
+def release_project_pipeline(
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str]
+):
     """
     Convert a project pipeline from a draft status to a released status
 
@@ -1643,7 +1682,12 @@ def release_project_pipeline(project_id: str, pipeline_id: str):
         raise ApiException
 
 
-def update_pipeline_file(project_id: str, pipeline_id: str, file_id: str, file_path: Path):
+def update_pipeline_file(
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str],
+        file_id: Union[UUID4, str],
+        file_path: Path,
+):
     """
     Update the pipeline file on icav2
 
@@ -1703,7 +1747,11 @@ def update_pipeline_file(project_id: str, pipeline_id: str, file_id: str, file_p
         raise ApiException("Update pipeline file failed") from e
 
 
-def delete_pipeline_file(project_id: str, pipeline_id: str, file_id: str):
+def delete_pipeline_file(
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str],
+        file_id: Union[UUID4, str]
+):
     """
     Delete the pipeline file on icav2
 
@@ -1761,11 +1809,11 @@ def delete_pipeline_file(project_id: str, pipeline_id: str, file_id: str):
 
 
 def add_pipeline_file(
-        project_id: str,
-        pipeline_id: str,
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str],
         file_path: Path,
         relative_path: Optional[Path] = None
-) -> PipelineFile:
+) -> Optional[PipelineFile]:
     """
     Add a pipeline file to a pipeline on icav2
 
@@ -1775,7 +1823,7 @@ def add_pipeline_file(
     :param relative_path:
 
     :return: The pipeline file object
-    :rtype: `PipelineFile <https://umccr-illumina.github.io/libica/openapi/v2/docs/PipelineFile/>`_
+    :rtype: `PipelineFile <https://umccr.github.io/libica/openapi/v3/docs/PipelineFile/>`_
 
     :raises: ApiException
 
@@ -1800,6 +1848,11 @@ def add_pipeline_file(
     if not cast(PipelineStatusType, project_pipeline_obj.pipeline.status) == "DRAFT":
         logger.error("Pipeline is not in draft status, cannot add a pipeline file if it has been released")
         raise ValueError
+
+    # Check file is not empty
+    if file_path.stat().st_size == 0:
+        logger.warning(f"Cannot add an empty file to a pipeline, skipping {relative_path}")
+        return None
 
     if relative_path is None:
         content = open(f"{file_path}", "rb").read()
@@ -1828,7 +1881,7 @@ def add_pipeline_file(
 
 
 def create_cwl_project_pipeline(
-        project_id: str,
+        project_id: Union[UUID4, str],
         pipeline_code: str,
         workflow_path: Path,
         tool_paths: Optional[List[Path]] = None,
@@ -1928,7 +1981,7 @@ def create_cwl_project_pipeline(
     if resource_type is not None:
         if resource_type == "f1":
             resources = PipelineResources(
-                f1=True
+                f1=True,
             )
         elif resource_type == "f2":
             resources = PipelineResources(
@@ -1975,7 +2028,7 @@ def create_cwl_project_pipeline(
 
 
 def create_cwl_workflow_from_zip(
-        project_id: str,
+        project_id: Union[UUID4, str],
         pipeline_code: str,
         zip_path: Path,
         analysis_storage: Optional[AnalysisStorageType] = None,
@@ -2049,7 +2102,7 @@ def create_cwl_workflow_from_zip(
 
 
 def create_nextflow_pipeline_from_zip(
-        project_id: str,
+        project_id: Union[UUID4, str],
         pipeline_code: str,
         zip_path: Path,
         workflow_description: str,
@@ -2108,7 +2161,7 @@ def create_nextflow_pipeline_from_zip(
 
 
 def create_nextflow_pipeline_from_nf_core_zip(
-        project_id: str,
+        project_id: Union[UUID4, str],
         pipeline_code: str,
         zip_path: Path,
         pipeline_revision: str,
@@ -2129,7 +2182,7 @@ def create_nextflow_pipeline_from_nf_core_zip(
     :param resource_type:
 
     :return: The nextflow pipeline
-    :rtype: `ProjectPipeline <https://umccr-illumina.github.io/libica/openapi/v2/docs/ProjectPipeline/>`_
+    :rtype: `ProjectPipeline <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipeline/>`_
 
     :Examples:
 
@@ -2270,7 +2323,7 @@ def create_nextflow_pipeline_from_nf_core_zip(
 
 
 def create_nextflow_project_pipeline(
-        project_id: str,
+        project_id: Union[UUID4, str],
         pipeline_code: str,
         main_nextflow_file: Path,
         nextflow_config_file: Path,
@@ -2381,7 +2434,7 @@ def create_nextflow_project_pipeline(
             main_nextflow_file=main_nextflow_file_tuple_bytes,
             parameters_xml_file=params_xml_file_tuple_bytes,
             analysis_storage_id=analysis_storage.id,
-            pipeline_language_version_id=get_default_nextflow_pipeline_version_id(),
+            pipeline_language_version_id=coerce_to_uuid4_obj(get_default_nextflow_pipeline_version_id()),
             nextflow_config_file=nextflow_config_file_tuple_bytes,
             other_nextflow_files=other_nextflow_files_tuple_bytes_list,
             html_documentation=workflow_html_documentation_tuple_bytes,

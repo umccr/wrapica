@@ -2,7 +2,7 @@
 
 # Standard imports
 from time import sleep
-from typing import cast
+from typing import cast, Union
 
 # Libica API imports
 from libica.openapi.v3 import ApiClient, ApiException
@@ -10,14 +10,16 @@ from libica.openapi.v3.api.job_api import JobApi
 
 # Libica model imports
 from libica.openapi.v3.models import Job
+from pydantic import UUID4
 
 # Util imports
 from ...literals import JobStatusType
 from ...utils.configuration import get_icav2_configuration
+from ...utils.miscell import coerce_to_uuid4_obj
 
 
 def get_job(
-    job_id: str
+    job_id: Union[UUID4, str]
 ) -> Job:
     """
     Get a job (such as a copy job)
@@ -25,10 +27,10 @@ def get_job(
     :param job_id:
 
     :return: The job object
-    :rtype: `Job <https://umccr-illumina.github.io/libica/openapi/v2/docs/Job/>`_
+    :rtype: `Job <https://umccr.github.io/libica/openapi/v3/docs/Job/>`_
 
     """
-
+    # Get the configuration
     configuration = get_icav2_configuration()
 
     with ApiClient(configuration) as api_client:
@@ -38,7 +40,7 @@ def get_job(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve a job.
-        api_response: Job = api_instance.get_job(job_id)
+        api_response: Job = api_instance.get_job(job_id=coerce_to_uuid4_obj(job_id))
     except ApiException as e:
         raise ApiException("Exception when calling JobApi->get_job: %s\n" % e)
 
@@ -46,7 +48,7 @@ def get_job(
 
 
 def wait_for_job_completion(
-        job_id: str,
+        job_id: Union[UUID4, str],
         raise_on_failure: bool = True
 ) -> JobStatusType:
 

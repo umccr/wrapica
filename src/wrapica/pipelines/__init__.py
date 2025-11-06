@@ -40,5 +40,5 @@ __all__ = [
     'list_pipeline_files',
     'download_pipeline_to_directory',
     'download_pipeline_to_zip',
-    'get_cwl_obj_from_pipeline_id'
+    'get_cwl_obj_from_pipeline_id',
 ]

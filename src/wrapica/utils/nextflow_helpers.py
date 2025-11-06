@@ -3,11 +3,12 @@
 # External imports
 import json
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Union
 from xml.dom.minidom import Document
 import pandas as pd
 from libica.openapi.v3 import ApiClient
 from ruamel.yaml import CommentedMap, CommentedSeq
+from pydantic import UUID4
 
 
 # Libica imports
@@ -592,7 +593,7 @@ def generate_input_yaml_from_schema_json(
 
 
 def download_nextflow_schema_file_from_pipeline_id(
-        pipeline_id: str,
+        pipeline_id: Union[UUID4, str],
         schema_json_path: Path
 ):
     """
@@ -621,7 +622,7 @@ def download_nextflow_schema_file_from_pipeline_id(
 
 
 def download_nextflow_schema_input_json_from_pipeline_id(
-        pipeline_id: str,
+        pipeline_id: Union[UUID4, str],
         schema_input_json_path: Path
 ):
     """
@@ -686,4 +687,4 @@ def get_default_nextflow_pipeline_version_id() -> str:
     Get the default nextflow pipeline version name from the ICAv2 API
     :return:
     """
-    return get_default_nextflow_pipeline_version().id
+    return str(get_default_nextflow_pipeline_version().id)

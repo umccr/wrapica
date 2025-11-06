@@ -7,6 +7,7 @@ Both CWL Analysis and NextFlow analysis will use this object
 as their parent class
 
 """
+
 # Standard imports
 import json
 from pathlib import Path
@@ -14,6 +15,7 @@ from typing import List, Optional, Union, Dict, Any, cast
 from urllib.parse import urlparse
 from datetime import datetime, timezone
 from uuid import uuid4
+from pydantic import UUID4
 
 # Libica imports
 from libica.openapi.v3.models import (
@@ -32,7 +34,8 @@ from libica.openapi.v3 import (
     CreateNextflowWithCustomInputAnalysis,
     CreateCwlWithJsonInputAnalysis,
     CwlAnalysisWithJsonInput,
-    NextflowAnalysisWithCustomInput
+    NextflowAnalysisWithCustomInput,
+    CreateAnalysisLogs
 )
 
 # Local imports
@@ -188,24 +191,26 @@ class ICAv2EngineParameters:
 
     def __init__(
             self,
-            project_id: Optional[str] = None,
-            pipeline_id: Optional[str] = None,
+            project_id: Optional[Union[UUID4, str]] = None,
+            pipeline_id: Optional[Union[UUID4, str]] = None,
             analysis_input: Optional[Union[CwlAnalysisWithJsonInput, NextflowAnalysisWithCustomInput]] = None,
             analysis_output: Optional[List[AnalysisOutputMapping]] = None,
+            logs_output: Optional[CreateAnalysisLogs] = None,
             tags: Optional[ICAv2PipelineAnalysisTags] = None,
-            analysis_storage_id: Optional[str] = None,
+            analysis_storage_id: Optional[Union[UUID4, str]] = None,
             analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
     ):
         # Initialise parameters
 
         # Launch parameters
-        self.project_id: Optional[str] = project_id
-        self.pipeline_id: Optional[str] = pipeline_id
-        self.analysis_storage_id: Optional[str] = analysis_storage_id
+        self.project_id: Optional[Union[UUID4, str]] = project_id
+        self.pipeline_id: Optional[Union[UUID4, str]] = pipeline_id
+        self.analysis_storage_id: Optional[Union[UUID4, str]] = analysis_storage_id
         self.analysis_storage_size: Optional[AnalysisStorageSizeType] = analysis_storage_size
 
         # Output parameters
         self.analysis_output: Optional[List[AnalysisOutputMapping]] = analysis_output
+        self.logs_output: Optional[CreateAnalysisLogs] = logs_output
         self.analysis_input: Optional[Union[CwlAnalysisWithJsonInput, NextflowAnalysisWithCustomInput]] = analysis_input
 
         # Meta parameters
@@ -240,9 +245,9 @@ class ICAv2EngineParameters:
 
     def set_launch_parameters(
         self,
-        project_id: Optional[str] = None,
-        pipeline_id: Optional[str] = None,
-        analysis_storage_id: Optional[str] = None,
+        project_id: Optional[Union[UUID4, str]] = None,
+        pipeline_id: Optional[Union[UUID4, str]] = None,
+        analysis_storage_id: Optional[Union[UUID4, str]] = None,
         analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         analysis_input: Optional[Union[CwlAnalysisJsonInput, CwlAnalysisStructuredInput]] = None
     ):
@@ -304,15 +309,21 @@ class ICAv2EngineParameters:
 
     def set_output_parameters(
         self,
-        analysis_output: Optional[List[AnalysisOutputMapping]] = None
+        analysis_output: Optional[List[AnalysisOutputMapping]] = None,
+        logs_output: Optional[CreateAnalysisLogs] = None
     ):
         """
         Set analysis output
         :param analysis_output:
+        :param logs_output:
         :return:
         """
         if analysis_output is not None:
             self.analysis_output = analysis_output
+
+        if logs_output is not None:
+            self.logs_output = logs_output
+
 
     def check_output_parameters(self):
         """
@@ -377,10 +388,10 @@ class ICAv2PipelineAnalysis:
         self,
         # Launch parameters
         user_reference: str,
-        project_id: str,
-        pipeline_id: str,
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str],
         analysis_input: Union[CwlAnalysisWithJsonInput, NextflowAnalysisWithCustomInput],
-        analysis_storage_id: Optional[str] = None,
+        analysis_storage_id: Optional[Union[UUID4, str]] = None,
         analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         analysis_output_uri: Optional[str] = None,
         ica_logs_uri: Optional[str] = None,
@@ -421,13 +432,13 @@ class ICAv2PipelineAnalysis:
         else:
             self.analysis_output = None
 
-        # Deprecated until https://github.com/umccr-illumina/ica_v2/issues/184 is resolved
-        # if self.ica_logs_uri is not None:
-        #     if self.analysis_output is not None:
-        #         self.analysis_output.append(self.get_ica_logs_mapping_from_uri())
-        #     else:
-        #         self.analysis_output = self.get_ica_logs_mapping_from_uri()
+        # Place ICA logs output mapping if set
+        if self.ica_logs_uri is not None:
+            self.logs = cast(CreateAnalysisLogs, self.get_ica_logs_mapping_from_uri())
+        else:
+            self.logs = None
 
+        # Set the engine parameters
         self.set_engine_parameters()
 
         # Set the analysis
@@ -464,11 +475,12 @@ class ICAv2PipelineAnalysis:
         return AnalysisOutputMapping(
             sourcePath="out/",  # Hardcoded, all workflow outputs should be placed in the out folder,
             type=FOLDER_DATA_TYPE,  # Hardcoded, out directory is a folder
-            targetProjectId=analysis_output_obj.project_id,
-            targetPath=analysis_output_obj.data.details.path
+            targetProjectId=str(analysis_output_obj.project_id),
+            targetPath=analysis_output_obj.data.details.path,
+            actionOnExist="OVERWRITE"  # Hardcoded, always overwrite existing data
         )
 
-    def get_ica_logs_mapping_from_uri(self) -> AnalysisOutputMapping:
+    def get_ica_logs_mapping_from_uri(self) -> CreateAnalysisLogs:
         from ...project_data import convert_icav2_uri_to_project_data_obj
         # Ensure that the path attribute of analysis_output_uri ends with /
         if not urlparse(self.ica_logs_uri).path.endswith("/"):
@@ -479,11 +491,9 @@ class ICAv2PipelineAnalysis:
             create_data_if_not_found=True
         )
 
-        return AnalysisOutputMapping(
-            sourcePath="ica_logs/",  # Hardcoded, all logs should be placed in the ica_logs folder,
-            type=FOLDER_DATA_TYPE,  # Hardcoded, out directory is a folder
-            targetProjectId=ica_logs_project_data_obj.project_id,
-            targetPath=ica_logs_project_data_obj.data.details.path
+        return CreateAnalysisLogs(
+            logsFolderId=ica_logs_project_data_obj.data.id,
+            logsFolderPath=None
         )
 
     def set_engine_parameters(self):

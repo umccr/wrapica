@@ -3,14 +3,16 @@
 """
 Nextflow analysis
 """
+# Standard imports
 import json
-# Imports
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
+from pydantic import UUID4
 
+# Libica imports
 from libica.openapi.v3 import (
     AnalysisInputDataMount, AnalysisInputExternalData, NextflowAnalysisWithCustomInput,
     AnalysisOutputMapping, CreateNextflowWithCustomInputAnalysis,
-    AnalysisV4 as Analysis
+    AnalysisV4 as Analysis, CreateAnalysisLogs
 )
 
 # Local parent imports
@@ -20,7 +22,6 @@ from .analysis import (
     ICAv2EngineParameters,
     ICAv2AnalysisInput
 )
-
 
 # Local imports
 from ...literals import (
@@ -118,12 +119,13 @@ class ICAv2NextflowEngineParameters(ICAv2EngineParameters):
 
     def __init__(
         self,
-        project_id: Optional[str] = None,
-        pipeline_id: Optional[str] = None,
+        project_id: Optional[Union[UUID4, str]] = None,
+        pipeline_id: Optional[Union[UUID4, str]] = None,
         analysis_output: Optional[List[AnalysisOutputMapping]] = None,
+        logs_output: Optional[CreateAnalysisLogs] = None,
         analysis_input: Optional[NextflowAnalysisWithCustomInput] = None,
         tags: Optional[ICAv2PipelineAnalysisTags] = None,
-        analysis_storage_id: Optional[str] = None,
+        analysis_storage_id: Optional[Union[UUID4, str]] = None,
         analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
     ):
         # Initialise parameters
@@ -131,6 +133,7 @@ class ICAv2NextflowEngineParameters(ICAv2EngineParameters):
             project_id=project_id,
             pipeline_id=pipeline_id,
             analysis_output=analysis_output,
+            logs_output=logs_output,
             analysis_input=analysis_input,
             tags=tags,
             analysis_storage_id=analysis_storage_id,
@@ -159,10 +162,10 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
         self,
         # Launch parameters
         user_reference: str,
-        project_id: str,
-        pipeline_id: str,
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str],
         analysis_input: NextflowAnalysisWithCustomInput,
-        analysis_storage_id: Optional[str] = None,
+        analysis_storage_id: Optional[Union[UUID4, str]] = None,
         analysis_storage_size: Optional[AnalysisStorageSizeType] = None,
         # Output parameters
         analysis_output_uri: Optional[str] = None,
@@ -203,6 +206,7 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             project_id=self.project_id,
             pipeline_id=self.pipeline_id,
             analysis_output=self.analysis_output,
+            logs_output=self.logs,
             analysis_input=self.analysis_input,
             tags=self.tags,
             analysis_storage_id=self.analysis_storage_id,
@@ -216,7 +220,9 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             tags=self.engine_parameters.tags(),
             analysisInput=self.analysis_input,
             analysisStorageId=self.engine_parameters.analysis_storage_id,
-            analysisOutput=self.engine_parameters.analysis_output
+            analysisOutput=self.engine_parameters.analysis_output,
+            logs=self.engine_parameters.logs_output,
+            outputParentFolderId=None,
         )
 
     def launch_analysis(self, idempotency_key: Optional[str] = None) -> Analysis:

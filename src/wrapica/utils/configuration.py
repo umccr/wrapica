@@ -7,9 +7,10 @@ Intialise the configuration for the application
 from datetime import datetime
 from pathlib import Path
 from os import environ
-from typing import Optional, OrderedDict
+from typing import Optional, OrderedDict, Union
 from urllib.parse import urlparse
 from jwt import decode, InvalidTokenError
+from pydantic import UUID4
 
 # Libica imports
 from libica.openapi.v3 import Configuration
@@ -175,7 +176,7 @@ def get_access_token_from_session_file(refresh: bool = True) -> str:
 def get_project_id_from_session_file() -> str:
     session_data: OrderedDict = read_session_file()
 
-    project_id: Optional[str] = session_data.get(ICAV2_SESSION_FILE_PROJECT_ID_KEY, None)
+    project_id: Optional[Union[UUID4, str]] = session_data.get(ICAV2_SESSION_FILE_PROJECT_ID_KEY, None)
 
     if project_id is None:
         logger.error("Could not get project id from session file")

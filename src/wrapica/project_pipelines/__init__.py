@@ -3,6 +3,7 @@
 # Standard imports
 from typing import Union
 
+from libica.openapi.v3 import ProjectPipelineV4
 # Libica models
 from libica.openapi.v3.models import (
     ActivationCodeDetail,
@@ -87,15 +88,15 @@ from .classes.nextflow_analysis import (
     ICAv2NextflowPipelineAnalysis
 )
 
-Analysis = Union[AnalysisV3, AnalysisV4]
+AnalysisType = Union[AnalysisV3, AnalysisV4]
 AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
+ProjectPipelineType = Union[ProjectPipeline, ProjectPipelineV4]
 
 __all__ = [
     # Libica models
     'ActivationCodeDetail',
     'AnalysisInputDataMount',
     'AnalysisInputExternalData',
-    'Analysis',
     'AnalysisStorageType',
     'CreateCwlAnalysis',
     'CreateNextflowAnalysis',
@@ -112,6 +113,10 @@ __all__ = [
     'ProjectPipeline',
     'SearchMatchingActivationCodesForCwlAnalysis',
     'SearchMatchingActivationCodesForNextflowAnalysis',
+    # Type Unions
+    'AnalysisType',
+    'AnalysisStorageType',
+    'ProjectPipelineType',
     # Functions
     'get_project_pipeline_obj',
     'get_project_pipeline_obj_from_pipeline_code',
@@ -154,5 +159,5 @@ __all__ = [
     'ICAv2CWLPipelineAnalysis',
     'ICAv2NextflowAnalysisInput',
     'ICAv2NextflowEngineParameters',
-    'ICAv2NextflowPipelineAnalysis'
+    'ICAv2NextflowPipelineAnalysis',
 ]

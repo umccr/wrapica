@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+
+# Standard library imports
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Optional, List, Union
 from zipfile import ZipFile
 from cwl_utils.parser import load_document_by_uri
+from pydantic import UUID4
 
 # Libica API imports
 from libica.openapi.v3 import ApiClient, ApiException
@@ -21,16 +24,17 @@ from libica.openapi.v3.models import (
 from ...utils.configuration import get_icav2_configuration
 from ...utils.cwl_typing_helpers import WorkflowType
 from ...utils.logger import get_logger
-from ...utils.miscell import is_uuid_format
-
-PipelineType = Union[PipelineV3, PipelineV4]
+from ...utils.miscell import is_uuid_format, coerce_to_uuid4_obj
 
 # Logger
 logger = get_logger()
 
+# Custom types
+PipelineType = Union[PipelineV3, PipelineV4]
+
 
 def get_pipeline_obj_from_pipeline_id(
-    pipeline_id: str
+    pipeline_id: Union[UUID4, str]
 ) -> PipelineType:
     """
     Get the pipeline object from the pipeline id
@@ -38,7 +42,7 @@ def get_pipeline_obj_from_pipeline_id(
     :param pipeline_id:
 
     :return: The pipeline object
-    :rtype: `Pipeline <https://umccr-illumina.github.io/libica/openapi/v2/docs/Pipeline/>`_
+    :rtype: `Pipeline <https://umccr.github.io/libica/openapi/v3/docs/Pipeline/>`_
 
     :raises ApiException: If the pipeline is not found
 
@@ -69,7 +73,7 @@ def get_pipeline_obj_from_pipeline_id(
     # example, this endpoint has no required or optional parameters
     try:
         # Retrieve a list of pipelines.
-        api_response: PipelineV4 = api_instance.get_pipeline(pipeline_id)
+        api_response: PipelineV4 = api_instance.get_pipeline(str(pipeline_id))
     except ApiException as e:
         logger.error("Exception when calling PipelineApi->get_pipelines: %s\n" % e)
         raise ApiException
@@ -86,7 +90,7 @@ def get_pipeline_obj_from_pipeline_code(
     :param pipeline_code:
 
     :return: The pipeline object
-    :rtype: `Pipeline <https://umccr-illumina.github.io/libica/openapi/v2/docs/Pipeline/>`_
+    :rtype: `Pipeline <https://umccr.github.io/libica/openapi/v3/docs/Pipeline/>`_
 
     :raises ApiException: If the pipeline is not found
 
@@ -131,7 +135,7 @@ def coerce_pipeline_id_or_code_to_pipeline_obj(pipeline_id_or_code: str) -> Pipe
 
     :param pipeline_id_or_code:
     :return: The pipeline object
-    :rtype: `Pipeline <https://umccr-illumina.github.io/libica/openapi/v2/docs/Pipeline/>`_
+    :rtype: `Pipeline <https://umccr.github.io/libica/openapi/v3/docs/Pipeline/>`_
 
     :raises ValueError: If the pipeline cannot be found
 
@@ -155,7 +159,7 @@ def coerce_pipeline_id_or_code_to_pipeline_obj(pipeline_id_or_code: str) -> Pipe
         return get_pipeline_obj_from_pipeline_code(pipeline_id_or_code)
 
 
-def coerce_pipeline_id_or_code_to_pipeline_id(pipeline_id_or_code: str) -> str:
+def coerce_pipeline_id_or_code_to_pipeline_id(pipeline_id_or_code: str) -> Union[UUID4, str]:
     """
     Given either a pipeline id or code, check if the input value is uuid4 format,
     If so, assume it is a pipeline id. Otherwise, assume it is a pipeline code and
@@ -193,7 +197,7 @@ def list_all_pipelines() -> List[PipelineType]:
     List all pipelines available to a user through the pipelines/ endpoint
 
     :return: List of pipelines
-    :rtype: List[`Pipeline <https://umccr-illumina.github.io/libica/openapi/v2/docs/Pipeline/>`_]
+    :rtype: List[`Pipeline <https://umccr.github.io/libica/openapi/v3/docs/Pipeline/>`_]
 
     :raises ApiException: If the pipeline list cannot be retrieved
 
@@ -230,8 +234,8 @@ def list_all_pipelines() -> List[PipelineType]:
 
 
 def download_pipeline_file(
-    pipeline_id: str,
-    file_id: str,
+    pipeline_id: Union[UUID4, str],
+    file_id: Union[UUID4, str],
     file_path: Optional[Path] = None
 ) -> Optional[BytesIO]:
     """
@@ -275,8 +279,8 @@ def download_pipeline_file(
     try:
         # Download the contents of a pipeline file.
         api_response = api_instance.download_pipeline_file_content(
-            pipeline_id=pipeline_id,
-            file_id=file_id
+            pipeline_id=str(pipeline_id),
+            file_id=coerce_to_uuid4_obj(file_id),
         )
     except ApiException as e:
         logger.error("Exception when calling PipelineApi->download_pipeline_file_content: %s\n" % e)
@@ -297,7 +301,7 @@ def download_pipeline_file(
 
 
 def list_pipeline_files(
-    pipeline_id: str
+    pipeline_id: Union[UUID4, str]
 ) -> List[PipelineFile]:
     """
     List pipeline files
@@ -305,7 +309,7 @@ def list_pipeline_files(
     :param pipeline_id:
 
     :return: List of pipeline files
-    :rtype: List[`PipelineFile <https://umccr-illumina.github.io/libica/openapi/v2/docs/PipelineFile/>`_]
+    :rtype: List[`PipelineFile <https://umccr.github.io/libica/openapi/v3/docs/PipelineFile/>`_]
 
     :raises ApiException: If the pipeline files cannot be retrieved
 
@@ -330,7 +334,7 @@ def list_pipeline_files(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve files for a project pipeline.
-        api_response = api_instance.get_pipeline_files(pipeline_id)
+        api_response = api_instance.get_pipeline_files(str(pipeline_id))
     except ApiException as e:
         logger.error("Exception when calling ProjectPipelineApi->get_pipeline_files1: %s\n" % e)
         raise ApiException
@@ -338,7 +342,10 @@ def list_pipeline_files(
     return api_response.items
 
 
-def download_pipeline_to_directory(pipeline_id: str, output_directory: Path):
+def download_pipeline_to_directory(
+        pipeline_id: Union[UUID4, str],
+        output_directory: Path
+):
     """
     Download a pipeline to a directory
 
@@ -380,7 +387,7 @@ def download_pipeline_to_directory(pipeline_id: str, output_directory: Path):
 
 
 def download_pipeline_to_zip(
-        pipeline_id: str,
+        pipeline_id: Union[UUID4, str],
         zip_path: Path
 ):
     """
@@ -416,11 +423,11 @@ def download_pipeline_to_zip(
 
 
 def get_cwl_obj_from_pipeline_id(
-        pipeline_id: str
+        pipeline_id: Union[UUID4, str]
 ) -> WorkflowType:
     """
     Get the pipeline files from a project pipeline
-    The arrange the files as they're named to generate the workflow object
+    Arrange the files as they're named to generate the workflow object
 
     :param pipeline_id:
     :return:

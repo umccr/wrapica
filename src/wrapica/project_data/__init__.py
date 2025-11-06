@@ -133,6 +133,6 @@ __all__ = [
     'project_data_copy_batch_handler',
     'delete_project_data',
     'move_project_data',
-    'add_tag_to_data_object'
+    'add_tag_to_data_object',
 ]
 

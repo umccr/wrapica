@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-from pathlib import Path
+
 # Standard imports
-from typing import List, Optional
+from pathlib import Path
+from typing import List, Optional, Union
 import re
 
 # Libica api imports
@@ -22,6 +23,7 @@ from libica.openapi.v3.models import (
     Bundle,
     Links
 )
+from pydantic import UUID4
 
 # Local imports
 from ...literals import BundleStatusType
@@ -35,7 +37,7 @@ from ...utils.globals import (
 
 # Set logger
 from ...utils.logger import get_logger
-from ...utils.miscell import is_uuid_format
+from ...utils.miscell import is_uuid_format, coerce_to_uuid4_obj
 
 logger = get_logger()
 
@@ -45,7 +47,7 @@ def generate_empty_bundle(
         bundle_version: str,
         short_description: str,
         version_comment: str,
-        region_id: Optional[str] = None,
+        region_id: Optional[Union[UUID4, str]] = None,
         categories: Optional[List[str]] = None,
         pipeline_release_url: Optional[str] = None
 ) -> Bundle:
@@ -61,7 +63,7 @@ def generate_empty_bundle(
     :param pipeline_release_url:
 
     :return: The newly created bundle object
-    :rtype: `Bundle <https://umccr-illumina.github.io/libica/openapi/v2/docs/Bundle/>`_
+    :rtype: `Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_
 
     :raises: ApiException
 
@@ -107,7 +109,7 @@ def generate_empty_bundle(
         shortDescription=short_description,
         bundleReleaseVersion=bundle_version,
         bundleVersionComment=version_comment,
-        regionId=region_id,
+        regionId=coerce_to_uuid4_obj(region_id),
         bundleStatus="DRAFT",
         categories=categories,
         links=Links(
@@ -121,7 +123,8 @@ def generate_empty_bundle(
             licenses=[],
             homepages=[],
             publications=[]
-        )
+        ),
+        metadataModelId=None
     )
 
     # example passing only required values which don't have defaults set
@@ -137,7 +140,7 @@ def generate_empty_bundle(
 
 
 def get_bundle_obj_from_bundle_id(
-        bundle_id: str
+        bundle_id: Union[UUID4, str]
 ) -> Bundle:
     """
     Given a bundle_id, return the bundle object
@@ -145,7 +148,7 @@ def get_bundle_obj_from_bundle_id(
     :param bundle_id:
 
     :return: The bundle as an object
-    :rtype: `Bundle <https://umccr-illumina.github.io/libica/openapi/v2/docs/Bundle/>`_
+    :rtype: `Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_
 
     :raises: ApiException
 
@@ -171,7 +174,9 @@ def get_bundle_obj_from_bundle_id(
 
     try:
         # Get a bundle by ID.
-        api_response: Bundle = api_instance.get_bundle(bundle_id)
+        api_response: Bundle = api_instance.get_bundle(
+            str(bundle_id)
+        )
     except ApiException as e:
         logger.error("Exception when calling BundleApi->get_bundle_by_id: %s\n" % e)
         raise ApiException
@@ -181,7 +186,7 @@ def get_bundle_obj_from_bundle_id(
 
 def get_bundle_obj_from_bundle_name(
         bundle_name: str,
-        region_id: Optional[str] = None
+        region_id: Optional[Union[UUID4, str]] = None
 ) -> Bundle:
     """
     Given a bundle name, return the bundle object
@@ -191,7 +196,7 @@ def get_bundle_obj_from_bundle_name(
 
     :return: The bundle as an object
 
-    :rtype: `Bundle <https://umccr-illumina.github.io/libica/openapi/v2/docs/Bundle/>`_
+    :rtype: `Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_
 
     :raises: ApiException
 
@@ -225,8 +230,8 @@ def get_bundle_obj_from_bundle_name(
 
 
 def add_pipeline_to_bundle(
-        bundle_id: str,
-        pipeline_id: str
+        bundle_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str]
 ) -> bool:
     """
     Add a pipeline to a bundle.
@@ -288,7 +293,10 @@ def add_pipeline_to_bundle(
 
     try:
         # Link a pipeline to a bundle.
-        api_instance.link_pipeline_to_bundle(bundle_id, pipeline_id)
+        api_instance.link_pipeline_to_bundle(
+            str(bundle_id),
+            str(pipeline_id),
+        )
         return True
     except ApiException as e:
         logger.error("Exception when calling BundlePipelineApi->link_pipeline_to_bundle: %s\n" % e)
@@ -296,9 +304,9 @@ def add_pipeline_to_bundle(
 
 
 def add_project_data_to_bundle(
-    bundle_id: str,
-    project_id: str,
-    data_id: str
+    bundle_id: Union[UUID4, str],
+    project_id: Union[UUID4, str],
+    data_id: Union[UUID4, str]
 ) -> bool:
     """
     Add project data to a bundle
@@ -341,7 +349,7 @@ def add_project_data_to_bundle(
     project_data_obj = get_project_data_obj_by_id(project_id, data_id)
 
     # Confirm data region and bundle region are the same
-    if not project_data_obj.data.details.region.id == bundle_obj.region.id:
+    if not str(project_data_obj.data.details.region.id) == str(bundle_obj.region.id):
         logger.error(f"Data region '{project_data_obj.data.details.region.code}' and Bundle region '{bundle_obj.region.code}' are not the same")
         return False
 
@@ -352,7 +360,10 @@ def add_project_data_to_bundle(
 
     try:
         # Link a data to a bundle.
-        api_instance.link_data_to_bundle(bundle_id, project_data_obj.data.id)
+        api_instance.link_data_to_bundle(
+            str(bundle_id),
+            str(project_data_obj.data.id)
+        )
         return True
     except ApiException as e:
         logger.error("Exception when calling BundleDataApi->link_data_to_bundle: %s\n" % e)
@@ -360,8 +371,8 @@ def add_project_data_to_bundle(
 
 
 def add_data_to_bundle(
-        bundle_id: str,
-        data_id: str
+        bundle_id: Union[UUID4, str],
+        data_id: Union[UUID4, str]
 ) -> bool:
     """
     Add data to a bundle
@@ -401,7 +412,7 @@ def add_data_to_bundle(
     data_obj: Data = get_data_obj_from_data_id(data_id)
 
     # Confirm data region and bundle region are the same
-    if not data_obj.details.region.id == bundle_obj.region.id:
+    if not str(data_obj.details.region.id) == str(bundle_obj.region.id):
         logger.error(f"Data region '{data_obj.details.region.id}' and Bundle region '{bundle_obj.region.id}' are not the same")
         return False
 
@@ -416,7 +427,10 @@ def add_data_to_bundle(
 
     try:
         # Link a data to a bundle.
-        api_instance.link_data_to_bundle(bundle_id, data_id)
+        api_instance.link_data_to_bundle(
+            str(bundle_id),
+            str(data_id)
+        )
         return True
     except ApiException as e:
         logger.error("Exception when calling BundleDataApi->link_data_to_bundle: %s\n" % e)
@@ -424,7 +438,7 @@ def add_data_to_bundle(
 
 
 def release_bundle(
-    bundle_id: str
+    bundle_id: Union[UUID4, str]
 ):
     """
     Release a bundle, converts a bundle status from DRAFT to RELEASED.
@@ -457,7 +471,7 @@ def release_bundle(
 
     try:
         # release a bundle
-        api_instance.release_bundle(bundle_id)
+        api_instance.release_bundle(str(bundle_id))
     except ApiException as e:
         logger.error("Exception when calling BundleApi->release_bundle: %s\n" % e)
         raise ApiException
@@ -467,10 +481,10 @@ def release_bundle(
 
 def filter_bundles(
     bundle_name: Optional[str] = None,
-    project_id: Optional[str] = None,
-    region_id: Optional[str] = None,
+    project_id: Optional[Union[UUID4, str]] = None,
+    region_id: Optional[Union[UUID4, str]] = None,
     status: Optional[BundleStatusType] = None,
-    creator_id: Optional[str] = None
+    creator_id: Optional[Union[UUID4, str]] = None
 ) -> Optional[List[Bundle]]:
     """
     Get a list of bundles but filter by name, region id, status, and creator id
@@ -483,7 +497,7 @@ def filter_bundles(
 
     :return: List of bundles
 
-    :rtype: List[`Bundle <https://umccr-illumina.github.io/libica/openapi/v2/docs/Bundle/>`_]
+    :rtype: List[`Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_]
 
     :raises: ApiException
 
@@ -563,13 +577,13 @@ def filter_bundles(
         if bundle_name_regex is not None and not bundle_name_regex.fullmatch(bundle.name):
             continue
         # Check region ids match
-        if region_id is not None and not bundle.region.id == region_id:
+        if region_id is not None and not str(bundle.region.id) == str(region_id):
             continue
         # Check bundle status match
         if status is not None and not bundle.status == status:
             continue
         # Check creator id
-        if creator_id is not None and not bundle.owner_id == creator_id:
+        if creator_id is not None and not str(bundle.owner_id) == str(creator_id):
             continue
 
         returned_bundle_list.append(bundle)
@@ -578,7 +592,7 @@ def filter_bundles(
 
 
 def list_data_in_bundle(
-    bundle_id: str
+    bundle_id: Union[UUID4, str]
 ) -> List[BundleData]:
     """
     Given a bundle id, list data in a bundle
@@ -586,7 +600,7 @@ def list_data_in_bundle(
     :param bundle_id:
 
     :return: List of data items
-    :rtype: List[`BundleData <https://umccr-illumina.github.io/libica/openapi/v2/docs/BundleData/>`_]
+    :rtype: List[`BundleData <https://umccr.github.io/libica/openapi/v3/docs/BundleData/>`_]
 
     :raises: ApiException
 
@@ -616,7 +630,7 @@ def list_data_in_bundle(
         try:
             # Retrieve the list of bundle data.
             api_response = api_instance.get_bundle_data(
-                bundle_id=bundle_id,
+                bundle_id=str(bundle_id),
                 page_size=str(page_size),
                 page_offset=str(page_offset)
             )
@@ -634,14 +648,16 @@ def list_data_in_bundle(
     return data_items
 
 
-def filter_bundle_data_to_top_level_only(bundle_data: List[BundleData]) -> List[BundleData]:
+def filter_bundle_data_to_top_level_only(
+        bundle_data: List[BundleData]
+) -> List[BundleData]:
     """
     Filter bundle data to top level only (no subdirectories or files underneath folders)
 
     :param bundle_data: List of linked bundle data items
 
     :return: List of top level bundle data items
-    :rtype: List[`BundleData <https://umccr-illumina.github.io/libica/openapi/v2/docs/BundleData/>`_]
+    :rtype: List[`BundleData <https://umccr.github.io/libica/openapi/v3/docs/BundleData/>`_]
 
     :Examples:
 
@@ -661,13 +677,16 @@ def filter_bundle_data_to_top_level_only(bundle_data: List[BundleData]) -> List[
         top_level_bundle_data = filter_bundle_data_to_top_level_only(bundle_data)
     """
     # Find set of project ids
-    project_ids = set(map(lambda bundle_data_iter: bundle_data_iter.data.details.owning_project_id, bundle_data))
+    project_ids: List[UUID4] = list(set(list(map(
+        lambda bundle_data_iter: bundle_data_iter.data.details.owning_project_id,
+        bundle_data
+    ))))
 
     # Collect bundle data by owning project id
     bundle_data_by_owning_project_id = {
         project_id: list(
             filter(
-                lambda bundle_data_iter: bundle_data_iter.data.details.owning_project_id == project_id,
+                lambda bundle_data_iter: str(bundle_data_iter.data.details.owning_project_id) == str(project_id),
                 bundle_data
             )
         )
@@ -730,7 +749,7 @@ def filter_bundle_data_to_top_level_only(bundle_data: List[BundleData]) -> List[
 
 
 def list_pipelines_in_bundle(
-    bundle_id: str
+    bundle_id: Union[UUID4, str]
 ) -> List[BundlePipeline]:
     """
     Given a bundle id, list pipelines in a bundle
@@ -738,7 +757,7 @@ def list_pipelines_in_bundle(
     :param bundle_id:  The bundle id
 
     :return: List of pipeline items
-    :rtype: List[`BundlePipeline <https://umccr-illumina.github.io/libica/openapi/v2/docs/BundlePipeline/>`_]
+    :rtype: List[`BundlePipeline <https://umccr.github.io/libica/openapi/v3/docs/BundlePipeline/>`_]
 
     :raises: ApiException
 
@@ -763,7 +782,7 @@ def list_pipelines_in_bundle(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve a list of bundle pipelines.
-        api_response: BundlePipelineList = api_instance.get_bundle_pipelines(bundle_id)
+        api_response: BundlePipelineList = api_instance.get_bundle_pipelines(str(bundle_id))
     except ApiException as e:
         logger.error("Exception when calling BundlePipelineApi->get_bundle_pipelines: %s\n" % e)
         raise ApiException
@@ -772,7 +791,7 @@ def list_pipelines_in_bundle(
 
 
 def list_bundles_in_project(
-    project_id: str = None
+    project_id: Union[UUID4, str]
 ) -> List[Bundle]:
     """
     List bundles in a project
@@ -780,7 +799,7 @@ def list_bundles_in_project(
     :param project_id: The project id
 
     :return: List of bundles linked to this project
-    :rtype: List[`Bundle <https://umccr-illumina.github.io/libica/openapi/v2/docs/Bundle/>`_]
+    :rtype: List[`Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_]
 
     :raises: ApiException
 
@@ -802,7 +821,7 @@ def list_bundles_in_project(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve project bundles.
-        api_response = api_instance.get_project_bundles(project_id)
+        api_response = api_instance.get_project_bundles(str(project_id))
     except ApiException as e:
         logger.warning("Exception when calling ProjectApi->get_project_bundles: %s\n" % e)
         raise ApiException
@@ -811,8 +830,8 @@ def list_bundles_in_project(
 
 
 def link_bundle_to_project(
-    project_id: str,
-    bundle_id: str
+    project_id: Union[UUID4, str],
+    bundle_id: Union[UUID4, str]
 ):
     """
     Link bundle to project
@@ -840,7 +859,10 @@ def link_bundle_to_project(
     # Check bundle list
     existing_bundles: List[Bundle] = list_bundles_in_project(project_id)
 
-    if any(map(lambda x: x.id == bundle_id, existing_bundles)):
+    if any(map(
+            lambda bundle_obj: str(bundle_obj.id) == str(bundle_id),
+            existing_bundles
+    )):
         logger.info(f"Bundle {bundle_id} already in project {project_id}")
         return
 
@@ -852,7 +874,10 @@ def link_bundle_to_project(
     # example passing only required values which don't have defaults set
     try:
         # Link bundle to project
-        api_instance.link_project_bundle(project_id, bundle_id)
+        api_instance.link_project_bundle(
+            project_id=str(project_id),
+            bundle_id=coerce_to_uuid4_obj(bundle_id)
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectApi->link_project_bundle: %s\n" % e)
         raise ApiException
@@ -861,8 +886,8 @@ def link_bundle_to_project(
 
 
 def unlink_bundle_from_project(
-        project_id: Optional[str] = None,
-        bundle_id: Optional[str] = None
+        project_id: Union[UUID4, str],
+        bundle_id: Union[UUID4, str],
 ):
     """
     Remove the bundle from the project
@@ -891,7 +916,10 @@ def unlink_bundle_from_project(
     existing_bundles: List[Bundle] = list_bundles_in_project(project_id)
 
     # Map bundle id to bundle object
-    if not any(map(lambda x: x.id == bundle_id, existing_bundles)):
+    if not any(map(
+            lambda bundle_iter_: str(bundle_iter_.id) == str(bundle_id),
+            existing_bundles
+    )):
         logger.error(f"Bundle '{bundle_id}' is not in this project '{project_id}'")
         raise ValueError
 
@@ -908,7 +936,10 @@ def unlink_bundle_from_project(
     # example passing only required values which don't have defaults set
     try:
         # Link bundle to project
-        api_instance.unlink_project_bundle(project_id, bundle_id)
+        api_instance.unlink_project_bundle(
+            project_id=project_id,
+            bundle_id=coerce_to_uuid4_obj(bundle_id)
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectApi->unlink_project_bundle: %s\n" % e)
         raise ApiException
@@ -917,7 +948,7 @@ def unlink_bundle_from_project(
 
 
 def deprecate_bundle(
-        bundle_id: str
+        bundle_id: Union[UUID4, str]
 ):
     """
     Given a bundle id, deprecate the bundle
@@ -950,7 +981,7 @@ def deprecate_bundle(
 
     try:
         # Deprecate a bundle
-        api_instance.deprecate_bundle(bundle_id)
+        api_instance.deprecate_bundle(str(bundle_id))
     except ApiException as e:
         logger.error("Exception when calling BundleApi->deprecate_bundle: %s\n" % e)
         raise ApiException
@@ -967,7 +998,7 @@ def coerce_bundle_id_or_name_to_bundle_obj(
     :param bundle_id_or_name:
 
     :return: The bundle as an object
-    :rtype: `Bundle <https://umccr-illumina.github.io/libica/openapi/v2/docs/Bundle/>`_
+    :rtype: `Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_
     """
     if is_uuid_format(bundle_id_or_name):
         return get_bundle_obj_from_bundle_id(bundle_id_or_name)
@@ -987,4 +1018,4 @@ def coerce_bundle_id_or_name_to_bundle_id(
     """
     if is_uuid_format(bundle_id_or_name):
         return bundle_id_or_name
-    return get_bundle_obj_from_bundle_name(bundle_id_or_name).id
+    return str(get_bundle_obj_from_bundle_name(bundle_id_or_name).id)

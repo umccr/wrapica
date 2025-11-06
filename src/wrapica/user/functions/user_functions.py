@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# Standard library imports
+from typing import Union
+from pydantic import UUID4
+
 # Libica Api imports
 from libica.openapi.v3.api.user_api import UserApi
 from libica.openapi.v3 import ApiClient, ApiException
@@ -20,13 +24,15 @@ from ...utils.miscell import is_uuid_format
 logger = get_logger()
 
 
-def get_user_obj_from_user_id(user_id: str) -> User:
+def get_user_obj_from_user_id(
+        user_id: Union[UUID4, str]
+) -> User:
     """
     Get the user object from the user id
 
     :param user_id:
 
-    :return: `User <https://umccr-illumina.github.io/libica/openapi/v2/docs/User/>`_
+    :return: `User <https://umccr.github.io/libica/openapi/v3/docs/User/>`_
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
@@ -43,7 +49,9 @@ def get_user_obj_from_user_id(user_id: str) -> User:
     return api_response
 
 
-def get_user_name_from_user_id(user_id: str) -> str:
+def get_user_name_from_user_id(
+        user_id: Union[UUID4, str]
+) -> str:
     """
     Get the user name from the user id
 
@@ -63,7 +71,7 @@ def get_user_obj_from_user_name(user_name: str) -> User:
     :param user_name:
 
     :return: The user object
-    :rtype: `User <https://umccr-illumina.github.io/libica/openapi/v2/docs/User/>`_
+    :rtype: `User <https://umccr.github.io/libica/openapi/v3/docs/User/>`_
 
     :raises ApiException: If an error occurs when collecting the users
     :raises ValueError: If the user name is not found
@@ -98,7 +106,7 @@ def coerce_user_id_or_name_to_user_obj(user_id_or_user_name: str) -> User:
     :param user_id_or_user_name:
 
     :return: The user object
-    :rtype: `User <https://umccr-illumina.github.io/libica/openapi/v2/docs/User/>`_
+    :rtype: `User <https://umccr.github.io/libica/openapi/v3/docs/User/>`_
 
     :raises ValueError: If the user name is not found
     :raises ApiException: If an error occurs when collecting the users
@@ -127,7 +135,7 @@ def coerce_user_id_or_name_to_user_id(user_id_or_user_name: str) -> str:
     if is_uuid_format(user_id_or_user_name):
         return user_id_or_user_name
 
-    return get_user_obj_from_user_name(user_id_or_user_name).id
+    return str(get_user_obj_from_user_name(user_id_or_user_name).id)
 
 
 def get_user_id_from_configuration() -> str:
