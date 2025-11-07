@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wrapica"
-version = "2.40.1.post20251106194014"
+version = "2.40.1.post20251107120738"
 authors = [
     { name = "Alexis Lucattini", email = "alexis.lucattini@umccr.org" },
 ]
@@ -53,5 +53,5 @@ docs = [
     "sphinx-rtd-theme >= 2.0.0, < 3",
     "sphinx_autodoc_typehints",
     "toml-to-requirements",
-    "boto3 >= 1.40.67"
+    "boto3 >= 1.40.67",
 ]
