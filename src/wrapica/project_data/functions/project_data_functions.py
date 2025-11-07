@@ -1166,16 +1166,16 @@ def create_download_url(
         # Create an instance of the API class
         api_instance = ProjectDataApi(api_client)
 
-        # example passing only required values which don't have defaults set
-        try:
-            # Retrieve a download URL for this data.
-            api_response: Download = api_instance.create_download_url_for_data(
-                project_id=str(project_id),
-                file_id=str(file_id)
-            )
-        except ApiException as e:
-            logger.error("Exception when calling ProjectDataApi->create_download_url_for_data: %s\n" % e)
-            raise ApiException
+    # example passing only required values which don't have defaults set
+    try:
+        # Retrieve a download URL for this data.
+        api_response: Download = api_instance.create_download_url_for_data(
+            project_id=str(project_id),
+            data_id=str(file_id)
+        )
+    except ApiException as e:
+        logger.error("Exception when calling ProjectDataApi->create_download_url_for_data: %s\n" % e)
+        raise ApiException
 
     return api_response.url
 
