@@ -15,7 +15,9 @@ from typing import List, Optional, Union, Dict, Any, cast
 from urllib.parse import urlparse
 from datetime import datetime, timezone
 from uuid import uuid4
+from fastapi.encoders import jsonable_encoder
 from pydantic import UUID4
+
 
 # Libica imports
 from libica.openapi.v3.models import (
@@ -536,7 +538,7 @@ class ICAv2PipelineAnalysis:
         with open(json_path, "w") as f:
             f.write(
                 json.dumps(
-                    analysis_dict,
+                    jsonable_encoder(analysis_dict),
                     indent=2
                 )
             )

@@ -20,6 +20,8 @@ classifiers = [
 ]
 dependencies = [
     "libica >= 3.2, < 4",
+    "boto3 >= 1.40.67, < 2",
+    "fastapi >= 0.121.0, < 1",
     "PyJWT >= 2.8.0, < 3",
     "ruamel.base >= 1.0.0, < 2",
     "ruamel.yaml >= 0.18.0, < 0.19",
@@ -51,4 +53,5 @@ docs = [
     "sphinx-rtd-theme >= 2.0.0, < 3",
     "sphinx_autodoc_typehints",
     "toml-to-requirements",
+    "boto3 >= 1.40.67"
 ]
