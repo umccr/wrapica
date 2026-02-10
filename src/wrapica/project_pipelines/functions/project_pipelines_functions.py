@@ -65,12 +65,14 @@ from ...utils.globals import (
     FOLDER_DATA_TYPE,
     ICAV2_URI_SCHEME,
     S3_URI_SCHEME,
-    URI_REGEX_OBJ
+    URI_REGEX_OBJ,
+    ICAV2_CONFIG_NEXTFLOW_PATH
 )
 from ...literals import DataType, PipelineStatusType, AnalysisStorageSizeType, ResourceType
 from ...utils.miscell import is_uuid_format, is_uri_format, coerce_to_uuid4_obj
 from ...utils.nextflow_helpers import (
-    convert_base_config_to_icav2_base_config, get_default_nextflow_pipeline_version_id,
+    get_default_nextflow_pipeline_version_id, include_icav2_config_into_nextflow_config,
+    get_default_icav2_config_content,
 )
 
 if typing.TYPE_CHECKING:

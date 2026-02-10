@@ -168,6 +168,12 @@ ResourceType = Literal[
     "software_only",
 ]
 
+NextflowPipelineVersionType = Literal[
+    "22.04.3",
+    "24.10.2",
+    "25.10.2",
+]
+
 
 ## Typed dicts
 class AnalysisStepDict(TypedDict):

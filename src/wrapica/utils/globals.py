@@ -4,7 +4,10 @@
 List of globals to use for icav2 cli plugins
 """
 import re
-from ..literals import AnalysisStorageSizeType, UriType,  DataType
+from ..literals import (
+    AnalysisStorageSizeType, UriType,
+    DataType, NextflowPipelineVersionType
+)
 
 DEFAULT_ICAV2_BASE_URL = "https://ica.illumina.com/ica/rest"
 
@@ -65,7 +68,9 @@ NEXTFLOW_TASK_POD_MAPPING_RETRY = {
 
 NEXTFLOW_PROCESS_LABEL_RE_OBJ = re.compile(r"withLabel:process_(\w+) \{")
 
-DEFAULT_NEXTFLOW_VERSION = "24.10.2"
+ICAV2_CONFIG_NEXTFLOW_PATH = 'conf/icav2.config'
+
+DEFAULT_NEXTFLOW_VERSION: NextflowPipelineVersionType = "25.10.2"
 
 # Other literals
 

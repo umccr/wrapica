@@ -3,6 +3,7 @@
 # External imports
 import json
 from pathlib import Path
+from textwrap import dedent
 from typing import List, Dict, Union
 from xml.dom.minidom import Document
 import pandas as pd
@@ -19,7 +20,12 @@ from libica.openapi.v3.api.pipeline_language_api import PipelineLanguageApi
 
 # Wrapica imports
 from .configuration import get_icav2_configuration
-from .globals import NEXTFLOW_PROCESS_LABEL_RE_OBJ, NEXTFLOW_TASK_POD_MAPPING, DEFAULT_NEXTFLOW_VERSION
+from .globals import (
+    NEXTFLOW_PROCESS_LABEL_RE_OBJ,
+    NEXTFLOW_TASK_POD_MAPPING,
+    DEFAULT_NEXTFLOW_VERSION,
+    ICAV2_CONFIG_NEXTFLOW_PATH
+)
 
 
 def convert_base_config_to_icav2_base_config(base_config_path: Path):
@@ -94,6 +100,33 @@ docker {
     with open(base_config_path, 'w') as new_base_config_file:
         new_base_config_file.writelines(new_base_config)
 
+
+def include_icav2_config_into_nextflow_config(
+    base_config_path: Path
+):
+    wrapica_additional_content = dedent(
+        f"""
+        /*
+         WRAPICA INCLUSIONS FOR ICA COMPATIBILITY
+        */
+        
+        // INCLUDE THE ICAv2 CONFIG FILE FOR POD ANNOTATION PRESETS
+        includeConfig '{ICAV2_CONFIG_NEXTFLOW_PATH}'
+        
+        /*
+          END WRAPICA INCLUSIONS FOR ICA COMPATIBILITY
+        */
+        """
+    )
+
+    with open(base_config_path, 'r') as base_config_file:
+        if 'WRAPICA INCLUSIONS FOR ICA COMPATIBILITY' in base_config_file.read():
+            # We have already added the wrapica content to this config file, so we don't need to do it again
+            return
+
+    with open(base_config_path, 'a') as base_config_file:
+        base_config_file.write(wrapica_additional_content)
+    
 
 def write_params_xml_from_nextflow_schema_json(
         nextflow_schema_json_path: Path,
@@ -688,3 +721,285 @@ def get_default_nextflow_pipeline_version_id() -> str:
     :return:
     """
     return str(get_default_nextflow_pipeline_version().id)
+
+
+def get_default_icav2_config_content() -> str:
+    """
+    Get the default ICAv2 config content for nextflow pipelines
+    :return:
+    """
+    return dedent(
+        """
+        process {
+            /*
+                Mappings between illumina preset sizes and AWS instances are as follows
+                Note that we do not use all available compute types here, but just use
+                the ones most appropriate for the common nextflow pod presets
+                standard-small   -  m5.large    -  2 CPU / 8 GB RAM
+                standard-medium  -  m5.xlarge   -  4 CPU / 16 GB RAM
+                standard-large   -  m5.2xlarge  -  8 CPU / 32 GB RAM
+                standard-xlarge  -  m5.4xlarge  -  16 CPU / 64 GB RAM
+                standard-2xlarge -  m5.8xlarge  -  32 CPU / 128 GB RAM
+                himem-small      -  r5.2xlarge  -  8 CPU / 64 GB RAM
+                himem-medium     -  r5.4xlarge  -  16 CPU / 128 GB RAM
+                himem-large      -  r5.12xlarge  - 48 CPU / 384 GB RAM
+        
+                We also first try to run processes on the economy lifecycle, which uses spot instances,
+                and then retry on the standard lifecycle if the failure was due to spot instance interruption (exit code 143).
+                This allows us to take advantage of cheaper spot instances for processes that can be interrupted,
+                while still ensuring that all processes will eventually run to completion on standard instances
+                if they fail due to spot interruptions.
+            */
+        
+            // Defaults for all processes
+            cpus   = { 2      * task.attempt }
+            memory = { 8.GB   * task.attempt }
+            time   = { 4.h    * task.attempt }
+        
+            // Process Economy - For shorter processes that we are okay if theyre disrupted
+            // Add 143 to errorStrategy retry list to include the error code for spot instance interruption
+            // We retry in economy once, and then move to standard for the retry attempt
+            // We also add one to our maxRetries since we want to allow for one retry in economy,
+            // and then a second retry in standard if the failure was due to spot instance interruption
+            maxRetries = 3
+            errorStrategy = {
+                task.exitStatus in ((130..145) + 104 + 175) ? 'retry' : 'finish'
+            }
+        
+            // return both lifecycle and presetSize together so no narrower scope overwrites lifecycle
+            maxErrors     = '-1'
+        
+            // Process-specific resource requirements
+        
+            // Process Single - Start with standard-small, then standard-medium
+            withLabel:process_single {
+                cpus = { 2 * task.attempt }
+                memory = { 8.GB * task.attempt }
+                time = { 4.h * task.attempt }
+                pod = { task.attempt == 1 ?
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'economy'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'standard-small'
+                        ]
+                    ] :
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'standard'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'standard-medium'
+                        ]
+                    ]
+                }
+            }
+        
+            // Process Low - Start with standard-medium, then standard-large
+            withLabel:process_low {
+                cpus = { 4 * task.attempt }
+                memory = { 16.GB * task.attempt }
+                time = { 4.h * task.attempt }
+                pod = { task.attempt == 1 ?
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'economy'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'standard-medium'
+                        ]
+                    ] :
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'standard'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'standard-large'
+                        ]
+                    ]
+                }
+            }
+        
+            // Process Medium - Start with standard-large, then standard-xlarge
+            withLabel:process_medium {
+                cpus = { 8 * task.attempt }
+                memory = { 32.GB * task.attempt }
+                time = { 8.h * task.attempt }
+                pod = { task.attempt == 1 ?
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'economy'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'standard-large'
+                        ]
+                    ] :
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'standard'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'standard-xlarge'
+                        ]
+                    ]
+                }
+            }
+        
+            // Process High - Start with standard-xlarge, then standard-2xlarge
+            withLabel:process_high {
+                cpus = { 16 * task.attempt }
+                memory = { 64.GB * task.attempt }
+                time = { 8.h * task.attempt }
+                pod = {
+                    task.attempt == 1 ?
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'economy'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'standard-xlarge'
+                        ]
+                    ] :
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'standard'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'standard-2xlarge'
+                        ]
+                    ]
+                }
+            }
+        
+            // Process Long
+            // For processes that are long running but dont necessarily require more resources,
+            // we can just increase the time limit on retry without changing the pod preset
+            // We also do not want to run on economy for long running processes, as they are more likely to be disrupted,
+            // so we set the lifecycle to standard for all attempts
+            withLabel:process_long {
+                time   = { 20.h  * task.attempt }
+                pod = {
+                    [[
+                        annotation: 'scheduler.illumina.com/lifecycle',
+                        value: 'standard'
+                    ]]
+                }
+            }
+        
+            // Process Medium Memory - Start with himem-small, then himem-medium
+            withLabel:process_medium_memory {
+                cpus = { 8    * task.attempt }
+                memory = { 64.GB * task.attempt }
+                time = { 8.h  * task.attempt }
+                pod = { task.attempt == 1 ?
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'economy'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'himem-small'
+                        ]
+                    ] :
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'standard'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'himem-medium'
+                        ]
+                    ]
+                }
+            }
+        
+            // Process High Memory - Start with himem-medium, then himem-large
+            withLabel:process_high_memory {
+                cpus = { task.attempt == 1 ? 16 : 48 }
+                memory = { task.attempt == 1 ? 128.GB : 384.GB }
+                time = { 8.h  * task.attempt }
+                pod = { task.attempt == 1 ?
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'economy'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'himem-medium'
+                        ]
+                    ] :
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'standard'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'himem-large'
+                        ]
+                    ]
+                }
+            }
+        
+            // Ignore errors for some processes, and retry a few times for others
+            withLabel:error_ignore {
+                errorStrategy = 'ignore'
+            }
+        
+            // Set retry attempt to 2
+            withLabel:error_retry {
+                errorStrategy = 'retry'
+                maxRetries    = 2
+            }
+        
+            // GPU processes - We set gpu resource requirements for processes with the gpu label,
+            // and also set the accelerator annotation for ICAv2 to schedule on GPU nodes.
+            // Note that the GPU resource requirements are not multiplied by the task attempt,
+            // as we dont want to increase the GPU resources on retry
+            withLabel:process_gpu {
+                ext.use_gpu = { workflow.profile.contains('gpu') }
+                accelerator = { workflow.profile.contains('gpu') ? 1 : null }
+                pod = [
+                        annotation: 'scheduler.illumina.com/presetSize',
+                        value: 'gpu-small'
+                ]
+            }
+        }
+        
+        // Allow usability ica
+        params {
+            outdir = 'out'
+            publish_dir_mode = 'symlink'
+            igenomes_ignore = false
+            enable_conda = false
+            email_on_fail = null
+            email = null
+            ica_smoke_test = false
+        }
+        
+        // Force docker
+        docker {
+            enabled = true
+        }
+        """
+    )
