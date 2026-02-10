@@ -239,7 +239,7 @@ def get_s3_key_prefix_by_project_id(
     # Return Key Prefix with project name extension
     project_model = next(filter(
         lambda project_iter: (
-            project_iter['id'] == project_id
+            project_iter['id'] == str(project_id)
         ),
         get_project_to_storage_configuration_mapping_list()
     ))
@@ -326,7 +326,7 @@ def convert_icav2_uri_to_s3_uri(icav2_uri: str) -> str:
 
 def convert_project_data_obj_to_s3_uri(project_data_obj: ProjectData) -> str:
     # Convert ProjectData object to S3 URI
-    project_s3_prefix = get_s3_key_prefix_by_project_id(project_data_obj.data.details.owning_project_id)
+    project_s3_prefix = get_s3_key_prefix_by_project_id(str(project_data_obj.data.details.owning_project_id))
 
     return str(
         urlunparse(

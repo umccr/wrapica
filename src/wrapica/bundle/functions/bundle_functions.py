@@ -175,7 +175,7 @@ def get_bundle_obj_from_bundle_id(
     try:
         # Get a bundle by ID.
         api_response: Bundle = api_instance.get_bundle(
-            str(bundle_id)
+            bundle_id=str(bundle_id)
         )
     except ApiException as e:
         logger.error("Exception when calling BundleApi->get_bundle_by_id: %s\n" % e)
@@ -294,8 +294,8 @@ def add_pipeline_to_bundle(
     try:
         # Link a pipeline to a bundle.
         api_instance.link_pipeline_to_bundle(
-            str(bundle_id),
-            str(pipeline_id),
+            bundle_id=str(bundle_id),
+            pipeline_id=str(pipeline_id),
         )
         return True
     except ApiException as e:
@@ -361,8 +361,8 @@ def add_project_data_to_bundle(
     try:
         # Link a data to a bundle.
         api_instance.link_data_to_bundle(
-            str(bundle_id),
-            str(project_data_obj.data.id)
+            bundle_id=str(bundle_id),
+            data_id=str(project_data_obj.data.id)
         )
         return True
     except ApiException as e:
@@ -428,8 +428,8 @@ def add_data_to_bundle(
     try:
         # Link a data to a bundle.
         api_instance.link_data_to_bundle(
-            str(bundle_id),
-            str(data_id)
+            bundle_id=str(bundle_id),
+            data_id=str(data_id)
         )
         return True
     except ApiException as e:
@@ -677,8 +677,8 @@ def filter_bundle_data_to_top_level_only(
         top_level_bundle_data = filter_bundle_data_to_top_level_only(bundle_data)
     """
     # Find set of project ids
-    project_ids: List[UUID4] = list(set(list(map(
-        lambda bundle_data_iter: bundle_data_iter.data.details.owning_project_id,
+    project_ids: List[str] = list(set(list(map(
+        lambda bundle_data_iter: str(bundle_data_iter.data.details.owning_project_id),
         bundle_data
     ))))
 

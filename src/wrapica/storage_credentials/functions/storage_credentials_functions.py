@@ -155,7 +155,7 @@ def get_relative_path_from_credentials_prefix(
     """
     # Get credential object
     credential_object = next(filter(
-        lambda credential_iter_: credential_iter_['id'] == storage_credential_id,
+        lambda credential_iter_: credential_iter_['id'] == str(storage_credential_id),
         get_storage_credential_list()
     ))
 

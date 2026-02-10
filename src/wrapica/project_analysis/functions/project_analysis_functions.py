@@ -1,7 +1,11 @@
 #!/usr/bin/env python
-from __future__ import annotations
+
+"""
+Project Analysis Functions
+"""
 
 # Standard imports
+from __future__ import annotations
 import json
 from datetime import datetime
 from io import TextIOWrapper
@@ -136,8 +140,8 @@ def get_analysis_input_object_from_analysis_input_code(
     """
     # Get analysis inputs
     analysis_input_list: List[AnalysisInput] = get_project_analysis_inputs(
-        project_id,
-        analysis_id
+        project_id=project_id,
+        analysis_id=analysis_id
     )
 
     # Iterate through inputs to find the one we want
@@ -723,7 +727,6 @@ def list_analyses(
                     filter(
                         lambda x: x[1] is not None,
                         {
-                            "status": status,
                             "project_id": str(project_id),
                             "page_size": str(page_size),
                             "page_offset": str(page_offset),
@@ -845,8 +848,8 @@ def get_cwl_analysis_input_json(
     try:
         # Retrieve the input json of a CWL analysis.
         api_response: CwlAnalysisInputJson = api_instance.get_cwl_input_json(
-            project_id=project_id,
-            analysis_id=analysis_id
+            project_id=str(project_id),
+            analysis_id=coerce_to_uuid4_obj(analysis_id)
         )
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->get_cwl_input_json: %s\n" % e)
@@ -899,8 +902,8 @@ def get_cwl_analysis_output_json(
     try:
         # Retrieve the input json of a CWL analysis.
         api_response: CwlAnalysisOutputJson = api_instance.get_cwl_output_json(
-            str(project_id),
-            coerce_to_uuid4_obj(analysis_id)
+            project_id=str(project_id),
+            analysis_id=coerce_to_uuid4_obj(analysis_id)
         )
     except ApiException as e:
         logger.error("Exception when calling ProjectAnalysisApi->get_cwl_output_json: %s\n" % e)

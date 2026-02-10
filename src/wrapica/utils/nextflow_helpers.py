@@ -2,6 +2,7 @@
 
 # External imports
 import json
+import warnings
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Dict, Union
@@ -57,6 +58,11 @@ def convert_base_config_to_icav2_base_config(base_config_path: Path):
     :param base_config_path:
     :return:
     """
+    # Add deprecation warning here
+    warnings.warn(DeprecationWarning(
+        "This function is deprecated and will be removed in a future version. "
+        "Please use the 'add_icav2_nextflow_config_to_nextflow_config' function instead"
+    ))
     with open(base_config_path, 'r') as base_config_file:
         base_config = base_config_file.readlines()
 
@@ -756,7 +762,7 @@ def get_default_icav2_config_content() -> str:
             memory = { 8.GB   * task.attempt }
             time   = { 4.h    * task.attempt }
         
-            // Process Economy - For shorter processes that we are okay if theyre disrupted
+            // Process Economy - For shorter processes that we are okay if they are disrupted
             // Add 143 to errorStrategy retry list to include the error code for spot instance interruption
             // We retry in economy once, and then move to standard for the retry attempt
             // We also add one to our maxRetries since we want to allow for one retry in economy,
@@ -765,9 +771,6 @@ def get_default_icav2_config_content() -> str:
             errorStrategy = {
                 task.exitStatus in ((130..145) + 104 + 175) ? 'retry' : 'finish'
             }
-        
-            // return both lifecycle and presetSize together so no narrower scope overwrites lifecycle
-            maxErrors     = '-1'
         
             // Process-specific resource requirements
         
