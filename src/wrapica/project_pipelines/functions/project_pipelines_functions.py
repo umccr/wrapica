@@ -12,11 +12,9 @@ from urllib.parse import urlparse
 import uuid
 from pathlib import Path
 from zipfile import ZipFile
-
 import boto3
 import pandas as pd
 import re
-
 from botocore.exceptions import ClientError
 from cwl_utils.parser import load_document_by_uri
 from tempfile import NamedTemporaryFile, TemporaryDirectory
@@ -71,7 +69,8 @@ from ...utils.globals import (
 from ...literals import DataType, PipelineStatusType, AnalysisStorageSizeType, ResourceType
 from ...utils.miscell import is_uuid_format, is_uri_format, coerce_to_uuid4_obj
 from ...utils.nextflow_helpers import (
-    get_default_nextflow_pipeline_version_id, include_icav2_config_into_nextflow_config,
+    get_default_nextflow_pipeline_version_id,
+    include_icav2_config_into_nextflow_config,
     get_default_icav2_config_content,
 )
 
@@ -130,7 +129,10 @@ def get_project_pipeline_obj(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve a pipeline.
-        api_response: ProjectPipelineV4 = api_instance.get_project_pipeline(project_id, pipeline_id)
+        api_response: ProjectPipelineV4 = api_instance.get_project_pipeline(
+            project_id=str(project_id),
+            pipeline_id=str(pipeline_id)
+        )
     except ApiException as e:
         raise ValueError("Exception when calling ProjectPipelineApi->get_project_pipeline: %s\n" % e)
 
@@ -414,7 +416,7 @@ def get_analysis_storage_from_analysis_storage_size(
     try:
         # Retrieve the list of analysis storage options.
         api_response = api_instance.get_project_analysis_storage_options(
-            project_id=project_id
+            project_id=str(project_id)
         )
     except ApiException as e:
         logger.error("Exception when calling AnalysisStorageApi->get_analysis_storage_options: %s\n" % e)
@@ -665,7 +667,7 @@ def launch_cwl_workflow(
     try:
         # Create and start an analysis for a CWL pipeline.
         api_response: AnalysisV4 = api_instance.create_cwl_analysis_with_json_input(
-            project_id,
+            str(project_id),
             cwl_analysis,
             **analysis_kwargs
         )
@@ -762,7 +764,7 @@ def launch_nextflow_workflow(
     try:
         # Create and start an analysis for a CWL pipeline.
         api_response: AnalysisV4 = api_instance.create_nextflow_analysis_with_custom_input(
-            project_id,
+            str(project_id),
             nextflow_analysis,
             **analysis_kwargs
         )
@@ -823,8 +825,8 @@ def get_project_pipeline_input_parameters(
         try:
             # Retrieve input parameters for a project pipeline.
             api_response: InputParameterList = api_instance.get_project_pipeline_input_parameters(
-                project_id=project_id,
-                pipeline_id=pipeline_id
+                project_id=str(project_id),
+                pipeline_id=str(pipeline_id)
             )
         except ApiException as e:
             logger.error("Exception when calling ProjectPipelineApi->get_project_pipeline_input_parameters: %s\n" % e)
@@ -886,8 +888,8 @@ def get_project_pipeline_configuration_parameters(
     try:
         # Retrieve input parameters for a project pipeline.
         api_response: PipelineConfigurationParameterList = api_instance.get_project_pipeline_configuration_parameters(
-            project_id=project_id,
-            pipeline_id=pipeline_id,
+            project_id=str(project_id),
+            pipeline_id=str(pipeline_id),
             _check_return_type=False  # We return a list of dicts because of this
         )
     except ApiException as e:
@@ -1504,7 +1506,7 @@ def list_project_pipelines(
         api_instance = ProjectPipelineApi(api_client)
 
     try:
-        api_response = api_instance.get_project_pipelines(project_id)
+        api_response = api_instance.get_project_pipelines(str(project_id))
     except ApiException as e:
         raise ValueError("Exception when calling ProjectPipelineApi->get_project_pipelines: %s\n" % e)
 
@@ -1661,7 +1663,7 @@ def release_project_pipeline(
     # Check pipeline id belongs to owner
     username = get_user_id_from_configuration()
 
-    if not username == project_pipeline_obj.pipeline.owner.id:
+    if not username == str(project_pipeline_obj.pipeline.owner.id):
         logger.error("This pipeline does not belong to you, you cannot release it")
         raise ValueError
 
@@ -1678,7 +1680,7 @@ def release_project_pipeline(
     # example passing only required values which don't have defaults set
     try:
         # Release a pipeline.
-        api_instance.release_project_pipeline(project_id, pipeline_id)
+        api_instance.release_project_pipeline(str(project_id), str(pipeline_id))
     except ApiException as e:
         logger.error("Exception when calling ProjectPipelineApi->release_project_pipeline: %s\n" % e)
         raise ApiException
@@ -1739,9 +1741,9 @@ def update_pipeline_file(
 
     try:
         api_instance.update_project_pipeline_file(
-            project_id=project_id,
-            pipeline_id=pipeline_id,
-            file_id=file_id,
+            project_id=str(project_id),
+            pipeline_id=str(pipeline_id),
+            file_id=coerce_to_uuid4_obj(file_id),
             content=open(f"{file_path}", "rb").read()
         )
     except ApiException as e:
@@ -1801,9 +1803,9 @@ def delete_pipeline_file(
     try:
         # Delete a file for a pipeline.
         api_instance.delete_project_pipeline_file(
-            project_id=project_id,
-            pipeline_id=pipeline_id,
-            file_id=file_id
+            project_id=str(project_id),
+            pipeline_id=str(pipeline_id),
+            file_id=coerce_to_uuid4_obj(file_id)
         )
     except ApiException as e:
         logger.error("Exception when calling ProjectPipelineApi->delete_project_pipeline_file: %s\n" % e)
@@ -1873,7 +1875,11 @@ def add_pipeline_file(
 
     try:
         # Create an additional input form file for a pipeline.
-        api_response = api_instance.create_project_pipeline_file(project_id, pipeline_id, content)
+        api_response = api_instance.create_project_pipeline_file(
+            project_id=str(project_id),
+            pipeline_id=str(pipeline_id),
+            content=content
+        )
     except ApiException as e:
         logger.error("Exception when calling ProjectPipelineApi->create_project_pipeline_file: %s\n" % e)
         raise ApiException("Exception when calling ProjectPipelineApi->create_project_pipeline_file") from e
@@ -2009,12 +2015,12 @@ def create_cwl_project_pipeline(
     try:
         # Create a CWL pipeline within a project.
         api_response = api_instance.create_cwl_pipeline(
-            project_id=project_id,
+            project_id=str(project_id),
             code=pipeline_code,
             description=workflow_description,
             workflow_cwl_file=workflow_path_tuple_bytes,
             parameters_xml_file=params_xml_tuple_bytes,
-            analysis_storage_id=analysis_storage.id,
+            analysis_storage_id=coerce_to_uuid4_obj(analysis_storage.id),
             tool_cwl_files=tool_tuple_bytes_list,
             html_documentation=html_documentation_tuple_bytes,
             resources=resources
@@ -2125,6 +2131,13 @@ def create_nextflow_pipeline_from_zip(
         # Get the nextflow.config file
         config_file = zip_dir / "nextflow.config"
 
+        # Add ICAv2 Config
+        include_icav2_config_into_nextflow_config(config_file)
+        with open(zip_dir / ICAV2_CONFIG_NEXTFLOW_PATH, 'w') as config_h:
+            config_h.write(get_default_icav2_config_content())
+        # Add 'includeConfig' directive to the nextflow.config file
+        include_icav2_config_into_nextflow_config(config_file)
+
         # Get the params xml file
         params_xml_file_path = zip_dir / "params.xml"
 
@@ -2228,10 +2241,6 @@ def create_nextflow_pipeline_from_nf_core_zip(
 
     # Collect the configuration file
     config_file = workflow_dir / "nextflow.config"
-
-    # Create the base icav2 configuration file
-    base_config_file = Path(workflow_dir) / "conf" / "base.config"
-    convert_base_config_to_icav2_base_config(base_config_file)
 
     # Check if the bin directory exists
     if not (workflow_dir / "bin").is_dir():
@@ -2430,12 +2439,12 @@ def create_nextflow_project_pipeline(
     try:
         # Create a Nextflow pipeline within a project.
         api_response = api_instance.create_nextflow_pipeline(
-            project_id=project_id,
+            project_id=str(project_id),
             code=pipeline_code,
             description=workflow_description,
             main_nextflow_file=main_nextflow_file_tuple_bytes,
             parameters_xml_file=params_xml_file_tuple_bytes,
-            analysis_storage_id=analysis_storage.id,
+            analysis_storage_id=coerce_to_uuid4_obj(analysis_storage.id),
             pipeline_language_version_id=coerce_to_uuid4_obj(get_default_nextflow_pipeline_version_id()),
             nextflow_config_file=nextflow_config_file_tuple_bytes,
             other_nextflow_files=other_nextflow_files_tuple_bytes_list,

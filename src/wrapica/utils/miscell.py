@@ -37,14 +37,14 @@ def sanitise_dict_keys(input_dict: Dict) -> Dict:
 
 
 def is_uuid_format(
-        project_id: Union[UUID4, str]
+        uuid_obj_or_str: Union[UUID4, str]
 ) -> bool:
     # First check if it's already a UUID4 object
-    if isinstance(project_id, UUID):
+    if isinstance(uuid_obj_or_str, UUID):
         return True
     # Next check if it's a valid UUID4 string
     try:
-        _ = UUID(project_id, version=4)
+        _ = UUID(uuid_obj_or_str, version=4)
         return True
     except ValueError:
         return False

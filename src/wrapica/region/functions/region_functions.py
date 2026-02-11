@@ -90,7 +90,7 @@ def get_region_obj_from_region_id(
     # example, this endpoint has no required or optional parameters
     try:
         # Get region
-        api_response = api_instance.get_region(region_id)
+        api_response = api_instance.get_region(str(region_id))
     except ApiException as e:
         logger.error("Exception when calling RegionApi->get_regions: %s\n" % e)
         raise ApiException
@@ -129,7 +129,9 @@ def get_region_obj_from_city_name(city_name: str) -> Region:
         raise StopIteration
 
 
-def coerce_region_id_or_city_name_to_region_obj(region_id_or_city_name: str) -> Region:
+def coerce_region_id_or_city_name_to_region_obj(
+        region_id_or_city_name: Union[UUID4, str]
+) -> Region:
     """
     Given either a region id or a region city name, coerce to region object
 
@@ -142,7 +144,9 @@ def coerce_region_id_or_city_name_to_region_obj(region_id_or_city_name: str) -> 
     return get_region_obj_from_city_name(region_id_or_city_name)
 
 
-def coerce_region_id_or_city_name_to_region_id(region_id_or_city_name: str) -> str:
+def coerce_region_id_or_city_name_to_region_id(
+        region_id_or_city_name: Union[UUID4, str]
+) -> str:
     """
     Given either a region id or a region city name, coerce to region id
 
@@ -152,7 +156,7 @@ def coerce_region_id_or_city_name_to_region_id(region_id_or_city_name: str) -> s
     :rtype: str
     """
     if is_uuid_format(region_id_or_city_name):
-        return region_id_or_city_name
+        return str(region_id_or_city_name)
     return str(get_region_obj_from_city_name(region_id_or_city_name).id)
 
 

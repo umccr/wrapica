@@ -14,14 +14,18 @@ from typing import Dict, List, Union, Optional, Any, Tuple, cast
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse
 import requests
+from pydantic import UUID4
+
+# Libica imports
+from libica.openapi.v3 import ApiClient
 
 # Libica Api imports
-from libica.openapi.v2.model.create_project_data_move_batch import CreateProjectDataMoveBatch
 from libica.openapi.v3 import (
     ApiException,
     CreateFileAndUploadUrl,
     ProjectFileAndUploadUrl,
     ProjectDataMoveBatchApi,
+    CreateProjectDataMoveBatch,
     CreateProjectDataMoveBatchItem
 )
 from libica.openapi.v3.api.project_data_api import ProjectDataApi
@@ -29,6 +33,7 @@ from libica.openapi.v3.api.project_data_copy_batch_api import ProjectDataCopyBat
 
 # Libica model imports
 from libica.openapi.v3.models import (
+    CreateFileData, CreateFolder,
     AnalysisInputExternalData,
     AwsTempCredentials,
     CreateData,
@@ -44,11 +49,6 @@ from libica.openapi.v3.models import (
     TempCredentials,
     Upload
 )
-from libica.openapi.v3 import ApiClient
-from libica.openapi.v3 import (
-    CreateFileData, CreateFolder,
-)
-from pydantic import UUID4
 
 # Local imports
 from ...literals import (
@@ -383,7 +383,7 @@ def create_folder_in_project(
         )
     except ApiException as e:
         logger.error("Exception when calling ProjectDataApi->create_folder: %s\n" % e)
-        raise ApiException
+        raise e
 
     # Return the folder id
     return api_response
@@ -862,8 +862,12 @@ def list_project_data_non_recursively(
                         {
                             "status": status,
                             "type": data_type,
-                            "project_id": project_id,
-                            "parent_folder_id": parent_folder_id,
+                            "project_id": (
+                                str(project_id) if project_id is not None else None
+                            ),
+                            "parent_folder_id": (
+                                str(parent_folder_id) if parent_folder_id is not None else None
+                            ),
                             "parent_folder_path": parent_folder_path,
                             "page_size": str(page_size),
                             "page_offset": str(page_offset),
@@ -2314,7 +2318,7 @@ def create_file_with_upload_url(
             project_id=str(project_id),
             create_file_and_upload_url=CreateFileAndUploadUrl(
                 name=file_name,
-                folderId=folder_id,
+                folderId=str(folder_id),
                 folderPath=None,
                 formatCode=None,
                 fileType=None,
@@ -2500,7 +2504,7 @@ def get_file_by_file_name_from_project_data_list(
 
 
 def project_data_copy_batch_handler(
-        source_data_ids: List[str],
+        source_data_ids: List[Union[UUID4, str]],
         destination_project_id: Union[UUID4, str],
         destination_folder_path: Path
 ) -> Job:
@@ -2548,12 +2552,12 @@ def project_data_copy_batch_handler(
     try:
         # Copy a batch of project data.
         api_response: ProjectDataCopyBatch = api_instance.create_project_data_copy_batch(
-            project_id=destination_project_id,
+            project_id=str(destination_project_id),
             create_project_data_copy_batch=CreateProjectDataCopyBatch(
                 items=list(
                     map(
                         lambda source_data_id_iter: CreateProjectDataCopyBatchItem(
-                            dataId=source_data_id_iter
+                            dataId=str(source_data_id_iter)
                         ),
                         source_data_ids
                     )
@@ -2566,7 +2570,7 @@ def project_data_copy_batch_handler(
                 copyUserTags=True,
                 copyTechnicalTags=True,
                 copyInstrumentInfo=True,
-                actionOnExist="SKIP"
+                actionOnExist="SKIP",
             )
         )
     except ApiException as e:
@@ -2638,7 +2642,7 @@ def delete_project_data(
 def move_project_data(
         dest_project_id: Union[UUID4, str],
         dest_folder_id: Union[UUID4, str],
-        src_data_list: List[str]
+        src_data_list: List[Union[UUID4, str]]
 ) -> Job:
     """
     Move a list of data ids to a destination project
@@ -2681,12 +2685,12 @@ def move_project_data(
                 items=list(
                     map(
                         lambda src_data_iter: CreateProjectDataMoveBatchItem(
-                            dataId=src_data_iter
+                            dataId=str(src_data_iter)
                         ),
                         src_data_list
                     )
                 ),
-                destinationFolderId=dest_folder_id,
+                destinationFolderId=str(dest_folder_id),
             )
         )
     except ApiException as e:
@@ -2700,7 +2704,7 @@ def move_project_data(
 def copy_project_data(
         dest_project_id: Union[UUID4, str],
         dest_folder_id: Union[UUID4, str],
-        src_data_list: List[str]
+        src_data_list: List[Union[UUID4, str]]
 ) -> Job:
     """
     Copy a list of data ids to a destination project
@@ -2743,12 +2747,12 @@ def copy_project_data(
                 items=list(
                     map(
                         lambda src_data_iter: CreateProjectDataCopyBatchItem(
-                            dataId=src_data_iter
+                            dataId=str(src_data_iter)
                         ),
                         src_data_list
                     )
                 ),
-                destinationFolderId=dest_folder_id,
+                destinationFolderId=str(dest_folder_id),
                 copyUserTags=False,
                 copyTechnicalTags=False,
                 copyInstrumentInfo=False,
