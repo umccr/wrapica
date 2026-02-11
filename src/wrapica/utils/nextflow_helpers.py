@@ -59,10 +59,12 @@ def convert_base_config_to_icav2_base_config(base_config_path: Path):
     :return:
     """
     # Add deprecation warning here
-    warnings.warn(DeprecationWarning(
+    warnings.warn(
         "This function is deprecated and will be removed in a future version. "
-        "Please use the 'add_icav2_nextflow_config_to_nextflow_config' function instead"
-    ))
+        "Please use the 'add_icav2_nextflow_config_to_nextflow_config' function instead",
+        DeprecationWarning,
+        stacklevel=2
+    )
     with open(base_config_path, 'r') as base_config_file:
         base_config = base_config_file.readlines()
 
