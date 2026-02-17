@@ -17,7 +17,7 @@ import requests
 from pydantic import UUID4
 
 # Libica imports
-from libica.openapi.v3 import ApiClient
+from libica.openapi.v3 import ApiClient, RcloneTempCredentials
 
 # Libica Api imports
 from libica.openapi.v3 import (
@@ -56,7 +56,8 @@ from ...literals import (
     ProjectDataSortParameterType,
     ProjectDataStatusValuesType,
     UriType,
-    DataTagType
+    DataTagType,
+    CredentialsFormat,
 )
 from ...utils.configuration import get_icav2_configuration, logger
 from ...utils.globals import (
@@ -1645,6 +1646,67 @@ def coerce_data_id_uri_or_path_to_project_data_obj(
         return project_data_obj
 
 
+def get_credentials_access_for_project_folder(
+        project_id: Union[UUID4, str],
+        folder_id: Optional[Union[UUID4, str]] = None,
+        folder_path: Optional[Path] = None,
+        read_only: Optional[bool] = None,
+        credentials_format: Optional[CredentialsFormat] = None
+) -> Union[AwsTempCredentials, RcloneTempCredentials]:
+    # Check one of parent_folder_id and parent_folder_path is specified
+    if folder_id is None and folder_path is None:
+        logger.error("Must specify one of parent_folder_id and parent_folder_path")
+        raise AssertionError
+    elif folder_id is not None and folder_path is not None:
+        logger.error("Must specify only one of parent_folder_id and parent_folder_path")
+        raise AssertionError
+
+    if folder_id is None:
+        folder_id = get_project_data_folder_id_from_project_id_and_path(
+            project_id=project_id,
+            folder_path=folder_path
+        )
+
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectDataApi(api_client)
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v3+json"
+        )
+
+    # Create the temp credentials object
+    create_temporary_credentials = CreateTemporaryCredentials(
+        **dict(filter(
+            lambda kv_iter_: kv_iter_[1] is not None,
+            {
+                "credentialsFormat": credentials_format,
+                "readOnlyCredentials": read_only
+            }.items()
+        ))
+    )
+
+    # example passing only required values which don't have defaults set
+    try:
+        # Retrieve temporary credentials for this data.
+        api_response: TempCredentials = api_instance.create_temporary_credentials_for_data(
+            project_id=str(project_id),
+            data_id=str(folder_id),
+            create_temporary_credentials=create_temporary_credentials
+        )
+    except ApiException as e:
+        logger.warning("Exception when calling ProjectDataApi->create_temporary_credentials_for_data: %s\n" % e)
+        raise ValueError
+
+    if credentials_format is not None and credentials_format == 'RCLONE':
+        return api_response.rclone_temp_credentials
+
+    if credentials_format is None and api_response.aws_temp_credentials is not None:
+        return api_response.aws_temp_credentials
+
+    raise ValueError("Could not retrieve valid credentials, no credentials returned from API in either RCLONE or cloud native format")
+
+
 def get_aws_credentials_access_for_project_folder(
         project_id: Union[UUID4, str],
         folder_id: Optional[Union[UUID4, str]] = None,
@@ -1707,47 +1769,72 @@ def get_aws_credentials_access_for_project_folder(
           }
         )
     """
-    # Check one of parent_folder_id and parent_folder_path is specified
-    if folder_id is None and folder_path is None:
-        logger.error("Must specify one of parent_folder_id and parent_folder_path")
-        raise AssertionError
-    elif folder_id is not None and folder_path is not None:
-        logger.error("Must specify only one of parent_folder_id and parent_folder_path")
-        raise AssertionError
-
-    if folder_id is None:
-        folder_id = get_project_data_folder_id_from_project_id_and_path(
-            project_id=project_id,
-            folder_path=folder_path
-        )
-
-    with ApiClient(get_icav2_configuration()) as api_client:
-        # Create an instance of the API class
-        api_instance = ProjectDataApi(api_client)
-        api_client.set_default_header(
-            header_name="Accept",
-            header_value="application/vnd.illumina.v3+json"
-        )
-
-    # Create the temp credentials object
-    create_temporary_credentials = CreateTemporaryCredentials(
-        credentialsFormat="RCLONE",
-        readOnlyCredentials=read_only
+    return get_credentials_access_for_project_folder(
+        project_id=project_id,
+        folder_id=folder_id,
+        folder_path=folder_path,
+        read_only=read_only,
+        credentials_format=None
     )
 
-    # example passing only required values which don't have defaults set
-    try:
-        # Retrieve temporary credentials for this data.
-        api_response: TempCredentials = api_instance.create_temporary_credentials_for_data(
-            project_id=str(project_id),
-            data_id=str(folder_id),
-            create_temporary_credentials=create_temporary_credentials
-        )
-    except ApiException as e:
-        logger.warning("Exception when calling ProjectDataApi->create_temporary_credentials_for_data: %s\n" % e)
-        raise ValueError
 
-    return api_response.aws_temp_credentials
+
+def get_rclone_credentials_access_for_project_folder(
+        project_id: Union[UUID4, str],
+        folder_id: Optional[Union[UUID4, str]] = None,
+        folder_path: Optional[Path] = None,
+        read_only: Optional[bool] = None
+) -> RcloneTempCredentials:
+    """
+    Given a project_id and a folder_id or folder_path, collect the AWS Access Credentials for downloading this data.
+
+    :param project_id: The project id of the data
+    :param folder_id: The folder id (alternative to folder_path)
+    :param folder_path: The folder path (alternative to folder_id)
+    :param read_only: True to create read only credentials, otherwise defaults to read+write credentials
+
+    :return: An object with the following attributes:
+      * type
+      * provider
+      * ... other attributes depending on the provider, for example for AWS provider, the following attributes are included:
+        * access_key_id
+        * secret_access_key
+        * session_token
+        * region
+        * bucket
+        * object_prefix
+        * server_side_encryption
+        * expiration_time
+
+    :rtype: `RcloneTempCredentials <https://umccr.github.io/libica/openapi/v3/docs/RcloneTempCredentials/>`_
+
+    :raises: AssertionError, ApiException, ValueError
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        import subprocess
+        from wrapica.project_data import get_aws_credentials_access_for_project_folder
+        from wrapica.libica_models import RCloneTempCredentials
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+
+        rclone_temp_credentials: RCloneTempCredentials = get_rclone_credentials_access_for_project_folder(
+            project_id="proj.abcdef1234567890",
+            folder_path=Path("/path/to/folder/")
+        )
+
+    """
+    return get_credentials_access_for_project_folder(
+        project_id=project_id,
+        folder_id=folder_id,
+        folder_path=folder_path,
+        read_only=read_only,
+        credentials_format='RCLONE'
+    )
 
 
 def is_folder_id_format(

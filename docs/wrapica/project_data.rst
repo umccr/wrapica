@@ -33,6 +33,8 @@ Functions
      coerce_data_id_or_uri_to_project_data_obj,
      coerce_data_id_uri_or_path_to_project_data_obj,
      coerce_data_id_icav2_uri_or_path_to_project_data_obj,
+     get_credentials_access_for_project_folder,
+     get_rclone_credentials_access_for_project_folder,
      get_aws_credentials_access_for_project_folder,
      is_folder_id_format,
      is_file_id_format,
