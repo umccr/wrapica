@@ -867,7 +867,7 @@ def list_project_data_non_recursively(
                                 str(project_id) if project_id is not None else None
                             ),
                             "parent_folder_id": (
-                                str(parent_folder_id) if parent_folder_id is not None else None
+                                list(map(str, parent_folder_id)) if parent_folder_id is not None else None
                             ),
                             "parent_folder_path": parent_folder_path,
                             "page_size": str(page_size),
