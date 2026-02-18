@@ -174,6 +174,10 @@ NextflowPipelineVersionType = Literal[
     "25.10.2",
 ]
 
+CredentialsFormat = Literal[
+    'RCLONE'
+]
+
 
 ## Typed dicts
 class AnalysisStepDict(TypedDict):
