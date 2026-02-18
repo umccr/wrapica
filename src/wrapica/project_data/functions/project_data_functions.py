@@ -1653,12 +1653,46 @@ def get_credentials_access_for_project_folder(
         read_only: Optional[bool] = None,
         credentials_format: Optional[CredentialsFormat] = None
 ) -> Union[AwsTempCredentials, RcloneTempCredentials]:
-    # Check one of parent_folder_id and parent_folder_path is specified
+    """
+    Retrieve temporary access credentials for a folder within a project.
+
+    This function requests temporary credentials for a specific project folder using
+    the `ProjectDataApi.create_temporary_credentials_for_data` endpoint. A folder
+    can be specified either by its `folder_id` or by its `folder_path` within the
+    given project, but not both.
+
+    :param project_id: The ID of the project containing the folder.
+    :param folder_id: The ID of the folder to retrieve credentials for (optional if folder_path is provided).
+    :param folder_path: The path to the folder within the project (optional if folder_id is provided).
+    :param read_only: If True, request read-only credentials;
+
+    :return: An object containing temporary credentials, either in AWS format or RCLONE format depending on the `credentials_format` parameter.
+    :rtype: Union[`AwsTempCredentials <https://umccr.github.io/libica/openapi/v3/docs/AwsTempCredentials/>`_, `RcloneTempCredentials <https://umccr.github.io/libica/openapi/v3/docs/RcloneTempCredentials/>`_]
+
+    :raises: AssertionError if both or neither of `folder_id` and `folder_path` are provided, ValueError if credentials cannot be retrieved.
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+        from wrapica.project_data import get_credentials_access_for_project_folder
+        from wrapica.libica_models import AwsTempCredentials, RcloneTempCredentials
+
+        # Use wrapica.project.get_project_id_from_project_name
+        # If you need to convert a project_name to a project_id
+        aws_temp_credentials: AwsTempCredentials = get_credentials_access_for_project_folder(
+            project_id="proj.abcdef1234567890",
+            folder_path=Path("/path/to/folder/"),
+            read_only=True,
+            credentials_format=None  # Will return AWS format by default if available
+        )
+    """
+    # Check one of folder_id and folder_path is specified
     if folder_id is None and folder_path is None:
-        logger.error("Must specify one of parent_folder_id and parent_folder_path")
+        logger.error("Must specify one of folder_id and folder_path")
         raise AssertionError
     elif folder_id is not None and folder_path is not None:
-        logger.error("Must specify only one of parent_folder_id and parent_folder_path")
+        logger.error("Must specify only one of folder_id and folder_path")
         raise AssertionError
 
     if folder_id is None:
@@ -1699,9 +1733,13 @@ def get_credentials_access_for_project_folder(
         raise ValueError
 
     if credentials_format is not None and credentials_format == 'RCLONE':
+        if api_response.rclone_temp_credentials is None:
+            raise ValueError("Could not retrieve valid RCLONE credentials, no RCLONE credentials returned from API")
         return api_response.rclone_temp_credentials
 
     if credentials_format is None and api_response.aws_temp_credentials is not None:
+        if api_response.aws_temp_credentials is None:
+            raise ValueError("Could not retrieve valid AWS credentials, no AWS credentials returned from API")
         return api_response.aws_temp_credentials
 
     raise ValueError("Could not retrieve valid credentials, no credentials returned from API in either RCLONE or cloud native format")
@@ -1786,7 +1824,7 @@ def get_rclone_credentials_access_for_project_folder(
         read_only: Optional[bool] = None
 ) -> RcloneTempCredentials:
     """
-    Given a project_id and a folder_id or folder_path, collect the AWS Access Credentials for downloading this data.
+    Given a project_id and a folder_id or folder_path, collect the Rclone Temp Credentials for downloading this data.
 
     :param project_id: The project id of the data
     :param folder_id: The folder id (alternative to folder_path)
@@ -1814,15 +1852,14 @@ def get_rclone_credentials_access_for_project_folder(
 
     .. code-block:: python
         :linenos:
-
         import subprocess
-        from wrapica.project_data import get_aws_credentials_access_for_project_folder
-        from wrapica.libica_models import RCloneTempCredentials
+        from wrapica.project_data import get_rclone_credentials_access_for_project_folder
+        from wrapica.libica_models import RcloneTempCredentials
 
         # Use wrapica.project.get_project_id_from_project_name
         # If you need to convert a project_name to a project_id
 
-        rclone_temp_credentials: RCloneTempCredentials = get_rclone_credentials_access_for_project_folder(
+        rclone_temp_credentials: RcloneTempCredentials = get_rclone_credentials_access_for_project_folder(
             project_id="proj.abcdef1234567890",
             folder_path=Path("/path/to/folder/")
         )
