@@ -11,6 +11,7 @@ from typing import List, Optional, Tuple, TypedDict, NotRequired, cast, Union
 from urllib.parse import urlunparse, urlparse
 
 from pydantic import UUID4
+from requests import HTTPError
 from ruamel.yaml import YAML
 
 # Libica imports
@@ -213,14 +214,25 @@ def get_project_storage_configuration_prefix(
         return None
 
     # Get the project subfolder
-    project_s3_uri = get_project_self_storage_configuration_subfolder(project.id)
+    project_s3_uri = get_project_self_storage_configuration_s3_uri(project.id)
 
     # Shouldn't get here
     if project_s3_uri is None:
         return None
 
     # Get the project subfolder relative to the storage configuration dict
-    project_prefix = str(Path(urlparse(project_s3_uri).path.lstrip("/")).relative_to(Path(storage_configuration_dict['keyPrefix'])))
+    try:
+        project_prefix = str(
+            Path(urlparse(project_s3_uri).path.lstrip("/")).
+            relative_to(Path(storage_configuration_dict['keyPrefix']))
+        )
+    except ValueError:
+        logger.warning(
+            f"Could not determine project prefix for project {project.id}, "
+            f"as the project s3 uri {project_s3_uri} is not a "
+            f"subfolder of the storage configuration key prefix {storage_configuration_dict['keyPrefix']}"
+        )
+        return None
 
     if project_prefix == ".":
         return ""
@@ -357,11 +369,21 @@ def get_project_id_by_s3_key_prefix(s3_key_prefix: str) -> Optional[str]:
     return None
 
 
-def get_project_self_storage_configuration_subfolder(
+def get_project_self_storage_configuration_s3_uri(
         project_id: Union[UUID4, str]
 ) -> Optional[str]:
     """
-    Get the prefix for a selfManagedStorageConfiguration
+    Get the storage configuration subfolder (key prefix) for a project's
+    self-managed storage configuration.
+
+    This function queries the ICA v3 REST API for the given project and, if a
+    self-managed storage configuration exists, returns the associated
+    `storageConfigurationSubFolder` value.
+
+    :param project_id: The ICA project identifier, as a UUID4 or string.
+    :return: The storage configuration subfolder for the project, or ``None``
+        if the project does not have a self-managed storage configuration.
+    :rtype: Optional[str]
     """
     # FIXME - use libica on next libica release
     # Local import
@@ -374,7 +396,7 @@ def get_project_self_storage_configuration_subfolder(
 
     # Get the response from the API
     response = requests.get(
-        f"https://ica.illumina.com/ica/rest/api/projects/{project_id}/selfManagedStorageConfiguration",
+        f"{get_icav2_configuration().host}/api/projects/{project_id}/selfManagedStorageConfiguration",
         headers=headers,
     )
 
@@ -383,9 +405,22 @@ def get_project_self_storage_configuration_subfolder(
         return None
 
     # Raise an exception if the request was unsuccessful
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except HTTPError as e:
+        raise HTTPError(
+            f"Failed to get self-managed storage configuration for project {project_id}: {e}. "
+            f"{project_id} from '{response.url}': {e}"
+        ) from e
 
-    return response.json()['storageConfigurationSubFolder']
+    response_json = response.json()
+
+    if 'storageConfigurationSubFolder' not in response_json:
+        logger.warning(
+            f"Response from API for project {project_id} does not contain 'storageConfigurationSubFolder': {response_json}"
+        )
+        return None
+    return response_json['storageConfigurationSubFolder']
 
 
 # And vice-versa
@@ -410,7 +445,14 @@ def get_s3_key_prefix_by_project_id(
             get_project_to_storage_configuration_mapping_list()
         ))
     except StopIteration:
-        return get_project_self_storage_configuration_subfolder(project_id)
+        project_s3_uri = get_project_self_storage_configuration_s3_uri(project_id)
+        if project_s3_uri is None:
+            logger.warning(
+                f"Could not find project model for project id: {project_id}, "
+                "and no self managed storage configuration found for this project, "
+                "cannot determine s3 key prefix for this project"
+            )
+        return project_s3_uri
 
     project_model_prefix = (
         project_model.get('prefix', None)
@@ -469,8 +511,15 @@ def convert_s3_uri_to_icav2_uri(s3_uri: str) -> str:
                 ICAV2_URI_SCHEME,
                 get_project_id_by_s3_key_prefix(s3_uri),
                 # This path is then the relative path to the project s3 prefix
-                str(Path(urlparse(s3_uri).path).relative_to(Path(urlparse(project_s3_prefix).path))) + (
-                    "/" if s3_uri.endswith("/") else ""),
+                str(
+                    Path(urlparse(s3_uri).path).
+                    relative_to(Path(urlparse(project_s3_prefix).path))
+                ) +
+                # Add a trailing slash if this is a folder, as s3 uris for folders should end with a slash,
+                # we can determine if this is a folder by checking if the original s3 uri ends with a slash
+                (
+                    "/" if s3_uri.endswith("/") else ""
+                ),
                 None, None, None
             )
         )
@@ -529,6 +578,13 @@ def convert_project_data_obj_to_s3_uri(project_data_obj: ProjectData) -> str:
     """
     # Convert ProjectData object to S3 URI
     project_s3_prefix = get_s3_key_prefix_by_project_id(str(project_data_obj.data.details.owning_project_id))
+
+    # Check if the project s3 prefix is None, if so we cannot convert to s3 uri
+    if project_s3_prefix is None:
+        raise ValueError(
+            f"Could not find project s3 prefix for project id: {project_data_obj.data.details.owning_project_id}, "
+            f"cannot convert project data object to s3 uri without a project s3 prefix"
+        )
 
     return str(
         urlunparse(
