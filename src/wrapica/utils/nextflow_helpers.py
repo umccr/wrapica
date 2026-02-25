@@ -751,6 +751,7 @@ def get_default_icav2_config_content() -> str:
                 himem-small      -  r5.2xlarge  -  8 CPU / 64 GB RAM
                 himem-medium     -  r5.4xlarge  -  16 CPU / 128 GB RAM
                 himem-large      -  r5.12xlarge  - 48 CPU / 384 GB RAM
+                himem-xlarge      - r5.24xlarge  - 96 CPU / 768 GB RAM
         
                 We also first try to run processes on the economy lifecycle, which uses spot instances,
                 and then retry on the standard lifecycle if the failure was due to spot instance interruption (exit code 143).
@@ -961,6 +962,35 @@ def get_default_icav2_config_content() -> str:
                         [
                             annotation: 'scheduler.illumina.com/presetSize',
                             value: 'himem-large'
+                        ]
+                    ]
+                }
+            }
+            
+            // Process Very High Memory intensive workflows - Start with himem-medium, then himem-large
+            withLabel:process_very_high_memory {
+                cpus = { task.attempt == 1 ? 48 : 92 }
+                memory = { task.attempt == 1 ? 384.GB : 768.GB }
+                time = { 8.h  * task.attempt }
+                pod = { task.attempt == 1 ?
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'economy'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'himem-large'
+                        ]
+                    ] :
+                    [
+                        [
+                            annotation: 'scheduler.illumina.com/lifecycle',
+                            value: 'standard'
+                        ],
+                        [
+                            annotation: 'scheduler.illumina.com/presetSize',
+                            value: 'himem-xlarge'
                         ]
                     ]
                 }
