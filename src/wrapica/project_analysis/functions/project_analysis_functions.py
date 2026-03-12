@@ -522,7 +522,7 @@ def write_analysis_step_logs(
             continue
         non_empty_log_attrs.append(attr)
 
-    if log_name == "stderr":
+    if log_name == "stdout":
         if hasattr(step_logs, "std_out_stream") and step_logs.std_out_stream is not None:
             is_stream = True
             log_stream = step_logs.std_out_stream
