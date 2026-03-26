@@ -42,6 +42,7 @@ from libica.openapi.v3.models import (
     AnalysisStepLogs,
     CwlAnalysisInputJson,
     CwlAnalysisOutputJson,
+    AnalysisUsageDetails
 )
 
 # Local imports
@@ -1110,3 +1111,46 @@ def add_tag_to_analysis(
     return analysis_obj
 
 
+def get_analysis_usage(
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str],
+) -> AnalysisUsageDetails:
+    """
+    Given a project id and analysis id, collect the analysis usage details
+
+    :param project_id:
+    :param analysis_id:
+    :return: The analysis object
+    :rtype: `AnalysisUsageDetails <https://umccr.github.io/libica/openapi/v3/docs/AnalysisUsageDetails>`_
+
+    :raises: ValueError
+
+    :Examples:
+
+    .. code-block:: python
+
+        :linenos:
+        from wrapica.project_analysis import get_analysis_usage
+
+        # Set params
+        project_id = "project_id"
+        analysis_id = "analysis_id"
+
+        usage = get_analysis_usage(project_id, analysis_id)
+    """
+
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectAnalysisApi(api_client)
+
+    try:
+        # Retrieve the input json of a CWL analysis.
+        api_response: AnalysisUsageDetails = api_instance.get_analysis_usage_details(
+            project_id=str(project_id),
+            analysis_id=str(analysis_id)
+        )
+    except ApiException as e:
+        logger.error("Exception when calling ProjectAnalysisApi->get_analysis_usage_details: %s\n" % e)
+        raise e
+
+    return api_response

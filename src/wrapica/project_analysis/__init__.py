@@ -43,7 +43,8 @@ from .functions.project_analysis_functions import (
     get_analysis_obj_from_user_reference,
     coerce_analysis_id_or_user_reference_to_analysis_obj,
     update_analysis_obj,
-    add_tag_to_analysis
+    add_tag_to_analysis,
+    get_analysis_usage,
 )
 
 __all__ = [
@@ -82,4 +83,5 @@ __all__ = [
     'coerce_analysis_id_or_user_reference_to_analysis_obj',
     'update_analysis_obj',
     'add_tag_to_analysis',
+    'get_analysis_usage',
 ]
