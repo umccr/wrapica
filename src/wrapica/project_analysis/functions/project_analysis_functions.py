@@ -42,6 +42,7 @@ from libica.openapi.v3.models import (
     AnalysisStepLogs,
     CwlAnalysisInputJson,
     CwlAnalysisOutputJson,
+    AnalysisUsageDetails
 )
 
 # Local imports
@@ -57,8 +58,8 @@ logger = get_logger()
 
 
 def get_project_analysis_inputs(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str]
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str]
 ) -> List[AnalysisInput]:
     """
     Get the analysis inputs for a given analysis
@@ -105,9 +106,9 @@ def get_project_analysis_inputs(
 
 
 def get_analysis_input_object_from_analysis_input_code(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str],
-    analysis_input_code: str
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str],
+        analysis_input_code: str
 ) -> AnalysisInput:
     """
     Given an analysis input code for an analysis id, collect the analysis input object
@@ -164,8 +165,8 @@ def get_analysis_input_object_from_analysis_input_code(
 
 
 def get_outputs_object_from_analysis_id(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str]
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str]
 ) -> List[AnalysisOutput]:
     """
     Query the outputs object from the analysis id
@@ -211,9 +212,9 @@ def get_outputs_object_from_analysis_id(
 
 
 def get_analysis_output_object_from_analysis_output_code(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str],
-    analysis_output_code: str
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str],
+        analysis_output_code: str
 ) -> AnalysisOutput:
     """
     Given an analysis code for an analysis id, collect the analysis output object
@@ -266,8 +267,8 @@ def get_analysis_output_object_from_analysis_output_code(
 
 
 def get_cwl_outputs_json_from_analysis_id(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str]
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str]
 ) -> Dict[str, Any]:
     """
     Query the outputs object from the analysis id
@@ -313,8 +314,8 @@ def get_cwl_outputs_json_from_analysis_id(
 
 
 def get_analysis_obj_from_analysis_id(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str]
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str]
 ) -> AnalysisV4:
     """
     Get an analysis object given a project id and analysis id
@@ -369,9 +370,9 @@ def get_analysis_obj_from_analysis_id(
 
 
 def get_analysis_steps(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str],
-    include_technical_steps: bool = False
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str],
+        include_technical_steps: bool = False
 ) -> List[AnalysisStep]:
     """
     Get the workflow steps for a given analysis
@@ -429,7 +430,7 @@ def get_analysis_steps(
 
 
 def get_analysis_log_from_analysis_step(
-    analysis_step: AnalysisStep
+        analysis_step: AnalysisStep
 ) -> AnalysisStepLogs:
     """
     Get the logs for a given analysis step
@@ -458,11 +459,11 @@ def get_analysis_log_from_analysis_step(
 
 
 def write_analysis_step_logs(
-    project_id: Union[UUID4, str],
-    step_logs: AnalysisStepLogs,
-    log_name: AnalysisLogStreamNameType,
-    output_path: Union[Path | TextIOWrapper],
-    is_cwltool_log: Optional[bool] = False
+        project_id: Union[UUID4, str],
+        step_logs: AnalysisStepLogs,
+        log_name: AnalysisLogStreamNameType,
+        output_path: Union[Path | TextIOWrapper],
+        is_cwltool_log: Optional[bool] = False
 ) -> None:
     """
     Write the analysis step logs to a file
@@ -560,8 +561,8 @@ def write_analysis_step_logs(
 
 
 def abort_analysis(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str],
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str],
 ) -> None:
     """
     Abort an analysis
@@ -618,16 +619,16 @@ def abort_analysis(
 
 
 def list_analyses(
-    project_id: Union[UUID4, str],
-    pipeline_id: Optional[Union[UUID4, str]] = None,
-    user_reference: Optional[str] = None,
-    status: Optional[Union[ProjectAnalysisStatusType, List[ProjectAnalysisStatusType]]] = None,
-    creation_date_before: Optional[datetime] = None,
-    creation_date_after: Optional[datetime] = None,
-    modification_date_before: Optional[datetime] = None,
-    modification_date_after: Optional[datetime] = None,
-    sort: Optional[Union[ProjectAnalysisSortParametersType, List[ProjectAnalysisSortParametersType]]] = None,
-    max_items: Optional[int] = None
+        project_id: Union[UUID4, str],
+        pipeline_id: Optional[Union[UUID4, str]] = None,
+        user_reference: Optional[str] = None,
+        status: Optional[Union[ProjectAnalysisStatusType, List[ProjectAnalysisStatusType]]] = None,
+        creation_date_before: Optional[datetime] = None,
+        creation_date_after: Optional[datetime] = None,
+        modification_date_before: Optional[datetime] = None,
+        modification_date_after: Optional[datetime] = None,
+        sort: Optional[Union[ProjectAnalysisSortParametersType, List[ProjectAnalysisSortParametersType]]] = None,
+        max_items: Optional[int] = None
 ) -> List[AnalysisV4]:
     """
     List analyses
@@ -772,30 +773,30 @@ def list_analyses(
     analysis_list = list(
         filter(
             lambda analysis_iter: (
-                (
-                    pipeline_id is None or
-                    str(analysis_iter.pipeline.id) == str(pipeline_id)
-                ) and
-                (
-                    user_reference_regex is None or
-                    user_reference_regex.match(analysis_iter.user_reference) is not None
-                ) and
-                (
-                    creation_date_after is None or
-                    analysis_iter.creation_date >= creation_date_after
-                ) and
-                (
-                    creation_date_before is None or
-                    analysis_iter.creation_date <= creation_date_before
-                ) and
-                (
-                    modification_date_after is None or
-                    analysis_iter.modification_date >= modification_date_after
-                ) and
-                (
-                    modification_date_before is None or
-                    analysis_iter.modification_date <= modification_date_before
-                )
+                    (
+                            pipeline_id is None or
+                            str(analysis_iter.pipeline.id) == str(pipeline_id)
+                    ) and
+                    (
+                            user_reference_regex is None or
+                            user_reference_regex.match(analysis_iter.user_reference) is not None
+                    ) and
+                    (
+                            creation_date_after is None or
+                            analysis_iter.creation_date >= creation_date_after
+                    ) and
+                    (
+                            creation_date_before is None or
+                            analysis_iter.creation_date <= creation_date_before
+                    ) and
+                    (
+                            modification_date_after is None or
+                            analysis_iter.modification_date >= modification_date_after
+                    ) and
+                    (
+                            modification_date_before is None or
+                            analysis_iter.modification_date <= modification_date_before
+                    )
             ),
             analysis_list
         )
@@ -805,8 +806,8 @@ def list_analyses(
 
 
 def get_cwl_analysis_input_json(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str]
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str]
 ) -> Dict:
     """
     Get the CWL Analysis Input JSON
@@ -859,8 +860,8 @@ def get_cwl_analysis_input_json(
 
 
 def get_cwl_analysis_output_json(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str]
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str]
 ) -> Dict:
     """
     Get the CWL Analysis Input JSON
@@ -937,8 +938,8 @@ def analysis_step_to_dict(analysis_step: AnalysisStep) -> AnalysisStepDict:
 
 
 def get_analysis_obj_from_user_reference(
-    project_id: Union[UUID4, str],
-    user_reference: str
+        project_id: Union[UUID4, str],
+        user_reference: str
 ) -> AnalysisType:
     """
     Given a user reference, get the analysis object
@@ -973,8 +974,8 @@ def get_analysis_obj_from_user_reference(
 
 
 def coerce_analysis_id_or_user_reference_to_analysis_obj(
-    project_id: Union[UUID4, str],
-    analysis_id_or_user_reference: Union[Union[UUID4, str], str]
+        project_id: Union[UUID4, str],
+        analysis_id_or_user_reference: Union[Union[UUID4, str], str]
 ) -> AnalysisType:
     """
     Given either an analysis id or user reference, coerce to an analysis object
@@ -1013,8 +1014,8 @@ def coerce_analysis_id_or_user_reference_to_analysis_obj(
 
 
 def coerce_analysis_id_or_user_reference_to_analysis_id(
-    project_id: Union[UUID4, str],
-    analysis_id_or_user_reference: str
+        project_id: Union[UUID4, str],
+        analysis_id_or_user_reference: str
 ) -> str:
     """
     Given either an analysis id or user reference, coerce to an analysis id
@@ -1036,9 +1037,9 @@ def coerce_analysis_id_or_user_reference_to_analysis_id(
 
 
 def update_analysis_obj(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str],
-    analysis_obj: AnalysisType
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str],
+        analysis_obj: AnalysisType
 ) -> AnalysisType:
     """
     Given an analysis id, update the analysis object
@@ -1073,10 +1074,10 @@ def update_analysis_obj(
 
 
 def add_tag_to_analysis(
-    project_id: Union[UUID4, str],
-    analysis_id: Union[UUID4, str],
-    tag: str,
-    tag_type: AnalysisTagType
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str],
+        tag: str,
+        tag_type: AnalysisTagType
 ):
     # Check project id and analysis id are in uuid formats
     if not is_uuid_format(project_id):
@@ -1110,3 +1111,46 @@ def add_tag_to_analysis(
     return analysis_obj
 
 
+def get_analysis_usage(
+        project_id: Union[UUID4, str],
+        analysis_id: Union[UUID4, str],
+) -> AnalysisUsageDetails:
+    """
+    Given a project id and analysis id, collect the analysis usage details
+
+    :param project_id:
+    :param analysis_id:
+    :return: The analysis usage details for the given analysis
+    :rtype: `AnalysisUsageDetails <https://umccr.github.io/libica/openapi/v3/docs/AnalysisUsageDetails>`_
+
+    :raises: ApiException
+
+    :Examples:
+
+    .. code-block:: python
+
+        :linenos:
+        from wrapica.project_analysis import get_analysis_usage
+
+        # Set params
+        project_id = "project_id"
+        analysis_id = "analysis_id"
+
+        usage = get_analysis_usage(project_id, analysis_id)
+    """
+
+    with ApiClient(get_icav2_configuration()) as api_client:
+        # Create an instance of the API class
+        api_instance = ProjectAnalysisApi(api_client)
+
+    try:
+        # Retrieve the analysis usage details
+        api_response: AnalysisUsageDetails = api_instance.get_analysis_usage_details(
+            project_id=str(project_id),
+            analysis_id=str(analysis_id)
+        )
+    except ApiException as e:
+        logger.error("Exception when calling ProjectAnalysisApi->get_analysis_usage_details: %s\n" % e)
+        raise e
+
+    return api_response

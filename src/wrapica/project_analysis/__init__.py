@@ -16,7 +16,8 @@ from libica.openapi.v3.models import (
     CwlAnalysisInputJson,
     CwlAnalysisOutputJson,
     AnalysisStorageV3,
-    AnalysisStorageV4
+    AnalysisStorageV4,
+    AnalysisUsageDetails
 )
 
 AnalysisType = Union[AnalysisV3, AnalysisV4]
@@ -43,7 +44,8 @@ from .functions.project_analysis_functions import (
     get_analysis_obj_from_user_reference,
     coerce_analysis_id_or_user_reference_to_analysis_obj,
     update_analysis_obj,
-    add_tag_to_analysis
+    add_tag_to_analysis,
+    get_analysis_usage,
 )
 
 __all__ = [
@@ -62,6 +64,7 @@ __all__ = [
     'AnalysisStorageType',
     'AnalysisStorageV3',
     'AnalysisStorageV4',
+    'AnalysisUsageDetails',
     # Functions
     'get_project_analysis_inputs',
     'get_analysis_input_object_from_analysis_input_code',
@@ -82,4 +85,5 @@ __all__ = [
     'coerce_analysis_id_or_user_reference_to_analysis_obj',
     'update_analysis_obj',
     'add_tag_to_analysis',
+    'get_analysis_usage',
 ]
