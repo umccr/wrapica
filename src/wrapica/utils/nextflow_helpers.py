@@ -961,7 +961,7 @@ def get_default_icav2_config_content() -> str:
             // Process Very High Memory intensive workflows - 
             // Start with himem-large, then himem-xlarge
             withLabel:process_very_high_memory {
-                cpus = { task.attempt == 1 ? 48 : 92 }
+                cpus = { task.attempt == 1 ? 48 : 96 }
                 memory = { task.attempt == 1 ? 384.GB : 768.GB }
                 time = { 8.h  * task.attempt }
                 pod = { task.attempt == 1 ?
