@@ -1120,7 +1120,7 @@ def get_analysis_usage(
 
     :param project_id:
     :param analysis_id:
-    :return: The analysis object
+    :return: The analysis usage details for the given analysis
     :rtype: `AnalysisUsageDetails <https://umccr.github.io/libica/openapi/v3/docs/AnalysisUsageDetails>`_
 
     :raises: ApiException
