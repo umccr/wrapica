@@ -2,8 +2,10 @@
 
 # External imports
 import json
+import shutil
 import warnings
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from typing import List, Dict, Union
 from xml.dom.minidom import Document
@@ -85,18 +87,7 @@ def convert_base_config_to_icav2_base_config(base_config_path: Path):
     # This configuration should also set the base params and docker params
     new_base_config.extend(
         """
-// Added by Wrapica to allow usability icav2
-params {
-    outdir = 'out'  
-    publish_dir_mode = 'copy'  
-    igenomes_ignore = false  
-    enable_conda = false  
-    email_on_fail = null  
-    email = null  
-    ica_smoke_test = false
-}
-
-// Edited by Wrapica to allow usability icav2
+// Set docker enabled to true
 docker {
     enabled = true
 }
@@ -109,7 +100,7 @@ docker {
 
 
 def include_icav2_config_into_nextflow_config(
-        base_config_path: Path
+        nextflow_config_path: Path
 ):
     wrapica_additional_content = dedent(
         f"""
@@ -126,13 +117,35 @@ def include_icav2_config_into_nextflow_config(
         """
     )
 
-    with open(base_config_path, 'r') as base_config_file:
-        if 'WRAPICA INCLUSIONS FOR ICA COMPATIBILITY' in base_config_file.read():
+    with open(nextflow_config_path, 'r') as nextflow_config_file:
+        if 'WRAPICA INCLUSIONS FOR ICA COMPATIBILITY' in nextflow_config_file.read():
             # We have already added the wrapica content to this config file, so we don't need to do it again
             return
 
-    with open(base_config_path, 'a') as base_config_file:
-        base_config_file.write(wrapica_additional_content)
+    # If includeConfig 'conf/base.config' not in file, just append the additional content
+    with open(nextflow_config_path, 'r') as nextflow_config_file:
+        if not "includeConfig 'conf/base.config'" in nextflow_config_file.read():
+            # Just add this at the end
+            with open(nextflow_config_path, 'w') as nextflow_config_file:
+                nextflow_config_file.write(wrapica_additional_content)
+
+            return
+
+    # We should place includeConfig 'conf/icav2.config' immediately after the additional content
+    with (
+        open(nextflow_config_path, 'r') as nextflow_config_file,
+        NamedTemporaryFile(suffix='.config') as new_nextflow_config_file,
+    ):
+        # Iterate over each line looking for the first conf/base.config
+        for line in nextflow_config_file:
+            new_nextflow_config_file.write(line)
+            if line.strip() == "includeConfig 'conf/base.config'":
+                new_nextflow_config_file.write(wrapica_additional_content + "\n")
+        # Ensure all content written to cache
+        new_nextflow_config_file.flush()
+
+        # Move the temp file over to nextflow_config_path to replace
+        shutil.copy2(new_nextflow_config_file.name, nextflow_config_path)
 
 
 def write_params_xml_from_nextflow_schema_json(
@@ -782,36 +795,43 @@ def get_default_icav2_config_content() -> str:
                 if they fail due to spot interruptions.
             */
         
-            // Defaults for all processes
+            // Default configs for all processes
             cpus   = { 2      * task.attempt }
             memory = { 8.GB   * task.attempt }
             time   = { 4.h    * task.attempt }
-            scratch = '/scratch'
-            stageOutMode = 'copy'
-            pod = [
-              [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
-              [annotation: 'scheduler.illumina.com/presetSize', value: 'standard-small'],
-              [annotation: 'volumes.illumina.com/scratchSize', value: '128GiB']
+            
+            // ICA configuration defaults
+            /* 
+              See docs here https://help.ica.illumina.com/project/p-flow/f-pipelines/pi-nextflow
+              for more information on pod directives 
+            */
+            scratch      = '/scratch'  // Write out to scratch on EBS
+            stageOutMode = 'copy'      // Then copy from scratch to EBS on task completion
+
+            // Set default pod to economy + small + 128Gib scratch size
+            pod          = [
+                [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
+                [annotation: 'scheduler.illumina.com/presetSize', value: 'standard-small'],
+                [annotation: 'volumes.illumina.com/scratchSize', value: '128GiB']
             ]
         
             // Process Economy - For shorter processes that we are okay if they are disrupted
-            // Add 143 to errorStrategy retry list to include the error code for spot instance interruption
+            // Add 55 to errorStrategy retry list to include the error code for spot instance interruption
             // We retry in economy once, and then move to standard for the retry attempt
-            // We also add one to our maxRetries since we want to allow for one retry in economy,
-            // and then a second retry in standard if the failure was due to spot instance interruption
-            maxRetries = 3
+            maxRetries    = 1
             errorStrategy = {
-                task.exitStatus in ((130..145) + 104 + 175) ? 'retry' : 'finish'
+                task.exitStatus in ((130..145) + 104 + 175 + 55) ? 'retry' : 'finish'
             }
         
             // Process-specific resource requirements
         
             // Process Single - Start with standard-small, then standard-medium
             withLabel:process_single {
-                cpus = { 2 * task.attempt }
+                cpus   = { 2 * task.attempt }
                 memory = { 8.GB * task.attempt }
-                time = { 4.h * task.attempt }
-                pod = { task.attempt == 1 ?
+                time   = { 4.h * task.attempt }
+                pod    = { 
+                    task.attempt == 1 ?
                     [
                         [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
                         [annotation: 'scheduler.illumina.com/presetSize', value: 'standard-small'],
@@ -827,10 +847,11 @@ def get_default_icav2_config_content() -> str:
         
             // Process Low - Start with standard-medium, then standard-large
             withLabel:process_low {
-                cpus = { 4 * task.attempt }
+                cpus   = { 4 * task.attempt }
                 memory = { 16.GB * task.attempt }
-                time = { 4.h * task.attempt }
-                pod = { task.attempt == 1 ?
+                time   = { 4.h * task.attempt }
+                pod    = { 
+                    task.attempt == 1 ?
                     [
                         [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
                         [annotation: 'scheduler.illumina.com/presetSize', value: 'standard-medium'],
@@ -846,10 +867,11 @@ def get_default_icav2_config_content() -> str:
         
             // Process Medium - Start with standard-large, then standard-xlarge
             withLabel:process_medium {
-                cpus = { 8 * task.attempt }
+                cpus   = { 8 * task.attempt }
                 memory = { 32.GB * task.attempt }
-                time = { 8.h * task.attempt }
-                pod = { task.attempt == 1 ?
+                time   = { 8.h * task.attempt }
+                pod    = { 
+                    task.attempt == 1 ?
                     [
                         [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
                         [annotation: 'scheduler.illumina.com/presetSize', value: 'standard-large'],
@@ -865,10 +887,11 @@ def get_default_icav2_config_content() -> str:
         
             // Process High - Start with standard-xlarge, then standard-2xlarge
             withLabel:process_high {
-                cpus = { 16 * task.attempt }
+                cpus   = { 16 * task.attempt }
                 memory = { 64.GB * task.attempt }
-                time = { 8.h * task.attempt }
-                pod = { task.attempt == 1 ?
+                time   = { 8.h * task.attempt }
+                pod    = { 
+                    task.attempt == 1 ?
                     [
                         [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
                         [annotation: 'scheduler.illumina.com/presetSize', value: 'standard-xlarge'],
@@ -884,10 +907,11 @@ def get_default_icav2_config_content() -> str:
             
             // Process Medium CPU - Start with hicpu-small, then hicpu-medium
             withLabel:process_medium_cpu {
-                cpus = { 16   * task.attempt }
+                cpus   = { 16   * task.attempt }
                 memory = { 32.GB * task.attempt }
-                time = { 8.h  * task.attempt }
-                pod = { task.attempt == 1 ?
+                time   = { 8.h  * task.attempt }
+                pod    = { 
+                    task.attempt == 1 ?
                     [
                         [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
                         [annotation: 'scheduler.illumina.com/presetSize', value: 'hicpu-small'],
@@ -903,10 +927,11 @@ def get_default_icav2_config_content() -> str:
             
             // Process High CPU - Start with hicpu-medium, then hicpu-large
             withLabel:process_high_cpu {
-                cpus = { 36   * task.attempt }
+                cpus   = { 36   * task.attempt }
                 memory = { 72.GB * task.attempt }
-                time = { 8.h  * task.attempt }
-                pod = { task.attempt == 1 ?
+                time   = { 8.h  * task.attempt }
+                pod    = { 
+                    task.attempt == 1 ?
                     [
                         [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
                         [annotation: 'scheduler.illumina.com/presetSize', value: 'hicpu-medium'],
@@ -922,10 +947,11 @@ def get_default_icav2_config_content() -> str:
         
             // Process Medium Memory - Start with himem-small, then himem-medium
             withLabel:process_medium_memory {
-                cpus = { 8    * task.attempt }
+                cpus   = { 8    * task.attempt }
                 memory = { 64.GB * task.attempt }
-                time = { 8.h  * task.attempt }
-                pod = { task.attempt == 1 ?
+                time   = { 8.h  * task.attempt }
+                pod    = { 
+                    task.attempt == 1 ?
                     [
                         [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
                         [annotation: 'scheduler.illumina.com/presetSize', value: 'himem-small'],
@@ -941,10 +967,11 @@ def get_default_icav2_config_content() -> str:
         
             // Process High Memory - Start with himem-medium, then himem-large
             withLabel:process_high_memory {
-                cpus = { task.attempt == 1 ? 16 : 48 }
+                cpus   = { task.attempt == 1 ? 16 : 48 }
                 memory = { task.attempt == 1 ? 128.GB : 384.GB }
-                time = { 8.h  * task.attempt }
-                pod = { task.attempt == 1 ?
+                time   = { 8.h  * task.attempt }
+                pod    = { 
+                    task.attempt == 1 ?
                     [
                         [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
                         [annotation: 'scheduler.illumina.com/presetSize', value: 'himem-medium'],
@@ -961,10 +988,11 @@ def get_default_icav2_config_content() -> str:
             // Process Very High Memory intensive workflows - 
             // Start with himem-large, then himem-xlarge
             withLabel:process_very_high_memory {
-                cpus = { task.attempt == 1 ? 48 : 96 }
+                cpus   = { task.attempt == 1 ? 48 : 96 }
                 memory = { task.attempt == 1 ? 384.GB : 768.GB }
-                time = { 8.h  * task.attempt }
-                pod = { task.attempt == 1 ?
+                time   = { 8.h  * task.attempt }
+                pod    = { 
+                    task.attempt == 1 ?
                     [
                         [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
                         [annotation: 'scheduler.illumina.com/presetSize', value: 'himem-large'],
@@ -981,10 +1009,11 @@ def get_default_icav2_config_content() -> str:
             // Process High IO - Start with hiio-medium on a economy lifecycle, 
             // then hiio-medium on a standard lifecycle
             withLabel:process_high_io {
-                cpus = 4
+                cpus   = 4
                 memory = 30.GB
-                time = { 8.h  * task.attempt }
-                pod = { task.attempt == 1 ?
+                time   = { 8.h  * task.attempt }
+                pod    = { 
+                    task.attempt == 1 ?
                     [
                         [annotation: 'scheduler.illumina.com/lifecycle', value: 'economy'],
                         [annotation: 'scheduler.illumina.com/presetSize', value: 'hiio-medium'],
@@ -1000,13 +1029,13 @@ def get_default_icav2_config_content() -> str:
         
             // Ignore errors for some processes, and retry a few times for others
             withLabel:error_ignore {
-                errorStrategy = 'ignore'
+                errorStrategy  = 'ignore'
             }
         
             // Set retry attempt to 2
             withLabel:error_retry {
-                errorStrategy = 'retry'
-                maxRetries    = 2
+                errorStrategy  = 'retry'
+                maxRetries     = 2
             }
         
             // GPU processes - We set gpu resource requirements for processes with the gpu label,
@@ -1014,29 +1043,29 @@ def get_default_icav2_config_content() -> str:
             // Note that the GPU resource requirements are not multiplied by the task attempt,
             // as we dont want to increase the GPU resources on retry
             withLabel:process_gpu {
-               ext.use_gpu = { workflow.profile.contains('gpu') }
-               accelerator = { workflow.profile.contains('gpu') ? 1 : null }
-               
-               cpus = 8
-               memory = 32.GB
-               
-               pod = [
-                   [annotation: 'scheduler.illumina.com/presetSize', value: 'gpu-small'],
-                   [annotation: 'scheduler.illumina.com/lifecycle', value: 'standard'],
-                   [annotation: 'volumes.illumina.com/scratchSize', value: '1024GiB']
-               ]
+                ext.use_gpu  = { workflow.profile.contains('gpu') }
+                accelerator  = { workflow.profile.contains('gpu') ? 1 : null }
+                
+                cpus   = 8
+                memory = 32.GB
+                
+                pod    = [
+                    [annotation: 'scheduler.illumina.com/presetSize', value: 'gpu-small'],
+                    [annotation: 'scheduler.illumina.com/lifecycle', value: 'standard'],
+                    [annotation: 'volumes.illumina.com/scratchSize', value: '1024GiB']
+                ]
             }
             
             // FPGA processes required for dragen
             withLabel:process_fpga {
-               cpus = 24
-               memory = 256.GB
-               time = { 8.h  * task.attempt }
-               pod = [
-                  [annotation: 'scheduler.illumina.com/presetSize', value: 'fpga2-medium'],
-                  [annotation: 'scheduler.illumina.com/lifecycle', value: 'standard'],
-                  [annotation: 'volumes.illumina.com/scratchSize', value: '2048GiB']
-               ]
+                cpus   = 24
+                memory = 256.GB
+                time   = { 8.h  * task.attempt }
+                pod    = [
+                    [annotation: 'scheduler.illumina.com/presetSize', value: 'fpga2-medium'],
+                    [annotation: 'scheduler.illumina.com/lifecycle', value: 'standard'],
+                    [annotation: 'volumes.illumina.com/scratchSize', value: '2048GiB']
+                ] 
             }
             
             // Process Long
@@ -1045,26 +1074,14 @@ def get_default_icav2_config_content() -> str:
             // We also do not want to run on economy for long running processes, as they are more likely to be disrupted,
             // so we set the lifecycle to standard for all attempts
             withLabel:process_long {
-                time   = { 20.h  * task.attempt }
-                pod = [
+                time  = { 20.h  * task.attempt }
+                pod   = [
                     [annotation: 'scheduler.illumina.com/lifecycle', value: 'standard'],
                     [annotation: 'volumes.illumina.com/scratchSize', value: '128GiB']
                 ]
             }
-            
         }
-        
-        // Allow usability ica
-        params {
-            outdir = 'out'
-            publish_dir_mode = 'symlink'
-            igenomes_ignore = false
-            enable_conda = false
-            email_on_fail = null
-            email = null
-            ica_smoke_test = false
-        }
-        
+
         // Force docker
         docker {
             enabled = true
