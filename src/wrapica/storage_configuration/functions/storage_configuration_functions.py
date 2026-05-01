@@ -9,7 +9,6 @@ from os import environ
 from pathlib import Path
 from typing import List, Optional, Tuple, TypedDict, NotRequired, cast, Union
 from urllib.parse import urlunparse, urlparse
-
 from pydantic import UUID4
 from requests import HTTPError
 from ruamel.yaml import YAML
@@ -38,6 +37,7 @@ class StorageConfigurationObjectModel(TypedDict):
     id: str
     bucketName: str
     keyPrefix: str
+    storageCredentialId: str
 
 
 class ProjectToStorageMappingDictModel(TypedDict):
@@ -46,7 +46,7 @@ class ProjectToStorageMappingDictModel(TypedDict):
     storageConfigurationId: str
     prefix: NotRequired[str]
 
-
+# Global env vars
 STORAGE_CONFIGURATION_OBJECT_LIST: Optional[List[StorageConfigurationObjectModel]] = None
 STORAGE_CONFIGURATION_OBJECT_LIST_ENV_VAR = "ICAV2_STORAGE_CONFIGURATION_LIST_FILE"
 
@@ -90,18 +90,53 @@ def _get_storage_configuration_api_list() -> List[StorageConfigurationObjectMode
 
     :return: The storage configuration list
     """
+    # FIXME wait for next libica release
     # Enter a context with an instance of the API client
-    with ApiClient(get_icav2_configuration()) as api_client:
-        # Create an instance of the API class
-        api_instance = StorageConfigurationApi(api_client)
+    # with ApiClient(get_icav2_configuration()) as api_client:
+    #     # Create an instance of the API class
+    #     api_instance = StorageConfigurationApi(api_client)
+    #
+    # # example, this endpoint has no required or optional parameters
+    # try:
+    #     # Retrieve a list of storage configurations.
+    #     api_response = api_instance.get_storage_configurations()
+    # except ApiException as e:
+    #     logger.error("Exception when calling StorageConfigurationApi->get_storage_configurations: %s\n" % e)
+    #     raise ApiException from e
 
-    # example, this endpoint has no required or optional parameters
+    # Local import
+    import requests
+
+    headers = {
+        "Accept": "application/vnd.illumina.v3+json",
+        "Authorization": f"Bearer {get_icav2_configuration().access_token}",
+    }
+
+    # Get the response from the API
+    response = requests.get(
+        f"{get_icav2_configuration().host}/api/storageConfigurations",
+        headers=headers,
+    )
+
+    # Check if the response is a 404
+    if response.status_code == 404:
+        return None
+
+    # Raise an exception if the request was unsuccessful
     try:
-        # Retrieve a list of storage configurations.
-        api_response = api_instance.get_storage_configurations()
-    except ApiException as e:
-        logger.error("Exception when calling StorageConfigurationApi->get_storage_configurations: %s\n" % e)
-        raise ApiException from e
+        response.raise_for_status()
+    except HTTPError as e:
+        raise HTTPError(
+            f"Failed to get self-managed storage configurations list"
+        ) from e
+
+    response_json = response.json()
+
+    if 'items' not in response_json:
+        logger.error(f"Could not get items in response json, got {list(response_json.keys())}")
+        raise KeyError
+
+    response_items = response_json['items']
 
     return list(map(
         lambda item_iter_: (
@@ -111,13 +146,14 @@ def _get_storage_configuration_api_list() -> List[StorageConfigurationObjectMode
                     object,
                     {
                         "id": str(item_iter_.id),
-                        "bucketName": item_iter_.storage_configuration_details.aws_s3.bucket_name,
-                        "keyPrefix": str(Path(item_iter_.storage_configuration_details.aws_s3.key_prefix)) + "/"
+                        "bucketName": item_iter_['storageConfigurationDetails']['awsS3']['bucketName'],
+                        "keyPrefix": str(Path(item_iter_['storageConfigurationDetails']['awsS3']['keyPrefix'])) + "/",
+                        "storageCredentialId": item_iter_['storageConfigurationDetails']['storageCredential']['id'],
                     }
                 )
             )
         ),
-        api_response.items
+        response_items
     ))
 
 
