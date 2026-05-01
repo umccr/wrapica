@@ -28,7 +28,7 @@ from libica.openapi.v3 import (
     ProjectPipelineV4,
     PipelineConfigurationParameter,
     PipelineResources,
-    AnalysisS3DataDetails
+    AnalysisS3DataDetails, CwlAnalysisWithJsonInput
 )
 from libica.openapi.v3.api.project_pipeline_api import ProjectPipelineApi
 from libica.openapi.v3.api.project_analysis_api import ProjectAnalysisApi
@@ -580,7 +580,7 @@ def create_cwl_input_json_analysis_obj(
         project_id=project_id,
         pipeline_id=pipeline_id,
         # By calling the cwl input object, we return a deferenced CwlAnalysisJsonInput
-        analysis_input=cwl_input_obj(),
+        analysis_input=cast(CwlAnalysisWithJsonInput, cwl_input_obj()),
         analysis_storage_id=analysis_storage_id,
         analysis_storage_size=analysis_storage_size,
         analysis_output_uri=analysis_output_uri,
@@ -667,8 +667,8 @@ def launch_cwl_workflow(
     try:
         # Create and start an analysis for a CWL pipeline.
         api_response: AnalysisV4 = api_instance.create_cwl_analysis_with_json_input(
-            str(project_id),
-            cwl_analysis,
+            project_id=str(project_id),
+            create_cwl_with_json_input_analysis=cwl_analysis,
             **analysis_kwargs
         )
     except ApiException as e:
@@ -1956,7 +1956,7 @@ def create_cwl_project_pipeline(
     if params_xml_file is None:
         params_xml_temp_file_obj = NamedTemporaryFile(prefix="params", suffix=".xml")
         params_xml_file = Path(params_xml_temp_file_obj.name)
-        create_blank_params_xml(output_file_path=params_xml_file)
+        create_blank_params_xml(output_file_path=cast(Path, params_xml_file))
 
     params_xml_tuple_bytes = (str(params_xml_file), open(params_xml_file, 'rb').read())
 
@@ -2132,7 +2132,6 @@ def create_nextflow_pipeline_from_zip(
         config_file = zip_dir / "nextflow.config"
 
         # Add ICAv2 Config
-        include_icav2_config_into_nextflow_config(config_file)
         with open(zip_dir / ICAV2_CONFIG_NEXTFLOW_PATH, 'w') as config_h:
             config_h.write(get_default_icav2_config_content())
         # Add 'includeConfig' directive to the nextflow.config file
