@@ -126,7 +126,7 @@ def include_icav2_config_into_nextflow_config(
     with open(nextflow_config_path, 'r') as nextflow_config_file:
         if not "includeConfig 'conf/base.config'" in nextflow_config_file.read():
             # Just add this at the end
-            with open(nextflow_config_path, 'w') as nextflow_config_file:
+            with open(nextflow_config_path, 'a') as nextflow_config_file:
                 nextflow_config_file.write(wrapica_additional_content)
 
             return
