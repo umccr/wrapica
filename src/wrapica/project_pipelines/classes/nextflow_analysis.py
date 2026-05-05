@@ -5,7 +5,7 @@ Nextflow analysis
 """
 # Standard imports
 import json
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, cast
 from pydantic import UUID4
 
 # Libica imports
@@ -82,7 +82,7 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
 
         # Generate a CWL analysis input
         return NextflowAnalysisWithCustomInput(
-            customInput=self.input_json_str,
+            customInput=cast(str, self.input_json_str),
             dataIds=self.data_ids,
             mounts=self.mount_paths_list,
             externalData=self.external_mounts_list
@@ -104,9 +104,6 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
         )
 
     def set_input_json(self):
-        if not 'outdir' in self.input_json_deferenced_dict.keys():
-            self.input_json_deferenced_dict['outdir'] = 'out/'
-
         self.input_json_str = json.dumps(self.input_json_deferenced_dict, indent=2)
 
 
@@ -207,7 +204,7 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             pipeline_id=self.pipeline_id,
             analysis_output=self.analysis_output,
             logs_output=self.logs,
-            analysis_input=self.analysis_input,
+            analysis_input=cast(NextflowAnalysisWithCustomInput, self.analysis_input),
             tags=self.tags,
             analysis_storage_id=self.analysis_storage_id,
             analysis_storage_size=self.analysis_storage_size,
@@ -216,9 +213,9 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
     def create_analysis(self) -> CreateNextflowWithCustomInputAnalysis:
         return CreateNextflowWithCustomInputAnalysis(
             userReference=self.user_reference,
-            pipelineId=self.pipeline_id,
+            pipelineId=str(self.pipeline_id),
             tags=self.engine_parameters.tags(),
-            analysisInput=self.analysis_input,
+            analysisInput=cast(NextflowAnalysisWithCustomInput, self.analysis_input),
             analysisStorageId=self.engine_parameters.analysis_storage_id,
             analysisOutput=self.engine_parameters.analysis_output,
             logs=self.engine_parameters.logs_output,
