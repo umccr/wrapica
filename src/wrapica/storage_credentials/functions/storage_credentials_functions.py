@@ -91,7 +91,7 @@ def get_storage_credential_api_list() -> List[StorageCredentialMappingModel]:
                         "s3UriList": list(map(
                             lambda storage_configuration_iter: str(urlunparse(
                                 (
-                                    S3_URI_SCHEME, storage_configuration_iter['bucket'], storage_configuration_iter['keyPrefix'],
+                                    S3_URI_SCHEME, storage_configuration_iter['bucketName'], storage_configuration_iter['keyPrefix'],
                                     None, None, None
                                 )
                             )),

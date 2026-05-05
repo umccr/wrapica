@@ -120,14 +120,20 @@ def _get_storage_configuration_api_list() -> List[StorageConfigurationObjectMode
 
     # Check if the response is a 404
     if response.status_code == 404:
-        return None
+        return []
 
     # Raise an exception if the request was unsuccessful
     try:
         response.raise_for_status()
     except HTTPError as e:
         raise HTTPError(
-            f"Failed to get self-managed storage configurations list"
+            (
+                "Failed to get self-managed storage configurations list "
+                f"(status_code={response.status_code}, url={response.url}, "
+                f"response={response.text})"
+            ),
+            response=response,
+            request=response.request,
         ) from e
 
     response_json = response.json()
@@ -145,7 +151,7 @@ def _get_storage_configuration_api_list() -> List[StorageConfigurationObjectMode
                 cast(
                     object,
                     {
-                        "id": str(item_iter_.id),
+                        "id": str(item_iter_['id']),
                         "bucketName": item_iter_['storageConfigurationDetails']['awsS3']['bucketName'],
                         "keyPrefix": str(Path(item_iter_['storageConfigurationDetails']['awsS3']['keyPrefix'])) + "/",
                         "storageCredentialId": item_iter_['storageConfigurationDetails']['storageCredential']['id'],
