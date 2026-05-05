@@ -132,20 +132,26 @@ def include_icav2_config_into_nextflow_config(
             return
 
     # We should place includeConfig 'conf/icav2.config' immediately after the additional content
-    with (
-        open(nextflow_config_path, 'r') as nextflow_config_file,
-        NamedTemporaryFile(suffix='.config') as new_nextflow_config_file,
-    ):
-        # Iterate over each line looking for the first conf/base.config
-        for line in nextflow_config_file:
-            new_nextflow_config_file.write(line)
-            if line.strip() == "includeConfig 'conf/base.config'":
-                new_nextflow_config_file.write(wrapica_additional_content + "\n")
-        # Ensure all content written to cache
+    # Use delete=False so we can close the file before copying (required on Windows and avoids
+    # platform-specific issues with copying an open NamedTemporaryFile).
+    new_nextflow_config_file = NamedTemporaryFile(mode='w', suffix='.config', encoding='utf-8', delete=False)
+    try:
+        with open(nextflow_config_path, 'r') as nextflow_config_file:
+            # Iterate over each line looking for the first conf/base.config
+            for line in nextflow_config_file:
+                new_nextflow_config_file.write(line)
+                if line.strip() == "includeConfig 'conf/base.config'":
+                    new_nextflow_config_file.write(wrapica_additional_content + "\n")
+        # Ensure all content is written to disk, then close before copying
         new_nextflow_config_file.flush()
+        new_nextflow_config_file.close()
 
         # Move the temp file over to nextflow_config_path to replace
         shutil.copy2(new_nextflow_config_file.name, nextflow_config_path)
+    finally:
+        if not new_nextflow_config_file.closed:
+            new_nextflow_config_file.close()
+        Path(new_nextflow_config_file.name).unlink(missing_ok=True)
 
 
 def write_params_xml_from_nextflow_schema_json(
@@ -789,7 +795,7 @@ def get_default_icav2_config_content() -> str:
                 fpga2-large      -  f2.12xlarge  -  48 CPU / 512 GB RAM - 4096 GiB scratch + 2 x FPGA
         
                 We also first try to run processes on the economy lifecycle, which uses spot instances,
-                and then retry on the standard lifecycle if the failure was due to spot instance interruption (exit code 143).
+                and then retry on the standard lifecycle if the failure was due to spot instance interruption (exit codes 55 and 143).
                 This allows us to take advantage of cheaper spot instances for processes that can be interrupted,
                 while still ensuring that all processes will eventually run to completion on standard instances
                 if they fail due to spot interruptions.
@@ -816,7 +822,7 @@ def get_default_icav2_config_content() -> str:
             ]
         
             // Process Economy - For shorter processes that we are okay if they are disrupted
-            // Add 55 to errorStrategy retry list to include the error code for spot instance interruption
+            // Spot instance interruptions may exit with code 143 (included in range 130..145) or 55
             // We retry in economy once, and then move to standard for the retry attempt
             maxRetries    = 1
             errorStrategy = {
