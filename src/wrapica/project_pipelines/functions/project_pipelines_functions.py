@@ -918,10 +918,10 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
 
 
 def convert_uris_to_data_ids_from_cwl_input_json(
-        input_obj: Union[str, int, bool, Dict, List]
+        input_obj: Union[str, int, float, bool, Dict, List]
 ) -> Optional[Tuple[
     # Input Object
-    Union[str, Dict, List],
+    Union[str, int, float, bool, Dict, List],
         # Mount List
     List[AnalysisInputDataMount],
         # External Data List
@@ -933,7 +933,7 @@ def convert_uris_to_data_ids_from_cwl_input_json(
     :param input_obj: The CWL input object to convert
 
     :return: The converted input object, mount list and external data list
-    :rtype: Tuple[Union[str, Dict, List], List[AnalysisInputDataMount], List[AnalysisInputExternalData]]
+    :rtype: Tuple[Union[str, int, float, bool, Dict, List], List[AnalysisInputDataMount], List[AnalysisInputExternalData]]
 
     :raises: ValueError, ApiException
 
