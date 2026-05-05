@@ -28,7 +28,8 @@ from libica.openapi.v3 import (
     ProjectPipelineV4,
     PipelineConfigurationParameter,
     PipelineResources,
-    AnalysisS3DataDetails, CwlAnalysisWithJsonInput
+    AnalysisS3DataDetails,
+    CwlAnalysisWithJsonInput,
 )
 from libica.openapi.v3.api.project_pipeline_api import ProjectPipelineApi
 from libica.openapi.v3.api.project_analysis_api import ProjectAnalysisApi
