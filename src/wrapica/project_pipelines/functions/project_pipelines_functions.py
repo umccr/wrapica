@@ -986,8 +986,13 @@ def convert_uris_to_data_ids_from_cwl_input_json(
     mount_list = []
     external_data_list = []
 
-    # Convert basic types
-    if isinstance(input_obj, bool) or isinstance(input_obj, int) or isinstance(input_obj, str):
+    # Convert basic / immutable types
+    if (
+            isinstance(input_obj, bool) or
+            isinstance(input_obj, int) or
+            isinstance(input_obj, str) or
+            isinstance(input_obj, float)
+    ):
         return input_obj, mount_list, external_data_list
 
     # Convert dict of list types recursively
