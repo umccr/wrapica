@@ -31,6 +31,7 @@ List of objects where each object has the following attributes:
 * id: The storage configuration id
 * bucketName: The name of the bucket
 * keyPrefix: The s3 prefix for this storage configuration object
+* storageCredentialId: The storage credential id used to build this storage configuration
 
 Your storage configuration yaml file may look like this:
 
