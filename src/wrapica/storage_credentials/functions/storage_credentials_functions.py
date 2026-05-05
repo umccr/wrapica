@@ -89,12 +89,13 @@ def get_storage_credential_api_list() -> List[StorageCredentialMappingModel]:
                         "id": item_iter_.id,
                         "name": item_iter_.name,
                         "s3UriList": list(map(
-                            lambda storage_configuration_iter: str(urlunparse(
-                                (
-                                    S3_URI_SCHEME, storage_configuration_iter['bucketName'], storage_configuration_iter['keyPrefix'],
-                                    None, None, None
-                                )
-                            )),
+                            lambda storage_configuration_iter: cast(
+                                S3UriListModel,
+                                cast(object, {
+                                    "bucketName": storage_configuration_iter['bucketName'],
+                                    "keyPrefix": storage_configuration_iter['keyPrefix'],
+                                })
+                            ),
                             list(filter(
                                 lambda storage_config_iter_: storage_config_iter_['storageCredentialId'] == item_iter_.id,
                                 get_storage_configuration_list()
