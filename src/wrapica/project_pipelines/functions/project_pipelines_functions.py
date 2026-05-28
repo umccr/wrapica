@@ -1309,7 +1309,7 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
         cache_uri: Optional[str] = None,
         is_top_level: bool = True
 ) -> Optional[Tuple[
-    Union[str, Dict, List, bool, int],
+    Union[str, Dict, List, bool, int, float],
     List[AnalysisInputDataMount],
     List[AnalysisInputExternalData]
 ]]:
@@ -1349,7 +1349,11 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
     external_data_list: List[AnalysisInputExternalData] = []
 
     # Convert basic types
-    if isinstance(input_obj, bool) or isinstance(input_obj, int):
+    if (
+            isinstance(input_obj, bool) or
+            isinstance(input_obj, int) or
+            isinstance(input_obj, float)
+    ):
         return input_obj, mount_list, external_data_list
 
     if isinstance(input_obj, str):
