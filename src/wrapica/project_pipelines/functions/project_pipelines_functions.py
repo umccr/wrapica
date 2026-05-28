@@ -78,15 +78,26 @@ from ...utils.nextflow_helpers import (
 if typing.TYPE_CHECKING:
     # Import type hints for IDE only, not at runtime
     # Prevents circular imports
-    from .. import ICAv2PipelineAnalysisTags
+    from .. import (
+        ICAv2PipelineAnalysisTags,
+        CES_DATA_ABS_PATH,
+        SAMPLESHEET_WITH_PLACEHOLDERS_NAME,
+        SAMPLESHEET_WITH_ABS_PATHS_NAME, SAMPLESHEET_DIR_NAME,
+)
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis
     from mypy_boto3_s3 import S3Client
 
+
+# Literals
 DEFAULT_ANALYSIS_STORAGE_SIZE: AnalysisStorageSizeType = "Small"
 
+
+# Types
 AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
 PipelineType = Union[ProjectPipeline, ProjectPipelineV4]
 
+
+# Logging
 logger = get_logger()
 
 
@@ -1162,6 +1173,7 @@ def convert_uris_to_data_ids_from_str(
     external_data_list: List[AnalysisInputExternalData] = []
     new_value = input_str
 
+    uri_match: str
     for uri_match in URI_REGEX_OBJ.findall(input_str):
         # We only need to mount each once but the ways in which we mount are different
         # For folders, we need to first check if we can list all the files since external data mounts only support files
@@ -1170,9 +1182,11 @@ def convert_uris_to_data_ids_from_str(
         # Try to get the storage credential id from the uri
         storage_credential_id = get_storage_credential_id_from_s3_uri(cast(str, uri_match))
         if storage_credential_id is not None:
-            mount_path = get_relative_path_from_credentials_prefix(
-                storage_credential_id,
-                cast(str, uri_match),
+            mount_path = CES_DATA_ABS_PATH.joinpath(
+                get_relative_path_from_credentials_prefix(
+                    storage_credential_id,
+                    cast(str, uri_match),
+                )
             )
 
             if uri_match.endswith("/"):
@@ -1228,7 +1242,7 @@ def convert_uris_to_data_ids_from_str(
                     AnalysisInputExternalData(
                         url=cast(str, uri_match),
                         type=S3_URI_SCHEME,
-                        mountPath=mount_path,
+                        mountPath=str(mount_path),
                         s3Details=AnalysisS3DataDetails(
                             storageCredentialsId=coerce_to_uuid4_obj(storage_credential_id)
                         ),
@@ -1247,9 +1261,11 @@ def convert_uris_to_data_ids_from_str(
 
             # Set mount path
             mount_path = str(
-                Path(owning_project_id) /
-                Path(data_id) /
-                Path(basename)
+                CES_DATA_ABS_PATH.joinpath(
+                    Path(owning_project_id) /
+                    Path(data_id) /
+                    Path(basename)
+                )
             )
 
             # Append the mount list
@@ -1323,6 +1339,7 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
         get_project_data_obj_from_project_id_and_path,
         coerce_data_id_uri_or_path_to_project_data_obj,
         # Needed for uploading samplesheet
+        create_folder_in_project,
         write_icav2_file_contents
     )
 
@@ -1385,33 +1402,45 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                     logger.error("Cache URI must end with a trailing slash")
                     raise ValueError("Cache URI must end with a trailing slash")
                 # Get cache uri as an icav2 object
-                cache_uri_obj = coerce_data_id_uri_or_path_to_project_data_obj(
-                    cache_uri,
-                    create_data_if_not_found=True
+                cache_uri_obj = cast(
+                    ProjectData,
+                    coerce_data_id_uri_or_path_to_project_data_obj(
+                        cache_uri,
+                        create_data_if_not_found=True
+                    )
                 )
-                logger.info("Uploading deferenced samplesheet to cache uri: %s", cache_uri_obj.data.details.path)
+                # Create the samplesheet folder
+                logger.info("Creating samplesheet folder")
+                samplesheet_folder_obj = create_folder_in_project(
+                    project_id=cache_uri_obj.project_id,
+                    folder_path=(Path(cast(str, cache_uri_obj.data.details.path)) / SAMPLESHEET_DIR_NAME)
+                )
+
+                # Upload the dereferenced samplesheet
+                logger.info("Uploading dereferenced samplesheet to cache uri: %s", cache_uri_obj.data.details.path)
                 logger.info(pd.DataFrame(input_obj_new_item).to_csv(header=True, index=False))
                 write_icav2_file_contents(
                     cache_uri_obj.project_id,
-                    Path(cache_uri_obj.data.details.path, 'samplesheet.csv'),
+                    Path(samplesheet_folder_obj.data.details.path, SAMPLESHEET_WITH_PLACEHOLDERS_NAME),
                     StringIO(pd.DataFrame(input_obj_new_item).to_csv(header=True, index=False)),
                 )
                 # Add the samplesheet to the mount list
-                logger.info("Adding samplesheet to the mount list")
+                logger.info("Adding samplesheet directory to the mount list")
+                samplesheet_mount_dir_path = Path(str(samplesheet_folder_obj.project_id)) / samplesheet_folder_obj.data.id / SAMPLESHEET_DIR_NAME
                 mount_list.append(
                     AnalysisInputDataMount(
                         dataId=get_project_data_obj_from_project_id_and_path(
                             project_id=cache_uri_obj.project_id,
-                            data_path=Path(cache_uri_obj.data.details.path, 'samplesheet.csv'),
+                            data_path=Path(cast(str, samplesheet_folder_obj.data.details.path)),
                             data_type=FILE_DATA_TYPE
                         ).data.id,
-                        mountPath=str(Path(str(cache_uri_obj.project_id), cache_uri_obj.data.id, 'samplesheet.csv'))
+                        mountPath=str(samplesheet_mount_dir_path)
                     )
                 )
 
-                # The samplesheet is labelled as 'input' for nf-core pipelines
+                # The samplesheet is labeled as 'input' for nf-core pipelines
                 new_input_obj.update({
-                    "input": str(Path(str(cache_uri_obj.project_id), cache_uri_obj.data.id, 'samplesheet.csv'))
+                    "input": str(samplesheet_mount_dir_path / SAMPLESHEET_WITH_ABS_PATHS_NAME)
                 })
 
                 continue

@@ -1,9 +1,11 @@
 #!/usr/bin/env python
-
+from pathlib import Path
 # Standard imports
 from typing import Union
 
+# Libica objects
 from libica.openapi.v3 import ProjectPipelineV4
+
 # Libica models
 from libica.openapi.v3.models import (
     ActivationCodeDetail,
@@ -88,9 +90,18 @@ from .classes.nextflow_analysis import (
     ICAv2NextflowPipelineAnalysis
 )
 
+# Literal / Types
 AnalysisType = Union[AnalysisV3, AnalysisV4]
 AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
 ProjectPipelineType = Union[ProjectPipeline, ProjectPipelineV4]
+
+# Class globals
+CES_WORKING_DIR_PLACEHOLDER = "__CES_WORKING_DIR__"
+CES_WORKING_DIR_REPLACEMENT = "/ces/scheduler/run/{__ANALYSIS_ID__}"
+CES_DATA_ABS_PATH = Path("__CES_WORKING_DIR__") / "data"
+SAMPLESHEET_WITH_PLACEHOLDERS_NAME = ".samplesheet_with_placeholders.csv.tmp"
+SAMPLESHEET_WITH_ABS_PATHS_NAME = "samplesheet.csv"
+SAMPLESHEET_DIR_NAME = "wrapica_samplesheet_dir"
 
 __all__ = [
     # Libica models
