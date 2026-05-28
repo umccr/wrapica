@@ -36,7 +36,6 @@ from .. import (
 from ...literals import (
     WorkflowLanguageType, AnalysisStorageSizeType,
 )
-from ...project_data import delete_project_data
 from ...utils.logger import get_logger
 from ...utils.miscell import coerce_to_uuid4_obj
 
@@ -238,6 +237,7 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
 
     def launch_analysis(self, idempotency_key: Optional[str] = None) -> Analysis:
         from ..functions.project_pipelines_functions import launch_nextflow_workflow
+        from ...project_analysis import abort_analysis
 
         # Cast nextflow analysis
         nextflow_analysis = cast(CreateNextflowWithCustomInputAnalysis, self.analysis)
@@ -253,7 +253,20 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
         input_json_dict: Dict = json.loads(nextflow_analysis.analysis_input.custom_input)
         if 'input' in input_json_dict.keys() and input_json_dict['input'].endswith(SAMPLESHEET_WITH_ABS_PATHS_NAME):
             # Update the samplesheet to use the abs paths
-            self._update_samplesheet_with_abs_paths(nextflow_workflow_obj)
+            try:
+                self._update_samplesheet_with_abs_paths(nextflow_workflow_obj)
+            except Exception as e:  # Accept any
+                error_msg = (
+                    "Analysis launched but we failed to create the nextflow samplesheet, "
+                    "aborting analysis, it would fail anyway on start"
+                )
+                logger.error(error_msg)
+                abort_analysis(
+                    project_id=self.project_id,
+                    analysis_id=nextflow_workflow_obj.id,
+                )
+                raise FileNotFoundError(error_msg) from e
+
 
         return nextflow_workflow_obj
 
@@ -264,7 +277,8 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             get_project_data_obj_by_id,
             get_project_data_obj_from_project_id_and_path,
             read_icav2_file_contents_to_string,
-            write_icav2_file_contents
+            write_icav2_file_contents,
+            delete_project_data
         )
 
         # Cast to nextflow with custom input type
