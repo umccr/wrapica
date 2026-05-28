@@ -1293,7 +1293,7 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
         cache_uri: Optional[str] = None,
         is_top_level: bool = True
 ) -> Optional[Tuple[
-    Union[str, Dict, List, bool, int],
+    Union[str, Dict, List, bool, int, float],
     List[AnalysisInputDataMount],
     List[AnalysisInputExternalData]
 ]]:
