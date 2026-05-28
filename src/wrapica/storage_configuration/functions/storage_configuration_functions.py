@@ -14,8 +14,7 @@ from requests import HTTPError
 from ruamel.yaml import YAML
 
 # Libica imports
-from libica.openapi.v3 import ApiException, ApiClient, Project
-from libica.openapi.v3.api.storage_configuration_api import StorageConfigurationApi
+from libica.openapi.v3 import Project
 from libica.openapi.v3.models import (
     ProjectData,
 )
