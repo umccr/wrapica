@@ -100,7 +100,7 @@ CES_WORKING_DIR_PLACEHOLDER = "__CES_WORKING_DIR__"
 CES_WORKING_DIR_REPLACEMENT = "/ces/scheduler/run/{__ANALYSIS_ID__}"
 CES_DATA_ABS_PATH = Path("__CES_WORKING_DIR__") / "data"
 SAMPLESHEET_WITH_PLACEHOLDERS_NAME = ".samplesheet_with_placeholders.csv.tmp"
-SAMPLESHEET_WITH_ABS_PATHS_NAME = "samplesheet.csv"
+SAMPLESHEET_WITH_ABS_PATHS_NAME = "samplesheet_nf.csv"
 SAMPLESHEET_DIR_NAME = "wrapica_samplesheet_dir"
 
 __all__ = [

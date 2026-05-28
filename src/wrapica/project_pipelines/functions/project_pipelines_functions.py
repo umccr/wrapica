@@ -1432,7 +1432,7 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                         dataId=get_project_data_obj_from_project_id_and_path(
                             project_id=cache_uri_obj.project_id,
                             data_path=Path(cast(str, samplesheet_folder_obj.data.details.path)),
-                            data_type=FILE_DATA_TYPE
+                            data_type=FOLDER_DATA_TYPE,
                         ).data.id,
                         mountPath=str(samplesheet_mount_dir_path)
                     )
