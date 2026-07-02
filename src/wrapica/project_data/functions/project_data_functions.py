@@ -77,16 +77,18 @@ def get_project_data_file_id_from_project_id_and_path(
         create_file_if_not_found: bool = False
 ) -> str:
     """
-    Given a project id, parent folder path and file_name, return the file id
-    If the file is not found, and create_file_if_not_found is True, create the file
+    Return the file ID for a given project and file path.
 
-    :param project_id:  The project id
-    :param file_path:  The path to the file
-    :param create_file_if_not_found:  Create the file object if it does not exist
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param file_path: The absolute path to the file within the project
+    :param create_file_if_not_found: If True, creates the file object when not found.
+        Defaults to False
 
-    :return: The file id
+    :return: The data identifier string for the file
+    :rtype: str
 
-    :raises: FileNotFoundError, ApiException
+    :raises FileNotFoundError: If the file does not exist and create_file_if_not_found is False
+    :raises ApiException: If the API call to list or create project data fails
 
     :Examples:
 
@@ -94,28 +96,15 @@ def get_project_data_file_id_from_project_id_and_path(
         :linenos:
 
         from pathlib import Path
-        from wrapica.project_data import (
-            create_download_urls, get_project_folder_id_from_project_id_and_path
-        )
-        from wrapica.libica_models import DataUrlWithPath
+        from wrapica.project_data import get_project_data_file_id_from_project_id_and_path
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        file_id: str = get_project_file_id_from_project_id_and_path(
+        file_id = get_project_data_file_id_from_project_id_and_path(
             project_id="abcd-1234-efab-5678",
             file_path=Path("/path/to/file.txt")
         )
 
-        download_urls: List[DataUrlWithPath] = create_download_urls(
-            project_id="proj.abcdef1234567890",
-            folder_id=project_folder_obj.data.id,
-            recursive=True
-        )
-
-        for download_url in download_urls:
-            print(download_url.url)
-
+        print(file_id)
+        # fil.1234567890abcdef1234567890abcdef
     """
     # Get the configuration
     configuration = get_icav2_configuration()
@@ -185,39 +174,20 @@ def create_data_in_project(
         data_type: DataType
 ) -> ProjectData:
     """
-    Create a data object in a project context
+    Create a data object in a project context.
 
-    :param project_id: The project ID
-    :param parent_folder_path: The parent folder path of where the data object needs to be created
-    :param data_name:  The name of the file or folder
-    :param data_type:  One of "FILE" or "FOLDER"
+    .. deprecated:: 2.45.0
+        Use :func:`create_file_in_project` or :func:`create_folder_in_project` instead.
+
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param parent_folder_path: The parent folder path where the data object is created
+    :param data_name: The name of the file or folder to create
+    :param data_type: The data type, one of "FILE" or "FOLDER"
 
     :return: The newly created project data object
-    :rtype: List[`ProjectData <https://umccr-illumina.github.io/libica/openapi/v3/docs/ProjectData/>`_]
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
 
-    :raises: ApiException
-
-    :Examples:
-
-    .. code-block:: python
-        :linenos:
-
-        from pathlib import Path
-        from wrapica.project_data import (
-            create_data_in_project, create_data_in_project,
-        )
-        from wrapica.enums import DataType
-        from wrapica.libica_models import ProjectData
-
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        project_data_obj: ProjectData = create_data_in_project(
-            project_id="abcd-1234-efab-5678",
-            parent_folder_path=Path("/path/to/folder/"),
-            data_name="file.txt",
-            data_type="FILE"
-        )
+    :raises ApiException: If the API call to create the data object fails
     """
     warnings.warn(
         "create_data_in_project is deprecated and will be removed in a future release. Use create_file_in_project or create_folder_in_project instead.",
@@ -264,16 +234,15 @@ def create_file_in_project(
         file_path: Path,
 ) -> ProjectData:
     """
-    Create a file in a project
+    Create a file object in a project at the specified path.
 
-    :param project_id: The project id to create the file in
-    :param file_path: The path to the file
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param file_path: The absolute path where the file should be created
 
-    :return: The newly created file
+    :return: The newly created file as a project data object
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
 
-    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
-
-    :raises: ApiException
+    :raises ApiException: If the API call to create the file fails
 
     :Examples:
 
@@ -282,15 +251,14 @@ def create_file_in_project(
 
         from pathlib import Path
         from wrapica.project_data import create_file_in_project
-        from wrapica.libica_models import ProjectData
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        project_data_obj: ProjectData = create_file_in_project(
+        project_data_obj = create_file_in_project(
             project_id="abcd-1234-efab-5678",
             file_path=Path("/path/to/file.txt")
         )
+
+        print(f"Data ID: {project_data_obj.data.id}, Name: {project_data_obj.data.details.name}")
+        # Data ID: fil.1234567890abcdef1234567890abcdef, Name: file.txt
     """
 
     # Get the configuration
@@ -330,15 +298,15 @@ def create_folder_in_project(
         folder_path: Path,
 ) -> ProjectData:
     """
-    Create a folder in a project
+    Create a folder in a project at the specified path.
 
-    :param project_id:  The project ID
-    :param folder_path:  The path to the folder to create
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param folder_path: The absolute path where the folder should be created
 
-    :return: The newly created folder project data object
-    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
+    :return: The newly created folder as a project data object
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
 
-    :raises: ApiException
+    :raises ApiException: If the API call to create the folder fails
 
     :Examples:
 
@@ -347,16 +315,14 @@ def create_folder_in_project(
 
         from pathlib import Path
         from wrapica.project_data import create_folder_in_project
-        from wrapica.libica_models import ProjectData
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        project_data_obj: ProjectData = create_folder_in_project(
+        project_data_obj = create_folder_in_project(
             project_id="abcd-1234-efab-5678",
             folder_path=Path("/path/to/folder/new/")
         )
 
+        print(f"Data ID: {project_data_obj.data.id}, Name: {project_data_obj.data.details.name}")
+        # Data ID: fol.1234567890abcdef1234567890abcdef, Name: new
     """
 
     # Get the configuration
@@ -396,19 +362,18 @@ def get_project_data_folder_id_from_project_id_and_path(
         create_folder_if_not_found: bool = False
 ) -> str:
     """
-    Given a project_id and a path, return the folder_id.
+    Return the folder ID for a given project and folder path.
 
-    Note that given the folder_path is a Path object (which do not end in /),
-    we need to append a '/' to the end of the path before calling the API
-    In the case that the folder_path is the root folder, we ensure that only a single '/' is provided.
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param folder_path: The absolute path to the folder within the project
+    :param create_folder_if_not_found: If True, creates the folder when not found.
+        Defaults to False
 
-    :param project_id:  The project id to search in
-    :param folder_path:  The path to the folder
-    :param create_folder_if_not_found:  If folder does not exist in project, do we want to create it?
+    :return: The data identifier string for the folder
+    :rtype: str
 
-    :return: The folder id
-
-    :raises: NotADirectoryError, ApiException
+    :raises NotADirectoryError: If the folder does not exist and create_folder_if_not_found is False
+    :raises ApiException: If the API call to list or create project data fails
 
     :Examples:
 
@@ -416,15 +381,15 @@ def get_project_data_folder_id_from_project_id_and_path(
         :linenos:
 
         from pathlib import Path
-        from wrapica.project_data import get_project_folder_id_from_project_id_and_path
+        from wrapica.project_data import get_project_data_folder_id_from_project_id_and_path
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        folder_id: str = get_project_folder_id_from_project_id_and_path(
+        folder_id = get_project_data_folder_id_from_project_id_and_path(
             project_id="abcd-1234-efab-5678",
             folder_path=Path("/path/to/folder/")
         )
+
+        print(folder_id)
+        # fol.1234567890abcdef1234567890abcdef
     """
     # Get the configuration
     configuration = get_icav2_configuration()
@@ -488,20 +453,20 @@ def get_project_data_id_from_project_id_and_path(
         create_data_if_not_found: bool = False
 ) -> str:
     """
-    Given a project_id and a path, return the data_id, where DATA_TYPE is one of FILE or FOLDER
-    Should call the underlying get_data_id_from_project_id_and_path function split by data type
+    Return the data ID for a given project, path, and data type.
 
-    :param project_id: The project context the data exists in
-    :param data_path: The path to the data in the project
-    :param data_type: The data_type, one of "FILE", "FOLDER"
-    :param create_data_if_not_found:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_path: The absolute path to the data within the project
+    :param data_type: The data type, one of "FILE" or "FOLDER"
+    :param create_data_if_not_found: If True, creates the data object when not found.
+        Defaults to False
 
-    :raises: FileNotFoundError, NotADirectoryError, ApiException
+    :return: The data identifier string for the file or folder
+    :rtype: str
 
-    :return: The data id
-
-    :note:
-      Use get_file_id_from_project_id_and_path or get_folder_id_from_project_id_and_path instead if data_type is known
+    :raises FileNotFoundError: If data_type is FILE and the file does not exist
+    :raises NotADirectoryError: If data_type is FOLDER and the folder does not exist
+    :raises ApiException: If the API call to list or create project data fails
 
     :Examples:
 
@@ -510,24 +475,15 @@ def get_project_data_id_from_project_id_and_path(
 
         from pathlib import Path
         from wrapica.project_data import get_project_data_id_from_project_id_and_path
-        from wrapica.enums import DataType
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        # Get a folder
-        data_id: str = get_project_data_id_from_project_id_and_path(
-            project_id="abcd-1234-efab-5678",
-            data_path=Path("/path/to/folder/"),
-            data_type="FOLDER"
-        )
-
-        # Get a file
-        data_id: str = get_project_data_id_from_project_id_and_path(
+        data_id = get_project_data_id_from_project_id_and_path(
             project_id="abcd-1234-efab-5678",
             data_path=Path("/path/to/file.txt"),
             data_type="FILE"
         )
+
+        print(data_id)
+        # fil.1234567890abcdef1234567890abcdef
     """
     if data_type == FOLDER_DATA_TYPE:
         return get_project_data_folder_id_from_project_id_and_path(
@@ -548,15 +504,15 @@ def get_project_data_obj_by_id(
         data_id: Union[UUID4, str]
 ) -> ProjectData:
     """
-    Given a project_id and a data_id, return the data object
+    Return the project data object for a given project and data ID.
 
-    :param project_id: The project id to search in
-    :param data_id: The data id
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_id: The data identifier as a UUID4 object or data ID string
 
-    :return: The project data object
-    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
+    :return: The project data object matching the given ID
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve the project data fails
 
     :Examples:
 
@@ -564,15 +520,14 @@ def get_project_data_obj_by_id(
         :linenos:
 
         from wrapica.project_data import get_project_data_obj_by_id
-        from wrapica.libica_models import ProjectData
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        project_data_obj: ProjectData = get_project_data_obj_by_id(
+        project_data_obj = get_project_data_obj_by_id(
             project_id="abcd-1234-efab-5678",
             data_id="fil.abcdef1234567890"
         )
+
+        print(f"Data ID: {project_data_obj.data.id}, Name: {project_data_obj.data.details.name}")
+        # Data ID: fil.1234567890abcdef1234567890abcdef, Name: file.txt
     """
 
     # Get the configuration
@@ -604,18 +559,20 @@ def get_project_data_obj_from_project_id_and_path(
         create_data_if_not_found: bool = False
 ) -> ProjectData:
     """
-    Given a project_id and a path, return the data object, where DATA_TYPE is one of FILE or FOLDER
-    Will call the get_project_data_id and then call get_project_data_obj_by_id
+    Return the project data object for a given project, path, and data type.
 
-    :param project_id: The project id to search in
-    :param data_path: The path to the data in the project
-    :param data_type: The data_type, one of "FILE", "FOLDER"
-    :param create_data_if_not_found: If the data is not found, and create_data_if_not_found is True, create the data
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_path: The absolute path to the data within the project
+    :param data_type: The data type, one of "FILE" or "FOLDER"
+    :param create_data_if_not_found: If True, creates the data object when not found.
+        Defaults to False
 
-    :return: The project data object
-    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
+    :return: The project data object matching the given path
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
 
-    :raises: FileNotFoundError, NotADirectoryError, ApiException
+    :raises FileNotFoundError: If data_type is FILE and the file does not exist
+    :raises NotADirectoryError: If data_type is FOLDER and the folder does not exist
+    :raises ApiException: If the API call to retrieve the project data fails
 
     :Examples:
 
@@ -624,31 +581,15 @@ def get_project_data_obj_from_project_id_and_path(
 
         from pathlib import Path
         from wrapica.project_data import get_project_data_obj_from_project_id_and_path
-        from wrapica.enums import DataType
-        from wrapica.libica_models import ProjectData
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        # Get a folder project data object
-        project_folder_data_obj: ProjectData = get_project_data_obj_from_project_id_and_path(
-            project_id="abcd-1234-efab-5678",
-            data_path=Path("/path/to/folder/"),
-            data_type="FOLDER"
-        )
-
-        # Get a file project data object
-        project_file_data_obj: ProjectData = get_project_data_obj_from_project_id_and_path(
+        project_data_obj = get_project_data_obj_from_project_id_and_path(
             project_id="abcd-1234-efab-5678",
             data_path=Path("/path/to/file.txt"),
             data_type="FILE"
         )
 
-        print(project_folder_data_obj.data.id)
-        # fol.abcdef1234567890
-
-        print(project_file_data_obj.data.id)
-        # fil.abcdef1234567890
+        print(f"Data ID: {project_data_obj.data.id}, Name: {project_data_obj.data.details.name}")
+        # Data ID: fil.1234567890abcdef1234567890abcdef, Name: file.txt
     """
     # Collect the data id, either fol.id or fil.id
     project_data_id = get_project_data_id_from_project_id_and_path(
@@ -670,28 +611,24 @@ def get_project_data_path_by_id(
         data_id: Union[UUID4, str]
 ) -> Path:
     """
-    Given a project id and data id, return the path of the data
+    Return the file system path for a given project and data ID.
 
-    :param project_id: The project id to search in
-    :param data_id: The data id
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_id: The data identifier as a UUID4 object or data ID string
 
-    :return: The path of the data
+    :return: The absolute path of the data object
     :rtype: Path
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve the project data fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from pathlib import Path
         from wrapica.project_data import get_project_data_path_by_id
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        project_data_path: Path = get_project_data_path_by_id(
+        project_data_path = get_project_data_path_by_id(
             project_id="abcd-1234-efab-5678",
             data_id="fil.abcdef1234567890"
         )
@@ -721,35 +658,36 @@ def list_project_data_non_recursively(
         sort: Optional[Union[ProjectDataSortParameterType, List[ProjectDataSortParameterType]]] = ""
 ) -> List[ProjectData]:
     """
-    Given a project id and parent folder id or path,
-    return a list of data objects that are directly under that folder
+    Return a list of data objects directly under a given folder without recursion.
 
-    :param project_id: The project id to search in
-    :param parent_folder_path: The path to the parent folder (can use parent_folder_id instead)
-    :param parent_folder_id: The parent folder id (can use parent_folder_path instead)
-    :param file_name: The name of the file or directory to look for, can also be a list of names, may also use * as a wildcard
-    :param status: The status of the data, one of ProjectDataStatusValues
-    :param data_type: The type of the data, one of "FILE", "FOLDER"
-    :param creation_date_after: Return only data created after this date
-    :param creation_date_before: Return only data created before this date
-    :param status_date_after: Return only data with status date after this date
-    :param status_date_before: Return only data with status date before this date
-    :param sort: The sort order, one or more of ProjectDataSortParameters (Use '-' prefix to sort in descending order)
-      * timeCreated - Sort by time created
-      * timeModified - Sort by time modified
-      * name - Sort by name
-      * path - Sort by path
-      * fileSizeInBytes - Sort by file size in bytes
-      * status - Sort by status
-      * format - Sort by format
-      * dataType - Sort by data type
-      * willBeArchivedAt - Sort by when the data will be archived
-      * willBeDeletedAt - Sort by when the data will be deleted
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param parent_folder_id: The parent folder identifier. Defaults to None, in which
+        case parent_folder_path must be provided
+    :param parent_folder_path: The path to the parent folder. Defaults to None, in which
+        case parent_folder_id must be provided
+    :param file_name: The name or list of names to filter on, supports wildcard.
+        Defaults to None
+    :param status: The status filter as a single value or list of values.
+        Defaults to None
+    :param data_type: The data type filter, one of "FILE" or "FOLDER".
+        Defaults to None
+    :param creation_date_after: Return only data created after this datetime.
+        Defaults to None
+    :param creation_date_before: Return only data created before this datetime.
+        Defaults to None
+    :param status_date_after: Return only data with status date after this datetime.
+        Defaults to None
+    :param status_date_before: Return only data with status date before this datetime.
+        Defaults to None
+    :param sort: The sort order as a single value or list of sort parameters.
+        Defaults to ""
 
-    :return: List of data objects
-    :rtype: List[`ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__]
+    :return: A list of project data objects in the folder
+    :rtype: List[`ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_]
 
-    :raises: AssertionError, ApiException, ValueError
+    :raises AssertionError: If both or neither of parent_folder_id and parent_folder_path are provided
+    :raises ValueError: If an invalid sort parameter is provided
+    :raises ApiException: If the API call to list project data fails
 
     :Examples:
 
@@ -758,28 +696,16 @@ def list_project_data_non_recursively(
 
         from pathlib import Path
         from wrapica.project_data import list_project_data_non_recursively
-        from wrapica.libica_models import ProjectData, ProjectDataSortParameters
-        from wrapica.enums import ProjectDataStatusValues, DataType
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        project_data_list: List[ProjectData] = list_project_data_non_recursively(
+        project_data_list = list_project_data_non_recursively(
             project_id="abcd-1234-efab-5678",
             parent_folder_path=Path("/path/to/folder/"),
-            file_name="file.txt",
-            status=ProjectDataStatusValues.COMPLETED,
-            data_type="FILE",
-            creation_date_after=datetime(2021, 1, 1),
-            creation_date_before=datetime(2021, 12, 31),
-            status_date_after=datetime(2021, 1, 1),
-            status_date_before=datetime(2021, 12, 31),
-            sort=ProjectDataSortParameters.TIME_CREATED
+            data_type="FILE"
         )
 
         for project_data in project_data_list:
-            print(project_data.data.details.name)
-
+            print(f"Data ID: {project_data.data.id}, Name: {project_data.data.details.name}")
+            # Data ID: fil.12345678..., Name: file.txt
     """
     # Check one of parent_folder_id and parent_folder_path is specified
     if parent_folder_id is None and parent_folder_path is None:
@@ -914,22 +840,26 @@ def find_project_data_recursively(
         max_depth: Optional[int] = None
 ) -> List[ProjectData]:
     """
-    Given a project_id, a parent_folder_id, a data_name and a data_type, return a list of data objects
-    This is a slow exercise and should only be used if the max_depth is low and the total number of items in the
-    directory is very high
+    Return a list of data objects matching criteria by recursing through subdirectories.
 
-    :param project_id: The project id to search in
-    :param parent_folder_id: The parent folder id (alternative to parent_folder_path)
-    :param parent_folder_path: The path to the parent folder (alternative to parent_folder_id)
-    :param name: The name of the file or directory to look for, may also use a regex pattern
-    :param data_type: The type of the data, one of "FILE", "FOLDER"
-    :param min_depth: The minimum depth to search
-    :param max_depth: The maximum depth to search
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param parent_folder_id: The parent folder identifier. Defaults to None, in which
+        case parent_folder_path must be provided
+    :param parent_folder_path: The path to the parent folder. Defaults to None, in which
+        case parent_folder_id must be provided
+    :param name: The name or regex pattern to match against. Defaults to None
+    :param data_type: The data type filter, one of "FILE" or "FOLDER".
+        Defaults to None
+    :param min_depth: The minimum folder depth to include results from.
+        Defaults to None
+    :param max_depth: The maximum folder depth to recurse into.
+        Defaults to None
 
-    :return: List of data objects
-    :rtype: List[`ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__]
+    :return: A list of project data objects matching the search criteria
+    :rtype: List[`ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_]
 
-    :raises: ApiException, AssertionError, ValueError
+    :raises AssertionError: If both or neither of parent_folder_id and parent_folder_path are provided
+    :raises ApiException: If the API call to list project data fails
 
     :Examples:
 
@@ -937,24 +867,18 @@ def find_project_data_recursively(
         :linenos:
 
         from wrapica.project_data import find_project_data_recursively
-        from wrapica.enums import DataType
-        from wrapica.libica_models import ProjectData
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        project_data_list: List[ProjectData] = find_project_data_recursively(
+        project_data_list = find_project_data_recursively(
             project_id="abcd-1234-efab-5678",
             parent_folder_id="fol.abcdef1234567890",
             name="file.txt",
             data_type="FILE",
-            min_depth=1,
             max_depth=3
         )
 
         for project_data in project_data_list:
-            print(project_data.data.details.name)
-
+            print(f"Data ID: {project_data.data.id}, Name: {project_data.data.details.name}")
+            # Data ID: fil.12345678..., Name: file.txt
     """
     # Check one of parent_folder_id and parent_folder_path is specified
     if parent_folder_id is None and parent_folder_path is None:
@@ -1041,17 +965,21 @@ def find_project_data_bulk(
         data_type: Optional[DataType] = None
 ) -> List[ProjectData]:
     """
-    Given a project_id and a parent_folder_id, return a list of all data objects in the folder (recursively)
+    Return all data objects under a folder recursively using bulk listing.
 
-    :param project_id: The project id to search in
-    :param parent_folder_id: The parent folder id (alternative to parent_folder_path)
-    :param parent_folder_path: The path to the parent folder (alternative to parent_folder_id)
-    :param data_type: The type of the data, one of "FILE", "FOLDER"
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param parent_folder_id: The parent folder identifier. Defaults to None, in which
+        case parent_folder_path must be provided
+    :param parent_folder_path: The path to the parent folder. Defaults to None, in which
+        case parent_folder_id must be provided
+    :param data_type: The data type filter, one of "FILE" or "FOLDER".
+        Defaults to None
 
-    :return: List of data objects
-    :rtype: List[`ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__]
+    :return: A list of all project data objects under the folder
+    :rtype: List[`ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_]
 
-    :raises: ApiException, AssertionError
+    :raises AssertionError: If both or neither of parent_folder_id and parent_folder_path are provided
+    :raises ApiException: If the API call to list project data fails
 
     :Examples:
 
@@ -1059,20 +987,16 @@ def find_project_data_bulk(
         :linenos:
 
         from wrapica.project_data import find_project_data_bulk
-        from wrapica.enums import DataType
-        from wrapica.libica_models import ProjectData
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        project_data_list: List[ProjectData] = find_project_data_bulk(
+        project_data_list = find_project_data_bulk(
             project_id="abcd-1234-efab-5678",
             parent_folder_id="fol.abcdef1234567890",
             data_type="FILE"
         )
 
         for project_data in project_data_list:
-            print(project_data.data.details.name)
+            print(f"Data ID: {project_data.data.id}, Name: {project_data.data.details.name}")
+            # Data ID: fil.12345678..., Name: file.txt
     """
     # Check one of parent_folder_id and parent_folder_path is specified
     if parent_folder_id is None and parent_folder_path is None:
@@ -1133,17 +1057,15 @@ def create_download_url(
         file_id: Union[UUID4, str]
 ) -> str:
     """
-    Given a project_id and a data_id, create a presigned url for a file
-    in project-pipeline, or view a file in project-data
-    Create download URL
+    Create a presigned download URL for a file in a project.
 
-    :param project_id: The owning project id
-    :param file_id: The id of the file
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param file_id: The file identifier as a UUID4 object or data ID string
 
-    :return: The download URL string
+    :return: The presigned download URL string
     :rtype: str
 
-    :raises: ApiException
+    :raises ApiException: If the API call to create the download URL fails
 
     :Examples:
 
@@ -1152,17 +1074,13 @@ def create_download_url(
 
         from wrapica.project_data import create_download_url
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        download_url: str = create_download_url(
-            project_id="proj.abcdef1234567890",
+        download_url = create_download_url(
+            project_id="abcd-1234-efab-5678",
             file_id="fil.abcdef1234567890"
         )
 
         print(download_url)
-        # https://s3.amazonaws.com/umccr-illumina-prod/abcd-1234-efab-5678/abcdef1234567890
-
+        # https://stratus-gds-use1.s3.us-east-1.amazonaws.com/path/to/file.txt?signature=abc123
     """
     configuration = get_icav2_configuration()
 
@@ -1191,41 +1109,33 @@ def create_download_urls(
         recursive: bool = False
 ) -> List[DataUrlWithPath]:
     """
-    Given a project data folder return a list where each item is an object with the following attributes
+    Create presigned download URLs for all files in a project folder.
 
-    :param project_id: The owning project id
-    :param folder_id:  The id of the folder
-    :param recursive:  Whether to provide download urls recursively
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param folder_id: The folder identifier as a UUID4 object or data ID string
+    :param recursive: If True, includes files in subdirectories. Defaults to False
 
-    :return: List of download urls
-    :rtype: List[`DataUrlWithPath <https://umccr.github.io/libica/openapi/v3/docs/DataUrlWithPathList/>`_]
+    :return: A list of download URL objects with path information
+    :rtype: List[`DataUrlWithPath <https://umccr.github.io/libica/openapi/v3/docs/DataUrlWithPath/>`_]
+
+    :raises ApiException: If the API call to create download URLs fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import (
-            create_download_urls, get_project_folder_id_from_project_id_and_path
-        )
-        from wrapica.libica_models import ProjectData, DataUrlWithPath
+        from wrapica.project_data import create_download_urls
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        project_folder_obj: ProjectData = get_project_folder_id_from_project_id_and_path(
+        download_urls = create_download_urls(
             project_id="abcd-1234-efab-5678",
-            folder_path=Path("/path/to/folder/")
-        )
-
-        download_urls: List[DataUrlWithPath] = create_download_urls(
-            project_id="proj.abcdef1234567890",
-            folder_id=project_folder_obj.data.id,
+            folder_id="fol.abcdef1234567890",
             recursive=True
         )
 
-        for download_url in download_urls:
-            print(download_url.url)
+        for url_obj in download_urls:
+            print(f"Path: {url_obj.path}, URL: {url_obj.url}")
+            # Path: /path/to/file.txt, URL: https://stratus-gds-use1.s3.us-east-1.amazonaws.com/...
     """
 
     if recursive:
@@ -1280,10 +1190,23 @@ def convert_icav2_uri_to_data_obj(
         data_uri: str,
         create_data_if_not_found: bool = False
 ) -> ProjectData:
-    DeprecationWarning(
-        "Please use convert_uri_to_project_data_obj or use "
-        "convert_uri_to_data_obj from wrapica.data instead."
-    )
+    """
+    Convert an icav2:// URI to a project data object.
+
+    .. deprecated:: 2.45.0
+        Use :func:`convert_uri_to_project_data_obj` or
+        :func:`wrapica.data.convert_uri_to_data_obj` instead.
+
+    :param data_uri: The icav2:// URI string to convert
+    :param create_data_if_not_found: If True, creates the data object when not found.
+        Defaults to False
+
+    :return: The project data object for the given URI
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
+
+    :raises ValueError: If the URI scheme is not recognised
+    :raises ApiException: If the API call to retrieve the project data fails
+    """
     return convert_uri_to_project_data_obj(data_uri, create_data_if_not_found)
 
 
@@ -1291,9 +1214,22 @@ def convert_icav2_uri_to_project_data_obj(
         data_uri: str,
         create_data_if_not_found: bool = False
 ) -> ProjectData:
-    DeprecationWarning(
-        "Please use convert_uri_to_project_data_obj instead."
-    )
+    """
+    Convert an icav2:// URI to a project data object.
+
+    .. deprecated:: 2.45.0
+        Use :func:`convert_uri_to_project_data_obj` instead.
+
+    :param data_uri: The icav2:// URI string to convert
+    :param create_data_if_not_found: If True, creates the data object when not found.
+        Defaults to False
+
+    :return: The project data object for the given URI
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
+
+    :raises ValueError: If the URI scheme is not recognised
+    :raises ApiException: If the API call to retrieve the project data fails
+    """
     return convert_uri_to_project_data_obj(data_uri, create_data_if_not_found)
 
 
@@ -1302,29 +1238,31 @@ def convert_uri_to_project_data_obj(
         create_data_if_not_found: bool = False
 ) -> ProjectData:
     """
-    Given an ICAv2 URI, return a project data object
+    Convert an icav2:// or s3:// URI to a project data object.
 
-    :param data_uri: The icav2 uri to convert to a data object
-    :param create_data_if_not_found:  If the data is not found, and create_data_if_not_found is True, create the data
+    :param data_uri: The URI string in icav2:// or s3:// format
+    :param create_data_if_not_found: If True, creates the data object when not found.
+        Defaults to False
 
-    :return: libica v2 Project Data Object
-    :rtype: `Project Data <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
+    :return: The project data object for the given URI
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
 
-    :raises: ValueError, ApiException
+    :raises ValueError: If the URI scheme is not recognised
+    :raises ApiException: If the API call to retrieve the project data fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import convert_uri_to_project_data_obj, ProjectData
+        from wrapica.project_data import convert_uri_to_project_data_obj
 
-        project_data_object: ProjectData = convert_uri_to_project_data_obj(
+        project_data_obj = convert_uri_to_project_data_obj(
             "icav2://project-name/path/to/data/"
         )
 
-        print(project_data_object.data.id)
-        # file.abcdef1234567890
+        print(f"Data ID: {project_data_obj.data.id}, Name: {project_data_obj.data.details.name}")
+        # Data ID: fol.1234567890abcdef1234567890abcdef, Name: data
     """
     # Import other functions locally to avoid circular imports
     from ...project import get_project_id_from_project_name
@@ -1364,11 +1302,15 @@ def convert_project_data_obj_to_icav2_uri(
         project_data: ProjectData
 ) -> str:
     """
-    Return the file object as an icav2:// uri
+    Convert a project data object to an icav2:// URI string.
 
-    :param project_data: The ProjectData object
+    .. deprecated:: 2.45.0
+        Use :func:`convert_project_data_obj_to_uri` instead.
 
-    :return: The icav2:// uri string
+    :param project_data: The project data object to convert
+
+    :return: The icav2:// URI string representation
+    :rtype: str
     """
     DeprecationWarning(
         "Please use convert_project_data_obj_to_uri instead."
@@ -1381,12 +1323,35 @@ def convert_project_data_obj_to_uri(
         uri_type: UriType = ICAV2_URI_SCHEME
 ) -> str:
     """
-    Return the file object as an icav2:// uri
+    Convert a project data object to an icav2:// or s3:// URI string.
 
-    :param project_data: The ProjectData object
-    :param uri_type: One of UriType.ICAV2, UriType.S3
+    :param project_data: The project data object to convert
+    :param uri_type: The URI scheme to use, one of "icav2" or "s3".
+        Defaults to "icav2"
 
-    :return: The icav2:// uri string
+    :return: The URI string representation of the project data object
+    :rtype: str
+
+    :raises ValueError: If the uri_type is not recognised
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import (
+            get_project_data_obj_by_id, convert_project_data_obj_to_uri
+        )
+
+        project_data_obj = get_project_data_obj_by_id(
+            project_id="abcd-1234-efab-5678",
+            data_id="fil.abcdef1234567890"
+        )
+
+        uri = convert_project_data_obj_to_uri(project_data_obj)
+
+        print(uri)
+        # icav2://abcd1234-ab12-ab12-ab12-abcdef123456/path/to/file.txt
     """
     from ...storage_configuration import convert_project_data_obj_to_s3_uri
     if uri_type == ICAV2_URI_SCHEME:
@@ -1413,9 +1378,19 @@ def convert_project_id_and_data_path_to_icav2_uri(
         data_path: Path,
         data_type: DataType
 ) -> str:
-    DeprecationWarning(
-        "Please use convert_project_id_and_data_path_to_uri instead."
-    )
+    """
+    Convert a project ID and data path to an icav2:// URI string.
+
+    .. deprecated:: 2.45.0
+        Use :func:`convert_project_id_and_data_path_to_uri` instead.
+
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_path: The absolute path to the data within the project
+    :param data_type: The data type, one of "FILE" or "FOLDER"
+
+    :return: The icav2:// URI string representation
+    :rtype: str
+    """
     return convert_project_id_and_data_path_to_uri(
         project_id=project_id,
         data_path=data_path,
@@ -1430,33 +1405,35 @@ def convert_project_id_and_data_path_to_uri(
         uri_type: UriType = ICAV2_URI_SCHEME
 ) -> str:
     """
-    Given a project_id and a data_id, return the icav2:// uri
+    Convert a project ID and data path to an icav2:// or s3:// URI string.
 
-    Unlike convert_project_data_obj_to_icav2_uri, this does not require the path to exist.
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_path: The absolute path to the data within the project
+    :param data_type: The data type, one of "FILE" or "FOLDER"
+    :param uri_type: The URI scheme to use, one of "icav2" or "s3".
+        Defaults to "icav2"
 
-    If the data_type is "FOLDER", the path should end with a forward slash.
-
-    :param project_id: The project id to search in
-    :param data_path: The path to the data in the project
-    :param data_type: The data_type, one of "FILE", "FOLDER"
-    :param uri_type: One of UriType.ICAV2, UriType.S3
-
-    :return: The icav2:// uri string
+    :return: The URI string representation of the data path
     :rtype: str
+
+    :raises ValueError: If the uri_type is not recognised
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
-        from wrapica.project_data import convert_project_id_and_data_path_to_uri
-        from wrapica.enums import DataType
 
-        icav2_uri: str = convert_project_id_and_data_path_to_icav2_uri(
+        from pathlib import Path
+        from wrapica.project_data import convert_project_id_and_data_path_to_uri
+
+        icav2_uri = convert_project_id_and_data_path_to_uri(
             project_id="abcd-1234-efab-5678",
             data_path=Path("/path/to/folder/"),
             data_type="FOLDER"
         )
+
+        print(icav2_uri)
+        # icav2://abcd1234-ab12-ab12-ab12-abcdef123456/path/to/folder/
     """
     from ...storage_configuration import get_s3_key_prefix_by_project_id
     if uri_type == ICAV2_URI_SCHEME:
@@ -1485,30 +1462,46 @@ def convert_project_id_and_data_path_to_uri(
 
 
 def unpack_icav2_uri(uri: str) -> Tuple[str, str]:
-    DeprecationWarning(
-        "Warning, please use unpack_uri instead."
-    )
+    """
+    Unpack an icav2:// URI into project ID and data path components.
+
+    .. deprecated:: 2.45.0
+        Use :func:`unpack_uri` instead.
+
+    :param uri: The icav2:// URI string to unpack
+
+    :return: A tuple of project ID and data path strings
+    :rtype: Tuple[str, str]
+
+    :raises ValueError: If the URI scheme is not recognised
+    """
     return unpack_uri(uri)
 
 
 def unpack_uri(uri: str) -> Tuple[str, str]:
     """
-    Unpack an icav2 or s3 uri
+    Unpack an icav2:// or s3:// URI into project ID and data path components.
 
-    :param uri: The icav2 uri in the format of 'icav2://project_id/path/to/file.txt' or 'icav2://project_id/path/to/dir/'
+    :param uri: The URI string in icav2:// or s3:// format
 
-    :return: Tuple with project_id and data_path
-
+    :return: A tuple of project ID and data path strings
     :rtype: Tuple[str, str]
+
+    :raises ValueError: If the URI scheme is not recognised
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import unpack_icav2_uri
+        from wrapica.project_data import unpack_uri
 
-        project_id, data_path = unpack_icav2_uri("icav2://project_id/path/to/dir")
+        project_id, data_path = unpack_uri(
+            "icav2://project-name/path/to/file.txt"
+        )
+
+        print((project_id, data_path))
+        # ('abcd1234-ab12-ab12-ab12-abcdef123456', '/path/to/file.txt')
     """
     # Get local imports
     from ...project import get_project_id_from_project_name
@@ -1541,9 +1534,22 @@ def coerce_data_id_or_icav2_uri_to_project_data_obj(
         data_id_or_uri: str,
         create_data_if_not_found: bool = False
 ) -> ProjectData:
-    DeprecationWarning(
-        "Please use coerce_data_id_or_uri_to_project_data_obj instead "
-    )
+    """
+    Coerce a data ID or icav2:// URI to a project data object.
+
+    .. deprecated:: 2.45.0
+        Use :func:`coerce_data_id_or_uri_to_project_data_obj` instead.
+
+    :param data_id_or_uri: A data identifier or icav2:// URI string
+    :param create_data_if_not_found: If True, creates the data object when not found.
+        Defaults to False
+
+    :return: The project data object resolved from the input
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
+
+    :raises ValueError: If the URI scheme is not recognised
+    :raises ApiException: If the API call to retrieve the project data fails
+    """
     return coerce_data_id_or_uri_to_project_data_obj(
         data_id_or_uri=data_id_or_uri,
         create_data_if_not_found=create_data_if_not_found
@@ -1555,11 +1561,31 @@ def coerce_data_id_or_uri_to_project_data_obj(
         create_data_if_not_found: bool = False
 ) -> ProjectData:
     """
-    Given a data id or a uri, return a tuple of project id and data id
+    Coerce a data ID or URI string to a project data object.
 
-    :param data_id_or_uri:  The data id or uri
-    :param create_data_if_not_found:  If uri_or_id is in uri format, and the data is not found, and create is True, create the data
-    :return:
+    :param data_id_or_uri: A data identifier string or URI in icav2:// or s3:// format
+    :param create_data_if_not_found: If True, creates the data object when not found.
+        Defaults to False
+
+    :return: The project data object resolved from the input
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
+
+    :raises ValueError: If the URI scheme is not recognised
+    :raises ApiException: If the API call to retrieve the project data fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import coerce_data_id_or_uri_to_project_data_obj
+
+        project_data_obj = coerce_data_id_or_uri_to_project_data_obj(
+            data_id_or_uri="icav2://project-name/path/to/data/"
+        )
+
+        print(f"Data ID: {project_data_obj.data.id}, Name: {project_data_obj.data.details.name}")
+        # Data ID: fol.1234567890abcdef1234567890abcdef, Name: data
     """
     from ...data import get_project_data_obj_from_data_id
     if is_data_id_format(
@@ -1578,10 +1604,23 @@ def coerce_data_id_icav2_uri_or_path_to_project_data_obj(
         data_id_path_or_uri: str,
         create_data_if_not_found: bool = False
 ) -> Optional[ProjectData]:
-    DeprecationWarning(
-        "Please use coerce_data_id_uri_or_path_to_project_data_obj or use "
-        "coerce_data_id_uri_or_path_to_data_obj from wrapica.data instead."
-    )
+    """
+    Coerce a data ID, icav2:// URI, or path to a project data object.
+
+    .. deprecated:: 2.45.0
+        Use :func:`coerce_data_id_uri_or_path_to_project_data_obj` or
+        :func:`wrapica.data.coerce_data_id_uri_or_path_to_data_obj` instead.
+
+    :param data_id_path_or_uri: A data identifier, icav2:// URI, or path string
+    :param create_data_if_not_found: If True, creates the data object when not found.
+        Defaults to False
+
+    :return: The project data object, or None if the path is root
+    :rtype: Optional[`ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_]
+
+    :raises ValueError: If the URI scheme is not recognised
+    :raises ApiException: If the API call to retrieve the project data fails
+    """
     return coerce_data_id_uri_or_path_to_project_data_obj(data_id_path_or_uri, create_data_if_not_found)
 
 
@@ -1591,15 +1630,17 @@ def coerce_data_id_uri_or_path_to_project_data_obj(
 ) -> Optional[ProjectData]:
 
     """
-    Coerce a data id, uri, path to a project data object
+    Coerce a data ID, URI, or path string to a project data object.
 
-    :param data_id_path_or_uri:
-    :param create_data_if_not_found:
+    :param data_id_path_or_uri: A data identifier, URI, or absolute path string
+    :param create_data_if_not_found: If True, creates the data object when not found.
+        Defaults to False
 
-    :return: A ProjectData object
-    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
+    :return: The project data object, or None if the path is root
+    :rtype: Optional[`ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_]
 
-    :raises: ValueError, ApiException
+    :raises ValueError: If the URI scheme is not recognised
+    :raises ApiException: If the API call to retrieve the project data fails
 
     :Examples:
 
@@ -1611,6 +1652,9 @@ def coerce_data_id_uri_or_path_to_project_data_obj(
         project_data_obj = coerce_data_id_uri_or_path_to_project_data_obj(
             data_id_path_or_uri="icav2://project-name/path/to/data/"
         )
+
+        print(f"Data ID: {project_data_obj.data.id}, Name: {project_data_obj.data.details.name}")
+        # Data ID: fol.1234567890abcdef1234567890abcdef, Name: data
     """
     from ...project import get_project_id
 
@@ -1656,36 +1700,37 @@ def get_credentials_access_for_project_folder(
     """
     Retrieve temporary access credentials for a folder within a project.
 
-    This function requests temporary credentials for a specific project folder using
-    the `ProjectDataApi.create_temporary_credentials_for_data` endpoint. A folder
-    can be specified either by its `folder_id` or by its `folder_path` within the
-    given project, but not both.
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param folder_id: The folder identifier. Defaults to None, in which case
+        folder_path must be provided
+    :param folder_path: The path to the folder within the project. Defaults to None,
+        in which case folder_id must be provided
+    :param read_only: If True, requests read-only credentials. Defaults to None
+    :param credentials_format: The credential format, one of None or "RCLONE".
+        Defaults to None, which returns AWS format credentials
 
-    :param project_id: The ID of the project containing the folder.
-    :param folder_id: The ID of the folder to retrieve credentials for (optional if folder_path is provided).
-    :param folder_path: The path to the folder within the project (optional if folder_id is provided).
-    :param read_only: If True, request read-only credentials;
-
-    :return: An object containing temporary credentials, either in AWS format or RCLONE format depending on the `credentials_format` parameter.
+    :return: Temporary credentials in AWS or RCLONE format
     :rtype: Union[`AwsTempCredentials <https://umccr.github.io/libica/openapi/v3/docs/AwsTempCredentials/>`_, `RcloneTempCredentials <https://umccr.github.io/libica/openapi/v3/docs/RcloneTempCredentials/>`_]
 
-    :raises: AssertionError if both or neither of `folder_id` and `folder_path` are provided, ValueError if credentials cannot be retrieved.
+    :raises AssertionError: If both or neither of folder_id and folder_path are provided
+    :raises ValueError: If valid credentials cannot be retrieved from the API
 
     :Examples:
 
     .. code-block:: python
         :linenos:
-        from wrapica.project_data import get_credentials_access_for_project_folder
-        from wrapica.libica_models import AwsTempCredentials, RcloneTempCredentials
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-        aws_temp_credentials: AwsTempCredentials = get_credentials_access_for_project_folder(
-            project_id="proj.abcdef1234567890",
+        from pathlib import Path
+        from wrapica.project_data import get_credentials_access_for_project_folder
+
+        credentials = get_credentials_access_for_project_folder(
+            project_id="abcd-1234-efab-5678",
             folder_path=Path("/path/to/folder/"),
-            read_only=True,
-            credentials_format=None  # Will return AWS format by default if available
+            read_only=True
         )
+
+        print(f"Access Key: {credentials.access_key}, Region: {credentials.region}")
+        # Access Key: AKIAIOSFODNN7EXAMPLE, Region: us-east-1
     """
     # Check one of folder_id and folder_path is specified
     if folder_id is None and folder_path is None:
@@ -1752,60 +1797,37 @@ def get_aws_credentials_access_for_project_folder(
         read_only: Optional[bool] = None
 ) -> AwsTempCredentials:
     """
-    Given a project_id and a folder_id or folder_path, collect the AWS Access Credentials for downloading this data.
+    Retrieve AWS temporary credentials for accessing a project folder.
 
-    :param project_id: The project id of the data
-    :param folder_id: The folder id (alternative to folder_path)
-    :param folder_path: The folder path (alternative to folder_id)
-    :param read_only: True to create read only credentials, otherwise defaults to read+write credentials
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param folder_id: The folder identifier. Defaults to None, in which case
+        folder_path must be provided
+    :param folder_path: The path to the folder within the project. Defaults to None,
+        in which case folder_id must be provided
+    :param read_only: If True, requests read-only credentials. Defaults to None
 
-    :return: An object with the following attributes:
-      * access_key
-      * secret_key
-      * session_token
-      * region
-      * bucket
-      * object_prefix
-      * server_side_encryption_algorithm
-      * server_side_encryption_key
-
+    :return: An AWS temporary credentials object with access key, secret, and token
     :rtype: `AwsTempCredentials <https://umccr.github.io/libica/openapi/v3/docs/AwsTempCredentials/>`_
 
-    :raises: AssertionError, ApiException, ValueError
+    :raises AssertionError: If both or neither of folder_id and folder_path are provided
+    :raises ValueError: If valid AWS credentials cannot be retrieved from the API
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        import subprocess
+        from pathlib import Path
         from wrapica.project_data import get_aws_credentials_access_for_project_folder
-        from wrapica.libica_models import AwsTempCredentials
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        aws_temp_credentials: AwsTempCredentials = get_aws_credentials_access_for_project_folder(
-            project_id="proj.abcdef1234567890",
-            folder_path=Path("/path/to/folder/")
+        aws_creds = get_aws_credentials_access_for_project_folder(
+            project_id="abcd-1234-efab-5678",
+            folder_path=Path("/path/to/folder/"),
+            read_only=True
         )
 
-        local_path = Path("/path/to/local/folder/")
-
-        subprocess.run(
-          [
-            "aws", "s3", "sync",
-            # Can add sync parameters here like --dryrun or --exclude / --include
-            "s3://{}/{}".format(aws_temp_credentials.bucket, aws_temp_credentials.object_prefix),
-            str(local_path)
-          ],
-          env={
-            "AWS_ACCESS_KEY_ID": aws_temp_credentials.access_key,
-            "AWS_SECRET_ACCESS_KEY": aws_temp_credentials.secret_key,
-            "AWS_SESSION_TOKEN": aws_temp_credentials.session_token,
-            "AWS_REGION": aws_temp_credentials.region
-          }
-        )
+        print(f"Access Key: {aws_creds.access_key}, Region: {aws_creds.region}")
+        # Access Key: AKIAIOSFODNN7EXAMPLE, Region: us-east-1
     """
     return get_credentials_access_for_project_folder(
         project_id=project_id,
@@ -1824,46 +1846,37 @@ def get_rclone_credentials_access_for_project_folder(
         read_only: Optional[bool] = None
 ) -> RcloneTempCredentials:
     """
-    Given a project_id and a folder_id or folder_path, collect the Rclone Temp Credentials for downloading this data.
+    Retrieve Rclone temporary credentials for accessing a project folder.
 
-    :param project_id: The project id of the data
-    :param folder_id: The folder id (alternative to folder_path)
-    :param folder_path: The folder path (alternative to folder_id)
-    :param read_only: True to create read only credentials, otherwise defaults to read+write credentials
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param folder_id: The folder identifier. Defaults to None, in which case
+        folder_path must be provided
+    :param folder_path: The path to the folder within the project. Defaults to None,
+        in which case folder_id must be provided
+    :param read_only: If True, requests read-only credentials. Defaults to None
 
-    :return: An object with the following attributes:
-      * type
-      * provider
-      * ... other attributes depending on the provider, for example for AWS provider, the following attributes are included:
-        * access_key_id
-        * secret_access_key
-        * session_token
-        * region
-        * bucket
-        * object_prefix
-        * server_side_encryption
-        * expiration_time
-
+    :return: An Rclone temporary credentials object for remote access
     :rtype: `RcloneTempCredentials <https://umccr.github.io/libica/openapi/v3/docs/RcloneTempCredentials/>`_
 
-    :raises: AssertionError, ApiException, ValueError
+    :raises AssertionError: If both or neither of folder_id and folder_path are provided
+    :raises ValueError: If valid RCLONE credentials cannot be retrieved from the API
 
     :Examples:
 
     .. code-block:: python
         :linenos:
-        import subprocess
+
+        from pathlib import Path
         from wrapica.project_data import get_rclone_credentials_access_for_project_folder
-        from wrapica.libica_models import RcloneTempCredentials
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        rclone_temp_credentials: RcloneTempCredentials = get_rclone_credentials_access_for_project_folder(
-            project_id="proj.abcdef1234567890",
-            folder_path=Path("/path/to/folder/")
+        rclone_creds = get_rclone_credentials_access_for_project_folder(
+            project_id="abcd-1234-efab-5678",
+            folder_path=Path("/path/to/folder/"),
+            read_only=True
         )
 
+        print(f"Type: {rclone_creds.type}, Region: {rclone_creds.region}")
+        # Type: s3, Region: us-east-1
     """
     return get_credentials_access_for_project_folder(
         project_id=project_id,
@@ -1878,11 +1891,11 @@ def is_folder_id_format(
         folder_id_str: str
 ) -> bool:
     """
-    Does this string look like a folder id?
+    Check if a string matches the folder ID format.
 
-    :param folder_id_str: The string to check
+    :param folder_id_str: The string to check against folder ID pattern
 
-    :return: True if the string looks like a folder id
+    :return: True if the string matches the folder ID format
     :rtype: bool
 
     :Examples:
@@ -1902,11 +1915,11 @@ def is_file_id_format(
         file_id_str: str
 ) -> bool:
     """
-    Does this string look like a folder id?
+    Check if a string matches the file ID format.
 
-    :param file_id_str: The string to check
+    :param file_id_str: The string to check against file ID pattern
 
-    :return: True if the string looks like a file id
+    :return: True if the string matches the file ID format
     :rtype: bool
 
     :Examples:
@@ -1918,7 +1931,6 @@ def is_file_id_format(
 
         print(is_file_id_format("fil.abcdef1234567890"))
         # True
-
     """
     return re.match("fil.[0-9a-f]{32}", file_id_str) is not None
 
@@ -1927,12 +1939,11 @@ def is_data_id_format(
         data_id: Union[UUID4, str]
 ) -> bool:
     """
-    Check if data id is a data id
+    Check if a string matches either a file or folder ID format.
 
-    :param data_id: The data id to check
+    :param data_id: The string to check against data ID patterns
 
-    :return: True if the data id is a data id
-
+    :return: True if the string matches a file or folder ID format
     :rtype: bool
 
     :Examples:
@@ -1940,9 +1951,9 @@ def is_data_id_format(
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_data import is_data_id
+        from wrapica.project_data import is_data_id_format
 
-        print(is_data_id("fil.abcdef1234567890"))
+        print(is_data_id_format("fil.abcdef1234567890"))
         # True
     """
     return is_file_id_format(data_id) or is_folder_id_format(data_id)
@@ -1953,26 +1964,28 @@ def check_folder_exists(
         folder_path: Path
 ) -> bool:
     """
-    Check folder path is a folder on icav2
+    Check if a folder exists at the given path in a project.
 
-    :param project_id:  The owning project id of the folder
-    :param folder_path: The folder path
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param folder_path: The absolute path to the folder within the project
 
-    :return: True if folder exists, otherwise false
-
-    :rtype:  bool
+    :return: True if the folder exists, False otherwise
+    :rtype: bool
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
+        from pathlib import Path
         from wrapica.project_data import check_folder_exists
 
-        # Check if a folder exists
-        print(check_folder_exists("abcdef1234567890", Path("/path/to/folder/")))
+        exists = check_folder_exists(
+            "abcd-1234-efab-5678", Path("/path/to/folder/")
+        )
 
+        print(exists)
+        # True
     """
     try:
         # Try to get data object from project id and path
@@ -1988,23 +2001,28 @@ def check_file_exists(
         file_path: Path
 ) -> bool:
     """
-    Check if a file exists in a project
+    Check if a file exists at the given path in a project.
 
-    :param project_id:  The owning project id of the file
-    :param file_path:   The file path
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param file_path: The absolute path to the file within the project
 
-    :return: True if file exists, otherwise false
-    :rtype:  bool
+    :return: True if the file exists, False otherwise
+    :rtype: bool
 
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
-        # Imports
+        from pathlib import Path
         from wrapica.project_data import check_file_exists
 
-        # Check if a file exists
-        print(check_file_exists("abcdef1234567890", Path("/path/to/file.txt")))
+        exists = check_file_exists(
+            "abcd-1234-efab-5678", Path("/path/to/file.txt")
+        )
+
+        print(exists)
+        # True
     """
     try:
         # Try to get data object from project id and path
@@ -2019,14 +2037,14 @@ def check_uri_exists(
         data_uri: str
 ) -> bool:
     """
+    Check if an icav2:// or s3:// URI points to existing data.
 
-    Given a uri, check if the uri exists
+    :param data_uri: The URI string in icav2:// or s3:// format
 
-    :param data_uri:
-
-    :return: True if the uri exists, otherwise false
-
+    :return: True if the data at the URI exists, False otherwise
     :rtype: bool
+
+    :raises ValueError: If the URI scheme is not supported
 
     :Examples:
 
@@ -2036,6 +2054,7 @@ def check_uri_exists(
         from wrapica.project_data import check_uri_exists
 
         print(check_uri_exists("icav2://project-name/path/to/file.txt"))
+        # True
     """
     if cast(UriType, urlparse(data_uri).scheme) in [ICAV2_URI_SCHEME, S3_URI_SCHEME]:
         project_id, data_path = unpack_uri(data_uri)
@@ -2053,35 +2072,35 @@ def presign_folder(
         folder_id: Optional[Union[UUID4, str]] = None
 ) -> List[DataUrlWithPath]:
     """
-    Presign a folder recursively
+    Create presigned download URLs for all files in a folder recursively.
 
-    Given a project_id and a folder_path or folder_id, return a list of presigned urls for the folder
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param folder_path: The absolute path to the folder. Defaults to None, in which
+        case folder_id must be provided
+    :param folder_id: The folder identifier. Defaults to None, in which case
+        folder_path must be provided
 
-    :param project_id:  The owning project id of the folder
-    :param folder_path:  The folder path
-    :param folder_id:  The folder id
+    :return: A list of presigned download URL objects with path information
+    :rtype: List[`DataUrlWithPath <https://umccr.github.io/libica/openapi/v3/docs/DataUrlWithPath/>`_]
 
-    :return: List of presigned urls
-    :rtype: List[`DataUrlWithPath <https://umccr.github.io/libica/openapi/v3/docs/DataUrlWithPathList/>`_]
+    :raises ApiException: If the API call to create download URLs fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
+        from pathlib import Path
         from wrapica.project_data import presign_folder
 
-        # Presign a folder
-        presigned_urls_list = list(
-            map(
-                lambda data_uri_iter: data_uri_iter.url,
-                presign_folder(
-                    project_id="abcdef1234567890",
-                    folder_path="/path/to/folder/"
-                )
-            )
+        presigned_urls = presign_folder(
+            project_id="abcd-1234-efab-5678",
+            folder_path=Path("/path/to/folder/")
         )
+
+        for url_obj in presigned_urls:
+            print(f"Path: {url_obj.path}, URL: {url_obj.url}")
+            # Path: /path/to/file.txt, URL: https://stratus-gds-use1.s3.us-east-1.amazonaws.com/...
     """
 
     if folder_id is None:
@@ -2108,15 +2127,15 @@ def presign_cwl_directory(
     ]
 ]:
     """
-    Given a CWL directory object, presign all files in the directory recursively, and return the list of presigned url
+    Create a CWL directory listing with presigned URLs for all files.
 
-    :param project_id: The project id to search in
-    :param data_id: The data id
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_id: The folder identifier for the CWL directory
 
-    :return: The CWL input json Directory object where each file in the listing has a presigned url for a location attributes
-    :rtype: List[Dict[str, Union[Union[dict, str], Any]]]
+    :return: A CWL directory listing with presigned URLs as file locations
+    :rtype: List[Dict[str, Any]]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to list project data or create URLs fails
 
     :Examples:
 
@@ -2125,30 +2144,14 @@ def presign_cwl_directory(
 
         from wrapica.project_data import presign_cwl_directory
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-        # Use wrapica.project_data.get_folder_id_from_project_id_and_path
-        # If you need to convert a folder path to a folder id
-
-        cwl_directory: List[Dict[str, Union[Union[dict, str], Any]]] = presign_cwl_directory(
+        cwl_directory = presign_cwl_directory(
             project_id="abcd-1234-efab-5678",
             data_id="fol.abcdef1234567890"
         )
 
-        print(cwl_directory)
-        # [
-        #   {
-        #     "class": "Directory",
-        #     "basename": "folder",
-        #     "listing": [
-        #       {
-        #         "class": "File",
-        #         "basename": "file.txt",
-        #         "location": "https://s3.amazonaws.com/umccr-illumina-prod/abcd-1234-efab-5678/abcdef1234567890"
-        #       }
-        #     ]
-        #   }
-        # ]
+        for item in cwl_directory:
+            print(f"Class: {item['class']}, Basename: {item['basename']}")
+            # Class: File, Basename: file.txt
     """
     # Data ids
     cwl_item_objs = []
@@ -2194,16 +2197,15 @@ def presign_cwl_directory_with_external_data_mounts(
     List[Dict]
 ]:
     """
-    Given a cwl directory with a listing attribute, presign all files in the directory recursively, and return the
-    list of presigned url mount objects and the cwl directory listing object
+    Create a CWL directory listing with external data mount objects for analysis input.
 
-    :param project_id: The project id to search in
-    :param data_id: The data id
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_id: The folder identifier for the CWL directory
 
-    :return: external_data_mounts, cwl_item_objs
+    :return: A tuple of external data mount objects and CWL directory listing dicts
     :rtype: Tuple[List[`AnalysisInputExternalData <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInputExternalData/>`_], List[Dict]]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to list project data or create URLs fails
 
     :Examples:
 
@@ -2212,40 +2214,13 @@ def presign_cwl_directory_with_external_data_mounts(
 
         from wrapica.project_data import presign_cwl_directory_with_external_data_mounts
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-        # Use wrapica.project_data.get_folder_id_from_project_id_and_path
-        # If you need to convert a folder path to a folder id
-
-        external_data_mounts, cwl_item_objs = presign_cwl_directory_with_external_data_mounts(
+        external_mounts, cwl_listing = presign_cwl_directory_with_external_data_mounts(
             project_id="abcd-1234-efab-5678",
             data_id="fol.abcdef1234567890"
         )
 
-        print(external_data_mounts)
-        # [
-        #   {
-        #     "url": "https://s3.amazonaws.com/umccr-illumina-prod/abcd-1234-efab-5678/abcdef1234567890",
-        #     "type": "FILE",
-        #     "mount_path": "abcd-1234-efab-5678/abcdef1234567890/file.txt"
-        #   }
-        # ]
-
-        print(cwl_item_objs)
-        # [
-        #   {
-        #     "class": "Directory",
-        #     "basename": "folder",
-        #     "listing": [
-        #       {
-        #         "class": "File",
-        #         "basename": "file.txt",
-        #         "location": "abcd-1234-efab-5678/abcdef1234567890/file.txt"
-        #       }
-        #     ]
-        #   }
-        # ]
-
+        print(f"Found {len(external_mounts)} mount(s) and {len(cwl_listing)} listing(s)")
+        # Found 3 mount(s) and 3 listing(s)
     """
     # Data ids
     cwl_item_objs = []
@@ -2317,33 +2292,33 @@ def read_icav2_file_contents(
         output_path: Optional[Union[Path, TextIOWrapper]] = None
 ) -> Optional[str]:
     """
-    Write icav2 file contents to a path
+    Read file contents from ICAv2 and write to a path or return as string.
 
-    :param project_id: The project id
-    :param data_id: The data id
-    :param output_path: The output path to write the file contents to
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_id: The file data identifier to read contents from
+    :param output_path: The output path or file handle to write contents to.
+        Defaults to None, in which case the contents are returned as a string
 
-    :return: The file contents as a string if output_path is None
+    :return: The file contents as a string if output_path is None, otherwise None
     :rtype: Optional[str]
 
-    :raises: NotADirectoryError, ApiException
+    :raises NotADirectoryError: If the output path parent directory does not exist
+    :raises ApiException: If the API call to create the download URL fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
 
-        # Imports
         from wrapica.project_data import read_icav2_file_contents
 
-        # Read icav2 file contents to a file
-        with open("foo.txt", "w") as f:
-            read_icav2_file_contents(
-                project_id="abcd-1234-efab-5678",
-                data_id="fil.abcdef1234567890",
-                output_path=f
-            )
+        contents = read_icav2_file_contents(
+            project_id="abcd-1234-efab-5678",
+            data_id="fil.abcdef1234567890"
+        )
+
+        print(contents)
+        # Hello, World!
     """
     if output_path is not None and isinstance(output_path, Path):
         # Ensure parent directory exists
@@ -2375,34 +2350,30 @@ def read_icav2_file_contents_to_string(
         data_id: Union[UUID4, str]
 ) -> str:
     """
+    Download and return the contents of an ICAv2 file as a string.
 
-    Stream down the icav2 file contents and return as a string
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_id: The file data identifier to read contents from
 
-    :param project_id: The project id
-    :param data_id: The data id
-
-    :return: The file contents as a string
+    :return: The file contents as a decoded string
     :rtype: str
 
-    :raises: ApiException
+    :raises ApiException: If the API call to create the download URL fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
+
         from wrapica.project_data import read_icav2_file_contents_to_string
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        file_contents: str = read_icav2_file_contents_to_string(
+        file_contents = read_icav2_file_contents_to_string(
             project_id="abcd-1234-efab-5678",
             data_id="fil.abcdef1234567890"
         )
 
         print(file_contents)
-        # this is the file contents
+        # Hello, World!
     """
 
     with NamedTemporaryFile() as temp_file_h:
@@ -2422,12 +2393,32 @@ def create_file_with_upload_url(
         file_name: str
 ) -> str:
     """
-    Create a new file in a project and return the upload URL
+    Create a new file in a project folder and return its upload URL.
 
-    :param project_id:  The owning project id of the file
-    :param folder_id:  The folder id to create the file in
-    :param file_name:  The name of the file to create
-    :return:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param folder_id: The folder identifier to create the file in
+    :param file_name: The name of the file to create
+
+    :return: The presigned upload URL for the new file
+    :rtype: str
+
+    :raises ApiException: If the API call to create the file or upload URL fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_data import create_file_with_upload_url
+
+        upload_url = create_file_with_upload_url(
+            project_id="abcd-1234-efab-5678",
+            folder_id="fol.abcdef1234567890",
+            file_name="output.txt"
+        )
+
+        print(upload_url)
+        # https://stratus-gds-use1.s3.us-east-1.amazonaws.com/path/to/output.txt?signature=abc123
     """
 
     # Enter a context with an instance of the API client
@@ -2461,40 +2452,30 @@ def get_project_data_upload_url(
         data_id: Union[UUID4, str]
 ) -> str:
     """
-    Get upload url for project data object
+    Return an upload URL for a project data object that has not yet been written to.
 
-    This can only be used for a file that has been created but not yet written to.
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_id: The data identifier for the file to upload to
 
-    :param project_id: The owning project id of the data
-    :param data_id: The data id
-
-    :return: The upload url
+    :return: The presigned upload URL for the data object
     :rtype: str
 
-    :raises: ApiException
+    :raises ApiException: If the API call to create the upload URL fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
-        from wrapica.project_data import (
-            get_project_data_upload_url,
-            create_file_in_project
-        )
+        from wrapica.project_data import get_project_data_upload_url
 
-        # Create a file in a project
-        new_file_obj = create_file_in_project(
-            project_id="abcd-1234-efab-5678",
-            file_path=Path("/path/to/file.txt")
-        )
-
-        # Get the upload url for the new file
         upload_url = get_project_data_upload_url(
             project_id="abcd-1234-efab-5678",
-            data_id=new_file_obj.data.id
+            data_id="fil.abcdef1234567890"
         )
+
+        print(upload_url)
+        # https://stratus-gds-use1.s3.us-east-1.amazonaws.com/path/to/file.txt?signature=abc123
     """
 
     # Enter a context with an instance of the API client
@@ -2522,31 +2503,33 @@ def write_icav2_file_contents(
         file_stream_or_path: Union[Path, TextIOWrapper]
 ) -> str:
     """
-    Write data to an icav2 file
+    Write local file contents to a new ICAv2 file at the specified path.
 
-    :param project_id: The owning project id of the file
-    :param data_path: The file path
-    :param file_stream_or_path: The file stream or path to write to
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_path: The absolute path for the new file in the project
+    :param file_stream_or_path: The local file path or open file handle to upload from
 
-    :return: The new file id
-
+    :return: The data identifier of the newly created file
     :rtype: str
 
-    :raises: ValueError, ApiException
+    :raises ApiException: If the API call to create or upload the file fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
+        from pathlib import Path
         from wrapica.project_data import write_icav2_file_contents
 
-        write_icav2_file_contents(
+        new_file_id = write_icav2_file_contents(
             project_id="abcd-1234-efab-5678",
             data_path=Path("/path/to/file.txt"),
-            file_stream_or_path=Path("/path/to/local/file.txt")
+            file_stream_or_path=Path("/local/file.txt")
         )
+
+        print(new_file_id)
+        # fil.1234567890abcdef1234567890abcdef
     """
 
     # Generate a new file in the project
@@ -2579,36 +2562,37 @@ def get_file_by_file_name_from_project_data_list(
         project_data_list: List[ProjectData]
 ) -> ProjectData:
     """
-    Useful for collecting a file object from an analysis output object
+    Return the first file matching the given name from a list of project data objects.
 
-    :param file_name: The name of the file to get
+    :param file_name: The name of the file to search for
     :param project_data_list: The list of project data objects to search through
 
-    :return: The file object
-    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`__
+    :return: The first project data object matching the file name
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
 
-    :raises: ValueError
+    :raises ValueError: If no file with the given name is found in the list
 
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
-        # Imports
-        from wrapica.project_data import get_file_by_file_name_from_project_data_list
+        from wrapica.project_data import (
+            find_project_data_bulk, get_file_by_file_name_from_project_data_list
+        )
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        project_data_list: List[ProjectData] = find_project_data_bulk(
+        project_data_list = find_project_data_bulk(
             project_id="abcd-1234-efab-5678",
             parent_folder_id="fol.abcdef1234567890",
             data_type="FILE"
         )
-
-        file_obj: ProjectData = get_file_by_file_name_from_project_data_list(
+        file_obj = get_file_by_file_name_from_project_data_list(
             file_name="file.txt",
             project_data_list=project_data_list
         )
+
+        print(f"Data ID: {file_obj.data.id}, Name: {file_obj.data.details.name}")
+        # Data ID: fil.1234567890abcdef1234567890abcdef, Name: file.txt
     """
 
     # Find the first file with this name
@@ -2633,35 +2617,33 @@ def project_data_copy_batch_handler(
         destination_folder_path: Path
 ) -> Job:
     """
-    Copy a batch of files from one project to another
+    Copy a batch of data items to a destination folder in a project.
 
-    :param source_data_ids: The list of source data ids
-    :param destination_project_id: The destination project id
-    :param destination_folder_path: The destination folder path
+    :param source_data_ids: The list of source data identifiers to copy
+    :param destination_project_id: The destination project identifier
+    :param destination_folder_path: The destination folder path in the target project
 
-    :return: The job id for the project data copy batch
+    :return: The job object for the copy batch operation
     :rtype: `Job <https://umccr.github.io/libica/openapi/v3/docs/Job/>`_
 
-    :raises: ApiException
+    :raises ApiException: If the API call to create the copy batch fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
+        from pathlib import Path
         from wrapica.project_data import project_data_copy_batch_handler
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
-        job_id: str = project_data_copy_batch_handler(
-            source_data_ids=[
-                "fil.abcdef1234567890",
-                "fil.abcdef1234567891"
-            ],
+        job = project_data_copy_batch_handler(
+            source_data_ids=["fil.abcdef1234567890", "fil.abcdef1234567891"],
             destination_project_id="abcd-1234-efab-5678",
             destination_folder_path=Path("/path/to/folder/")
         )
+
+        print(f"Job ID: {job.id}, Status: {job.status}")
+        # Job ID: abcd1234-ab12-ab12-ab12-abcdef123456, Status: RUNNING
     """
 
     # Get the configuration
@@ -2701,8 +2683,8 @@ def project_data_copy_batch_handler(
         logger.error("Exception when calling ProjectDataApi->copy_project_data_batch: %s\n" % e)
         raise ApiException
 
-    # Return the job ID for the project data copy batch
-    return api_response.job
+    # Return the job object for the project data copy batch
+    return cast(Job, api_response.job)
 
 
 def delete_project_data(
@@ -2710,25 +2692,21 @@ def delete_project_data(
         data_id: Union[UUID4, str]
 ):
     """
-    Delete a project data item using the projectData:delete endpoint
+    Schedule a project data item for deletion.
 
-    :param project_id: The project id the data belongs to
-    :param data_id: The data id we want to delete
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_id: The data identifier of the item to delete
 
-    :return: None
-    :rtype: None
-
-    :raises: ValueError, ApiException
+    :raises ApiException: If the API call to delete the data fails
 
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
         from wrapica.project_data import delete_project_data
 
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-
+        # Schedules the data item for deletion
         delete_project_data(
             project_id="abcd-1234-efab-5678",
             data_id="fol.abcdef1234567890"
@@ -2769,32 +2747,32 @@ def move_project_data(
         src_data_list: List[Union[UUID4, str]]
 ) -> Job:
     """
-    Move a list of data ids to a destination project
-    :param dest_project_id:
-    :param dest_folder_id:
-    :param src_data_list:
+    Move a list of data items to a destination folder in a project.
 
-    :return:
+    :param dest_project_id: The destination project identifier as a UUID4 object or UUID-formatted string
+    :param dest_folder_id: The destination folder identifier to move data into
+    :param src_data_list: The list of source data identifiers to move
 
-    :rtype: Job
+    :return: The job object for the move batch operation
+    :rtype: `Job <https://umccr.github.io/libica/openapi/v3/docs/Job/>`_
 
-    :raises: ApiException
+    :raises ApiException: If the API call to create the move batch fails
 
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
-        from wrapica.project_data import move_data
+        from wrapica.project_data import move_project_data
 
-        job = move_data(
+        job = move_project_data(
             dest_project_id="abcd-1234-efab-5678",
             dest_folder_id="fol.abcdef1234567890",
-            src_data_list=[
-                "fil.abcdef1234567890",
-                "fil.abcdef1234567891"
-            ]
+            src_data_list=["fil.abcdef1234567890", "fil.abcdef1234567891"]
         )
 
+        print(f"Job ID: {job.id}, Status: {job.status}")
+        # Job ID: abcd1234-ab12-ab12-ab12-abcdef123456, Status: RUNNING
     """
 
     # Create an instance of the API class
@@ -2928,27 +2906,36 @@ def add_tag_to_data_object(
         tag_type: DataTagType
 ) -> ProjectData:
     """
-    Add tags to a data object
+    Add a tag of the specified type to a project data object.
 
-    :param project_id:
-    :param data_id:
-    :param tag:
-    :param tag_type:
-    :return:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_id: The data identifier of the item to tag
+    :param tag: The tag value string to add
+    :param tag_type: The tag type, one of "technical_tag", "user_tag", "connector_tag",
+        "run_in_tag", "run_out_tag", or "reference_tag"
 
-    :return:
+    :return: The updated project data object with the new tag
+    :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
 
-    :raises: ApiException
+    :raises ValueError: If the tag_type is not recognised
+    :raises ApiException: If the API call to update the data object fails
 
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
-        add_tag_to_data_obj(
-          project_id,
-          data_id,
-          "to_be_archived"
+        from wrapica.project_data import add_tag_to_data_object
+
+        updated_obj = add_tag_to_data_object(
+            project_id="abcd-1234-efab-5678",
+            data_id="fil.abcdef1234567890",
+            tag="to_be_archived",
+            tag_type="user_tag"
         )
+
+        print(f"Data ID: {updated_obj.data.id}, Name: {updated_obj.data.details.name}")
+        # Data ID: fil.1234567890abcdef1234567890abcdef, Name: file.txt
     """
     # Get the existing object
     project_data_obj = get_project_data_obj_by_id(

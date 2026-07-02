@@ -62,29 +62,30 @@ def get_project_analysis_inputs(
         analysis_id: Union[UUID4, str]
 ) -> List[AnalysisInput]:
     """
-    Get the analysis inputs for a given analysis
+    Return the analysis inputs for a given analysis.
 
     :param project_id: The project context the analysis was run in
-    :param analysis_id: The analysis id to query
+    :param analysis_id: The analysis identifier to query
 
-    :return: List of analysis inputs
-    :rtype: List[`AnalysisInput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInput>`_]
+    :return: The list of analysis input objects
+    :rtype: List[`AnalysisInput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInput/>`_]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve analysis inputs fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
+
         from wrapica.project_analysis import get_project_analysis_inputs
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
+        inputs = get_project_analysis_inputs(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678"
+        )
 
-        workflow_inputs = get_project_analysis_inputs(project_id, analysis_id)
-
+        print(f"Found {len(inputs)} input(s)")
+        # Found 3 input(s)
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -111,33 +112,34 @@ def get_analysis_input_object_from_analysis_input_code(
         analysis_input_code: str
 ) -> AnalysisInput:
     """
-    Given an analysis input code for an analysis id, collect the analysis input object
-    Confirm the input has either analysis or external data attributes
+    Return the analysis input object matching the given input code.
 
     :param project_id: The project context the analysis was run in
-    :param analysis_id: The analysis id to query
-    :param analysis_input_code: The analysis input code to query
+    :param analysis_id: The analysis identifier to query
+    :param analysis_input_code: The input code to match against analysis inputs
 
-    :return: The analysis input object
-    :rtype: `AnalysisInput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInput>`_
+    :return: The analysis input object for the matching code
+    :rtype: `AnalysisInput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInput/>`_
 
-    :raises: StopIteration, ValueError, ApiException
+    :raises StopIteration: If no input matches the given analysis input code
+    :raises ValueError: If the matched input has no analysis data or external data
+    :raises ApiException: If the API call to retrieve analysis inputs fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
-        from wrapica.project_analysis import get_analysis_input_object_from_analysis_code
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
-        analysis_code = "run_folder"
+        from wrapica.project_analysis import get_analysis_input_object_from_analysis_input_code
 
-        run_folder_input_data_id = get_analysis_input_object_from_analysis_code(
-            project_id, analysis_id, analysis_code
-        ).analysis_data[0].data_id
+        input_obj = get_analysis_input_object_from_analysis_input_code(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678",
+            analysis_input_code="run_folder"
+        )
+
+        print(f"Input code: {input_obj.code}")
+        # Input code: run_folder
     """
     # Get analysis inputs
     analysis_input_list: List[AnalysisInput] = get_project_analysis_inputs(
@@ -169,28 +171,30 @@ def get_outputs_object_from_analysis_id(
         analysis_id: Union[UUID4, str]
 ) -> List[AnalysisOutput]:
     """
-    Query the outputs object from the analysis id
+    Return the list of output objects for a given analysis.
 
     :param project_id: The project context the analysis was run in
-    :param analysis_id: The analysis id to query
+    :param analysis_id: The analysis identifier to query
 
-    :return: List of analysis outputs
-    :rtype: List[`AnalysisOutput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisOutput>`_]
+    :return: The list of analysis output objects
+    :rtype: List[`AnalysisOutput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisOutput/>`_]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve analysis outputs fails
 
     :Examples:
 
     .. code-block:: python
-    
         :linenos:
+
         from wrapica.project_analysis import get_outputs_object_from_analysis_id
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
+        outputs = get_outputs_object_from_analysis_id(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678"
+        )
 
-        workflow_outputs = get_outputs_object_from_analysis_id(project_id, analysis_id)
+        print(f"Found {len(outputs)} output(s)")
+        # Found 3 output(s)
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -217,32 +221,34 @@ def get_analysis_output_object_from_analysis_output_code(
         analysis_output_code: str
 ) -> AnalysisOutput:
     """
-    Given an analysis code for an analysis id, collect the analysis output object
+    Return the analysis output object matching the given output code.
 
     :param project_id: The project context the analysis was run in
-    :param analysis_id: The analysis id to query
-    :param analysis_output_code: The analysis output code to collect
+    :param analysis_id: The analysis identifier to query
+    :param analysis_output_code: The output code to match against analysis outputs
 
-    :return: The analysis output object
-    :rtype: `AnalysisOutput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisOutput>`_
+    :return: The analysis output object for the matching code
+    :rtype: `AnalysisOutput <https://umccr.github.io/libica/openapi/v3/docs/AnalysisOutput/>`_
 
-    :raises: StopIteration, ValueError, ApiException
+    :raises StopIteration: If no output matches the given analysis output code
+    :raises ValueError: If the matched output has no data items
+    :raises ApiException: If the API call to retrieve analysis outputs fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
-        from wrapica.project_analysis import get_analysis_output_object_from_analysis_code
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
-        analysis_code = "Output"
+        from wrapica.project_analysis import get_analysis_output_object_from_analysis_output_code
 
-        analysis_folder_output_id = get_analysis_output_object_from_analysis_code(
-            project_id, analysis_id, analysis_code
-        ).data[0].data_id
+        output_obj = get_analysis_output_object_from_analysis_output_code(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678",
+            analysis_output_code="Output"
+        )
+
+        print(f"Output code: {output_obj.code}")
+        # Output code: Output
     """
     analysis_output: List[AnalysisOutput] = get_outputs_object_from_analysis_id(
         project_id,
@@ -271,28 +277,30 @@ def get_cwl_outputs_json_from_analysis_id(
         analysis_id: Union[UUID4, str]
 ) -> Dict[str, Any]:
     """
-    Query the outputs object from the analysis id
+    Return the CWL outputs JSON dictionary for a given analysis.
 
     :param project_id: The project context the analysis was run in
-    :param analysis_id: The analysis id to query
+    :param analysis_id: The analysis identifier to query
 
-    :return: List of analysis outputs
+    :return: The parsed CWL outputs JSON as a dictionary
     :rtype: Dict[str, Any]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve CWL outputs fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
+
         from wrapica.project_analysis import get_cwl_outputs_json_from_analysis_id
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
+        cwl_outputs = get_cwl_outputs_json_from_analysis_id(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678"
+        )
 
-        cwl_json_output = get_cwl_outputs_json_from_analysis_id(project_id, analysis_id)
+        print(cwl_outputs)
+        # {'output_dir': {'class': 'Directory', 'location': 'icav2://...'}}
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -318,28 +326,30 @@ def get_analysis_obj_from_analysis_id(
         analysis_id: Union[UUID4, str]
 ) -> AnalysisV4:
     """
-    Get an analysis object given a project id and analysis id
+    Return the analysis object for a given project and analysis ID.
 
     :param project_id: The project context the analysis was run in
-    :param analysis_id: The analysis id to query
+    :param analysis_id: The analysis identifier to retrieve
 
-    :return: The analysis object
-    :rtype: `Analysis <https://umccr.github.io/libica/openapi/v3/docs/Analysis>`_
+    :return: The analysis object matching the given ID
+    :rtype: `AnalysisV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisV4/>`_
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve the analysis fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
+
         from wrapica.project_analysis import get_analysis_obj_from_analysis_id
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
+        analysis = get_analysis_obj_from_analysis_id(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678"
+        )
 
-        analysis = get_analysis_obj_from_analysis_id(project_id, analysis_id)
+        print(f"Analysis ID: {analysis.id}, Status: {analysis.status}")
+        # Analysis ID: abcd1234-ab12-ab12-ab12-abcdef123456, Status: SUCCEEDED
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -375,29 +385,32 @@ def get_analysis_steps(
         include_technical_steps: Optional[bool] = False
 ) -> List[AnalysisStep]:
     """
-    Get the workflow steps for a given analysis
+    Return the workflow steps for a given analysis.
 
-    :param project_id:
-    :param analysis_id:
-    :param include_technical_steps:
+    :param project_id: The project context the analysis was run in
+    :param analysis_id: The analysis identifier to query
+    :param include_technical_steps: Whether to include technical steps in the result.
+        Defaults to False, in which case only non-technical steps are returned
 
-    :return: List of analysis steps
-    :rtype: List[`AnalysisStep <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStep>`_]
+    :return: The list of analysis step objects
+    :rtype: List[`AnalysisStep <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStep/>`_]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve analysis steps fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
+
         from wrapica.project_analysis import get_analysis_steps
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
+        steps = get_analysis_steps(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678"
+        )
 
-        analysis_step_list = get_analysis_steps(project_id, analysis_id)
+        print(f"Found {len(steps)} step(s)")
+        # Found 3 step(s)
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -433,27 +446,28 @@ def get_analysis_log_from_analysis_step(
         analysis_step: AnalysisStep
 ) -> AnalysisStepLogs:
     """
-    Get the logs for a given analysis step
+    Return the logs object from a given analysis step.
 
-    :param analysis_step:
+    :param analysis_step: The analysis step object to extract logs from
 
-    :return: Get the logs attribute of an analysis step
-    :rtype: `AnalysisStepLogs <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStepLogs>`_
+    :return: The logs attribute of the analysis step
+    :rtype: `AnalysisStepLogs <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStepLogs/>`_
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
-        from wrapica.project_analysis import get_analysis_steps
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
+        from wrapica.project_analysis import (
+            get_analysis_steps,
+            get_analysis_log_from_analysis_step
+        )
 
-        analysis_step_list = get_analysis_steps(project_id, analysis_id)
+        steps = get_analysis_steps("project-uuid-1234", "analysis-uuid-5678")
+        step_logs = get_analysis_log_from_analysis_step(steps[0])
 
-        step_logs = list(map(get_analysis_log_from_analysis_step, analysis_step_list))
+        print(f"Logs: {step_logs}")
+        # Logs: AnalysisStepLogs(...)
     """
     return analysis_step.logs
 
@@ -466,43 +480,39 @@ def write_analysis_step_logs(
         is_cwltool_log: Optional[bool] = False
 ) -> None:
     """
-    Write the analysis step logs to a file
+    Write the analysis step logs to a file or stream.
 
-    :param project_id: The project id the analysis was run in
-    :param step_logs: Required, the step logs object
-    :param log_name: Required, One of stdout or stderr
-    :param output_path: Required, The output path to write the file to
-    :param is_cwltool_log: Required, If the log is a cwltool log we convert from html to text format
+    :param project_id: The project context the analysis was run in
+    :param step_logs: The step logs object containing stream or data references
+    :param log_name: The log stream name, one of stdout or stderr
+    :param output_path: The file path or text stream to write logs to
+    :param is_cwltool_log: Whether the log is a cwltool HTML log requiring conversion.
+        Defaults to False, in which case the log is written as-is
 
-    :raises: ApiException, NotADirectoryError
-
-    :return: None
-    :rtype: None
+    :raises ApiException: If the API call to read log data fails
+    :raises AttributeError: If neither stream nor data output is available for the log
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
+
         from pathlib import Path
-        from wrapica.project_analysis import get_analysis_steps
+        from wrapica.project_analysis import (
+            get_analysis_steps,
+            get_analysis_log_from_analysis_step,
+            write_analysis_step_logs
+        )
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
-
-        # Get analysis steps and logs
-        analysis_step_list = get_analysis_steps(project_id, analysis_id)
-        step_logs = list(map(get_analysis_log_from_analysis_step, analysis_step_list))
-
-        # Write first step logs to file
+        steps = get_analysis_steps("project-uuid-1234", "analysis-uuid-5678")
+        step_logs = get_analysis_log_from_analysis_step(steps[0])
+        # Writes the stderr log content to the specified output file
         write_analysis_step_logs(
-            project_id=project_id,
-            step_logs=step_logs[0],
+            project_id="project-uuid-1234",
+            step_logs=step_logs,
             log_name="stderr",
             output_path=Path("stderr.log")
         )
-
     """
     # Local imports
     from ...project_data import read_icav2_file_contents
@@ -565,29 +575,25 @@ def abort_analysis(
         analysis_id: Union[UUID4, str],
 ) -> None:
     """
-    Abort an analysis
+    Abort a running analysis.
 
-    :param project_id: The project id the analysis was run in
-    :param analysis_id: The analysis id to abort
+    :param project_id: The project context the analysis was run in
+    :param analysis_id: The analysis identifier to abort
 
-    :raises: ApiException
-
-    :return: None
-    :rtype: None
+    :raises ApiException: If the API call to abort the analysis fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
-        from pathlib import Path
+
         from wrapica.project_analysis import abort_analysis
 
-        # Set params
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-        project_id = "project_id"
-        analysis_id = "analysis_id"
+        # Aborts the specified analysis
+        abort_analysis(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678"
+        )
     """
     # Get the configuration
     configuration = get_icav2_configuration()
@@ -631,38 +637,50 @@ def list_analyses(
         max_items: Optional[int] = None
 ) -> List[AnalysisV4]:
     """
-    List analyses
+    Return a filtered list of analyses for a given project.
 
-    :param project_id: The project id
-    :param pipeline_id: The pipeline id
-    :param user_reference: The full user reference (regex optional)
-    :param status: The status of the analysis
-    :param creation_date_before: Return only analyses created before this date
-    :param creation_date_after: Return only analyses created after this date
-    :param modification_date_before: Return only analyses modified before this date
-    :param modification_date_after: Return only analyses modified after this date
-    :param sort: A parameter, or list of parameters to sort by
-    :param max_items:
+    :param project_id: The project identifier to list analyses for
+    :param pipeline_id: Filter analyses by pipeline identifier.
+        Defaults to None, in which case no pipeline filter is applied
+    :param user_reference: Filter analyses by user reference string or regex pattern.
+        Defaults to None, in which case no user reference filter is applied
+    :param status: Filter analyses by status or list of statuses.
+        Defaults to None, in which case no status filter is applied
+    :param creation_date_before: Return only analyses created before this datetime.
+        Defaults to None, in which case no upper creation date bound is applied
+    :param creation_date_after: Return only analyses created after this datetime.
+        Defaults to None, in which case no lower creation date bound is applied
+    :param modification_date_before: Return only analyses modified before this datetime.
+        Defaults to None, in which case no upper modification date bound is applied
+    :param modification_date_after: Return only analyses modified after this datetime.
+        Defaults to None, in which case no lower modification date bound is applied
+    :param sort: A sort parameter or list of sort parameters for ordering results.
+        Defaults to None, in which case no sorting is applied
+    :param max_items: The maximum number of analyses to return.
+        Defaults to None, in which case all matching analyses are returned
 
-    :raises: ApiException
+    :return: The list of analyses matching the specified filters
+    :rtype: List[`AnalysisV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisV4/>`_]
 
-    :return: List of analyses
-    :rtype: `List[Analysis] <https://umccr.github.io/libica/openapi/v3/docs/AnalysisV4/>`_
+    :raises ApiException: If the API call to search analyses fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
-        from pathlib import Path
+
         from wrapica.project_analysis import list_analyses
 
-        # Set params
-        # Use wrapica.project.get_project_id_from_project_name
-        # If you need to convert a project_name to a project_id
-        project_id = "project_id"
+        analyses = list_analyses(
+            project_id="project-uuid-1234",
+            status="SUCCEEDED"
+        )
 
-        analysis_list = list_analyses(project_id)
+        print(f"Found {len(analyses)} analysis(es)")
+        # Found 3 analysis(es)
+        for analysis in analyses:
+            print(f"Analysis ID: {analysis.id}, Status: {analysis.status}")
+            # Analysis ID: abcd1234-..., Status: SUCCEEDED
     """
     # Get the configuration
     configuration = get_icav2_configuration()
@@ -810,37 +828,30 @@ def get_cwl_analysis_input_json(
         analysis_id: Union[UUID4, str]
 ) -> Dict:
     """
-    Get the CWL Analysis Input JSON
+    Return the CWL analysis input JSON as a dictionary.
 
-    :param project_id: The project id the analysis was run in
-    :param analysis_id:  The analysis id
+    :param project_id: The project context the analysis was run in
+    :param analysis_id: The analysis identifier to query
 
-    :return: The CWL Analysis Input JSON As a dictionary
+    :return: The parsed CWL analysis input JSON as a dictionary
     :rtype: Dict
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve the CWL input JSON fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
-        import json
         from wrapica.project_analysis import get_cwl_analysis_input_json
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
-
-        # Print the input json
-        print(
-            json.dumps(
-                get_cwl_analysis_input_json(project_id, analysis_id),
-                indent=4
-            )
+        input_json = get_cwl_analysis_input_json(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678"
         )
 
+        print(input_json)
+        # {'input_file': {'class': 'File', 'location': 'icav2://...'}}
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
@@ -864,37 +875,30 @@ def get_cwl_analysis_output_json(
         analysis_id: Union[UUID4, str]
 ) -> Dict:
     """
-    Get the CWL Analysis Input JSON
+    Return the CWL analysis output JSON as a dictionary.
 
-    :param project_id: The project id the analysis was run in
-    :param analysis_id: The analysis id
+    :param project_id: The project context the analysis was run in
+    :param analysis_id: The analysis identifier to query
 
-    :return: The CWL Analysis Output JSON As a dictionary
+    :return: The parsed CWL analysis output JSON as a dictionary
     :rtype: Dict
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve the CWL output JSON fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
-        import json
         from wrapica.project_analysis import get_cwl_analysis_output_json
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
-
-        # Print the output json
-        print(
-            json.dumps(
-                get_cwl_analysis_output_json(project_id, analysis_id),
-                indent=4
-            )
+        output_json = get_cwl_analysis_output_json(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678"
         )
 
+        print(output_json)
+        # {'output_dir': {'class': 'Directory', 'location': 'icav2://...'}}
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
@@ -915,18 +919,25 @@ def get_cwl_analysis_output_json(
 
 def analysis_step_to_dict(analysis_step: AnalysisStep) -> AnalysisStepDict:
     """
-    Convert an analysis step object to a dictionary
+    Convert an analysis step object to a typed dictionary.
 
-    Returns the following attributes
-    * name: str -> remove preceding '#' values
-    * status: WorkflowStep.Status -> The workflow step status
-    * queue_date: Datetime object
-    * start_date: Datetime object
-    * end_date: Datetime object
+    :param analysis_step: The analysis step object to convert
 
-    :param analysis_step: The AnalysisStep object
-    :return: The analysis step as a dict
+    :return: The analysis step represented as a typed dictionary
     :rtype: Dict
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_analysis import get_analysis_steps, analysis_step_to_dict
+
+        steps = get_analysis_steps("project-uuid-1234", "analysis-uuid-5678")
+        step_dict = analysis_step_to_dict(steps[0])
+
+        print(step_dict)
+        # {'name': 'step-name', 'status': 'DONE', ...}
     """
     return {
         "name": analysis_step.name.split("#", 1)[-1],
@@ -942,14 +953,30 @@ def get_analysis_obj_from_user_reference(
         user_reference: str
 ) -> AnalysisType:
     """
-    Given a user reference, get the analysis object
+    Return the analysis object matching a given user reference.
 
-    Will fail if more than one analysis is found for a given user reference.
-    Will also fail if no analysis is found for the user reference.
+    :param project_id: The project context to search analyses in
+    :param user_reference: The unique user reference string to match
 
-    :param project_id:
-    :param user_reference:
-    :return:
+    :return: The analysis object matching the user reference
+    :rtype: `AnalysisV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisV4/>`_
+
+    :raises ValueError: If no analysis or multiple analyses match the user reference
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_analysis import get_analysis_obj_from_user_reference
+
+        analysis = get_analysis_obj_from_user_reference(
+            project_id="project-uuid-1234",
+            user_reference="my-unique-analysis-ref"
+        )
+
+        print(f"Analysis ID: {analysis.id}, Status: {analysis.status}")
+        # Analysis ID: abcd1234-ab12-ab12-ab12-abcdef123456, Status: SUCCEEDED
     """
 
     # List analysis filtering on the user reference
@@ -978,26 +1005,31 @@ def coerce_analysis_id_or_user_reference_to_analysis_obj(
         analysis_id_or_user_reference: Union[Union[UUID4, str], str]
 ) -> AnalysisType:
     """
-    Given either an analysis id or user reference, coerce to an analysis object
+    Coerce an analysis ID or user reference to an analysis object.
 
-    :param project_id:
-    :param analysis_id_or_user_reference:
-    :return: The analysis object
-    :rtype: `Analysis <https://umccr.github.io/libica/openapi/v3/docs/Analysis>`_
+    :param project_id: The project context to resolve the analysis in
+    :param analysis_id_or_user_reference: The analysis identifier as a UUID or a user reference string
 
-    :raises: ValueError
+    :return: The resolved analysis object
+    :rtype: `AnalysisV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisV4/>`_
+
+    :raises ValueError: If the user reference matches zero or multiple analyses
+    :raises ApiException: If the API call to retrieve the analysis fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
+
         from wrapica.project_analysis import coerce_analysis_id_or_user_reference_to_analysis_obj
 
-        # Set params
-        analysis_id_or_user_reference = "analysis_id"
+        analysis = coerce_analysis_id_or_user_reference_to_analysis_obj(
+            project_id="project-uuid-1234",
+            analysis_id_or_user_reference="my-analysis-ref"
+        )
 
-        analysis = coerce_analysis_id_or_user_reference_to_analysis_obj(analysis_id_or_user_reference)
+        print(f"Analysis ID: {analysis.id}, Status: {analysis.status}")
+        # Analysis ID: abcd1234-ab12-ab12-ab12-abcdef123456, Status: SUCCEEDED
     """
 
     # For an analysis id
@@ -1018,11 +1050,30 @@ def coerce_analysis_id_or_user_reference_to_analysis_id(
         analysis_id_or_user_reference: str
 ) -> str:
     """
-    Given either an analysis id or user reference, coerce to an analysis id
+    Coerce an analysis ID or user reference to an analysis ID string.
 
-    :param project_id:
-    :param analysis_id_or_user_reference:
-    :return:
+    :param project_id: The project context to resolve the analysis in
+    :param analysis_id_or_user_reference: The analysis identifier as a UUID or a user reference string
+
+    :return: The resolved analysis ID as a string
+    :rtype: str
+
+    :raises ValueError: If the user reference matches zero or multiple analyses
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_analysis import coerce_analysis_id_or_user_reference_to_analysis_id
+
+        analysis_id = coerce_analysis_id_or_user_reference_to_analysis_id(
+            project_id="project-uuid-1234",
+            analysis_id_or_user_reference="my-analysis-ref"
+        )
+
+        print(analysis_id)
+        # abcd1234-ab12-ab12-ab12-abcdef123456
     """
 
     if is_uuid_format(analysis_id_or_user_reference):
@@ -1042,11 +1093,35 @@ def update_analysis_obj(
         analysis_obj: AnalysisType
 ) -> AnalysisType:
     """
-    Given an analysis id, update the analysis object
-    :param project_id:
-    :param analysis_id:
-    :param analysis_obj:
-    :return:
+    Update an analysis object with the provided analysis data.
+
+    :param project_id: The project context the analysis belongs to
+    :param analysis_id: The analysis identifier to update
+    :param analysis_obj: The analysis object containing updated fields
+
+    :return: The updated analysis object returned by the API
+    :rtype: `AnalysisV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisV4/>`_
+
+    :raises ApiException: If the API call to update the analysis fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_analysis import (
+            get_analysis_obj_from_analysis_id,
+            update_analysis_obj
+        )
+
+        analysis = get_analysis_obj_from_analysis_id("project-uuid-1234", "analysis-uuid-5678")
+        updated = update_analysis_obj(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678",
+            analysis_obj=analysis
+        )
+        print(f"Analysis ID: {updated.id}, Status: {updated.status}")
+        # Analysis ID: abcd1234-ab12-ab12-ab12-abcdef123456, Status: SUCCEEDED
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
@@ -1079,6 +1154,37 @@ def add_tag_to_analysis(
         tag: str,
         tag_type: AnalysisTagType
 ):
+    """
+    Add a tag to an existing analysis object.
+
+    :param project_id: The project context the analysis belongs to
+    :param analysis_id: The analysis identifier to add the tag to
+    :param tag: The tag value string to append
+    :param tag_type: The tag category, one of user_tag, technical_tag, or reference_tag
+
+    :return: The updated analysis object with the new tag applied
+    :rtype: `AnalysisV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisV4/>`_
+
+    :raises ValueError: If project_id or analysis_id is not in UUID format, or tag_type is unrecognised
+    :raises ApiException: If the API call to update the analysis fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_analysis import add_tag_to_analysis
+
+        updated_analysis = add_tag_to_analysis(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678",
+            tag="my-custom-tag",
+            tag_type="user_tag"
+        )
+
+        print(f"Analysis ID: {updated_analysis.id}, Status: {updated_analysis.status}")
+        # Analysis ID: abcd1234-ab12-ab12-ab12-abcdef123456, Status: SUCCEEDED
+    """
     # Check project id and analysis id are in uuid formats
     if not is_uuid_format(project_id):
         raise ValueError("Project id is not in UUID format")
@@ -1116,27 +1222,30 @@ def get_analysis_usage(
         analysis_id: Union[UUID4, str],
 ) -> AnalysisUsageDetails:
     """
-    Given a project id and analysis id, collect the analysis usage details
+    Return the usage details for a given analysis.
 
-    :param project_id:
-    :param analysis_id:
-    :return: The analysis usage details for the given analysis
-    :rtype: `AnalysisUsageDetails <https://umccr.github.io/libica/openapi/v3/docs/AnalysisUsageDetails>`_
+    :param project_id: The project context the analysis was run in
+    :param analysis_id: The analysis identifier to query usage for
 
-    :raises: ApiException
+    :return: The usage details for the specified analysis
+    :rtype: `AnalysisUsageDetails <https://umccr.github.io/libica/openapi/v3/docs/AnalysisUsageDetails/>`_
+
+    :raises ApiException: If the API call to retrieve usage details fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
+
         from wrapica.project_analysis import get_analysis_usage
 
-        # Set params
-        project_id = "project_id"
-        analysis_id = "analysis_id"
+        usage = get_analysis_usage(
+            project_id="project-uuid-1234",
+            analysis_id="analysis-uuid-5678"
+        )
 
-        usage = get_analysis_usage(project_id, analysis_id)
+        print(f"Analysis ID: {usage.analysis_id}, Status: {usage.status}")
+        # Analysis ID: abcd1234-ab12-ab12-ab12-abcdef123456, Status: SUCCEEDED
     """
 
     with ApiClient(get_icav2_configuration()) as api_client:
