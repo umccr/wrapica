@@ -3,6 +3,7 @@
 # Standard imports
 from pathlib import Path
 from typing import Union
+from os import environ
 
 # Libica objects
 from libica.openapi.v3 import ProjectPipelineV4
@@ -44,7 +45,13 @@ CES_WORKING_DIR_REPLACEMENT = "/ces/scheduler/run/{__ANALYSIS_ID__}"
 CES_DATA_ABS_PATH = Path("__CES_WORKING_DIR__") / "data"
 SAMPLESHEET_WITH_PLACEHOLDERS_NAME = ".samplesheet_with_placeholders.csv.tmp"
 SAMPLESHEET_WITH_ABS_PATHS_NAME = "samplesheet_nf.csv"
-SAMPLESHEET_DIR_NAME = "wrapica_samplesheet_dir"
+
+SAMPLESHEET_DIR_NAME_ENV_VAR = "ICAV2_NF_SAMPLESHEET_DIR_NAME"
+
+if not environ.get(SAMPLESHEET_DIR_NAME_ENV_VAR):
+    SAMPLESHEET_DIR_NAME = "wrapica_samplesheet_dir"
+else:
+    SAMPLESHEET_DIR_NAME = environ.get(SAMPLESHEET_DIR_NAME_ENV_VAR)
 
 # Import everything
 from .functions.project_pipelines_functions import (
