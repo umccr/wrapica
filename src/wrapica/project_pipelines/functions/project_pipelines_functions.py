@@ -73,16 +73,19 @@ from ...utils.nextflow_helpers import (
     include_icav2_config_into_nextflow_config,
     get_default_icav2_config_content,
 )
+from .. import (
+    CES_DATA_ABS_PATH,
+    SAMPLESHEET_WITH_PLACEHOLDERS_NAME,
+    SAMPLESHEET_WITH_ABS_PATHS_NAME,
+    SAMPLESHEET_DIR_NAME,
+)
 
 if typing.TYPE_CHECKING:
     # Import type hints for IDE only, not at runtime
     # Prevents circular imports
     from .. import (
         ICAv2PipelineAnalysisTags,
-        CES_DATA_ABS_PATH,
-        SAMPLESHEET_WITH_PLACEHOLDERS_NAME,
-        SAMPLESHEET_WITH_ABS_PATHS_NAME, SAMPLESHEET_DIR_NAME,
-)
+    )
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis
     from mypy_boto3_s3 import S3Client
 
