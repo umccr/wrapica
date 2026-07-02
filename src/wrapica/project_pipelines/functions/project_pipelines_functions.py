@@ -1317,7 +1317,8 @@ def convert_uris_to_data_ids_from_str(
 def convert_uris_to_data_ids_from_nextflow_input_json(
         input_obj: Union[str, int, bool, Dict[str, Any], List],
         cache_uri: Optional[str] = None,
-        is_top_level: bool = True
+        is_top_level: bool = True,
+        inside_samplesheet: bool = False,
 ) -> Optional[Tuple[
     Union[str, Dict, List, bool, int, float],
     List[AnalysisInputDataMount],
@@ -1367,7 +1368,10 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
         return input_obj, mount_list, external_data_list
 
     if isinstance(input_obj, str):
-        new_value, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_str(input_obj)
+        new_value, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_str(
+            input_obj,
+            inside_samplesheet=inside_samplesheet
+        )
         mount_list.extend(mount_list_new)
         external_data_list.extend(external_data_list_new)
         return new_value, mount_list, external_data_list
@@ -1378,7 +1382,8 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
             input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
                 input_item,
                 cache_uri,
-                is_top_level=False
+                is_top_level=False,
+                inside_samplesheet=inside_samplesheet,
             )
             input_obj_new_list.append(input_obj_new_item)
             mount_list.extend(mount_list_new)
@@ -1401,7 +1406,8 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                 # Extend all values to input object lists
                 input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
                     value,
-                    is_top_level=False
+                    is_top_level=False,
+                    inside_samplesheet=True,
                 )
 
                 # Add in the mounts / external data mounts
@@ -1432,7 +1438,6 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
 
                 # Upload the dereferenced samplesheet
                 logger.info("Uploading dereferenced samplesheet to cache uri: %s", cache_uri_obj.data.details.path)
-                logger.info(pd.DataFrame(input_obj_new_item).to_csv(header=True, index=False))
                 write_icav2_file_contents(
                     cache_uri_obj.project_id,
                     Path(samplesheet_folder_obj.data.details.path, SAMPLESHEET_WITH_PLACEHOLDERS_NAME),
@@ -1463,7 +1468,8 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                 input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
                     value,
                     cache_uri,
-                    is_top_level=False
+                    is_top_level=False,
+                    inside_samplesheet=inside_samplesheet,
                 )
                 new_input_obj.update({
                     key: input_obj_new_item
@@ -1476,7 +1482,8 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
             if isinstance(value, List):
                 input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
                     value,
-                    is_top_level=False
+                    is_top_level=False,
+                    inside_samplesheet=inside_samplesheet,
                 )
                 # Update the new input object with the new item list
                 new_input_obj.update({
@@ -1489,7 +1496,10 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
             if (
                     isinstance(value, str)
             ):
-                new_value, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_str(value)
+                new_value, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_str(
+                    value,
+                    inside_samplesheet=inside_samplesheet,
+                )
 
                 # Now update the new input value with the substituted mount path values
                 new_input_obj.update({
