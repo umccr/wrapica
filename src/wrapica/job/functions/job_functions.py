@@ -22,13 +22,26 @@ def get_job(
     job_id: Union[UUID4, str]
 ) -> Job:
     """
-    Get a job (such as a copy job)
+    Retrieve a job object by its identifier.
 
-    :param job_id:
+    :param job_id: The job identifier as a UUID4 object or UUID-formatted string
 
-    :return: The job object
+    :return: The job object matching the given ID
     :rtype: `Job <https://umccr.github.io/libica/openapi/v3/docs/Job/>`_
 
+    :raises ApiException: If the API call to retrieve the job fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.job import get_job
+
+        job = get_job(job_id="abcd1234-ab12-ab12-ab12-abcdef123456")
+
+        print(f"Job status: {job.status}")
+        # Job status: RUNNING
     """
     # Get the configuration
     configuration = get_icav2_configuration()
@@ -51,7 +64,33 @@ def wait_for_job_completion(
         job_id: Union[UUID4, str],
         raise_on_failure: bool = True
 ) -> JobStatusType:
+    """
+    Poll a job until it reaches a terminal status.
 
+    :param job_id: The job identifier as a UUID4 object or UUID-formatted string
+    :param raise_on_failure: Whether to raise an exception if the job fails.
+        Defaults to True, in which case an exception is raised on failure
+
+    :return: The terminal status of the job
+    :rtype: str
+
+    :raises Exception: If the job ends with a non-success status and raise_on_failure is True
+    :raises ApiException: If the API call to retrieve the job fails during polling
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.job import wait_for_job_completion
+
+        status = wait_for_job_completion(
+            job_id="abcd1234-ab12-ab12-ab12-abcdef123456"
+        )
+
+        print(f"Job completed with status: {status}")
+        # Job completed with status: SUCCEEDED
+    """
     while True:
         # Get the job objects
         job_obj = get_job(job_id)
