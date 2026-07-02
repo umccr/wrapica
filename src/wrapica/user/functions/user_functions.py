@@ -28,11 +28,26 @@ def get_user_obj_from_user_id(
         user_id: Union[UUID4, str]
 ) -> User:
     """
-    Get the user object from the user id
+    Retrieve the user object for a given user identifier.
 
-    :param user_id:
+    :param user_id: The user identifier as a UUID4 object or UUID-formatted string
 
-    :return: `User <https://umccr.github.io/libica/openapi/v3/docs/User/>`_
+    :return: The user object matching the specified identifier
+    :rtype: `User <https://umccr.github.io/libica/openapi/v3/docs/User/>`_
+
+    :raises ApiException: If the API call to retrieve the user fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.user import get_user_obj_from_user_id
+
+        user = get_user_obj_from_user_id("user-1234-abcd-5678")
+
+        print(f"Username: {user.username}")
+        # Username: jsmith
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
@@ -53,28 +68,53 @@ def get_user_name_from_user_id(
         user_id: Union[UUID4, str]
 ) -> str:
     """
-    Get the user name from the user id
+    Return the username string for a given user identifier.
 
-    :param user_id: The user id
+    :param user_id: The user identifier as a UUID4 object or UUID-formatted string
 
-    :return: The user name
+    :return: The username associated with the user identifier
     :rtype: str
+
+    :raises ApiException: If the API call to retrieve the user fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.user import get_user_name_from_user_id
+
+        username = get_user_name_from_user_id("user-1234-abcd-5678")
+
+        print(f"Username: {username}")
+        # Username: jsmith
     """
     return get_user_obj_from_user_id(user_id).username
 
 
 def get_user_obj_from_user_name(user_name: str) -> User:
     """
-    Get the user object from the user name
-    Lists through all user objects, when we have both user id and user name, use get_user_from_user_id instead
+    Retrieve the user object matching a given full name.
 
-    :param user_name:
+    :param user_name: The user full name as firstname and lastname joined by a space
 
-    :return: The user object
+    :return: The user object whose full name matches the specified name
     :rtype: `User <https://umccr.github.io/libica/openapi/v3/docs/User/>`_
 
-    :raises ApiException: If an error occurs when collecting the users
-    :raises ValueError: If the user name is not found
+    :raises ApiException: If the API call to list users fails
+    :raises ValueError: If no user with the specified name is found
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.user import get_user_obj_from_user_name
+
+        user = get_user_obj_from_user_name("Jane Doe")
+
+        print(f"User ID: {user.id}")
+        # User ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
@@ -101,22 +141,37 @@ def get_user_obj_from_user_name(user_name: str) -> User:
 
 def coerce_user_id_or_name_to_user_obj(user_id_or_user_name: str) -> User:
     """
-    Given either a user id or name, coerce to user object
+    Coerce a user identifier or full name to a user object.
 
-    :param user_id_or_user_name:
+    :param user_id_or_user_name: The user identifier in UUID format or the user full name
 
-    :return: The user object
+    :return: The user object resolved from the identifier or name
     :rtype: `User <https://umccr.github.io/libica/openapi/v3/docs/User/>`_
 
-    :raises ValueError: If the user name is not found
-    :raises ApiException: If an error occurs when collecting the users
+    :raises ValueError: If no user with the specified name is found
+    :raises ApiException: If the API call to retrieve or list users fails
 
-    :Example:
+    :Examples:
 
     .. code-block:: python
         :linenos:
 
-        my_user: User = coerce_user_id_or_user_name_to_user_obj("user_id")
+        from wrapica.user import coerce_user_id_or_name_to_user_obj
+
+        user = coerce_user_id_or_name_to_user_obj("user-1234-abcd-5678")
+
+        print(f"Username: {user.username}")
+        # Username: jsmith
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.user import coerce_user_id_or_name_to_user_obj
+
+        user = coerce_user_id_or_name_to_user_obj("Jane Doe")
+
+        print(f"User ID: {user.id}")
+        # User ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     if is_uuid_format(user_id_or_user_name):
         return get_user_obj_from_user_id(user_id_or_user_name)
@@ -126,11 +181,27 @@ def coerce_user_id_or_name_to_user_obj(user_id_or_user_name: str) -> User:
 
 def coerce_user_id_or_name_to_user_id(user_id_or_user_name: str) -> str:
     """
-    Given either a user id or name, coerce to user id
+    Coerce a user identifier or full name to a user identifier string.
 
-    :param user_id_or_user_name:
+    :param user_id_or_user_name: The user identifier in UUID format or the user full name
 
-    :return: The user id
+    :return: The user identifier as a UUID-formatted string
+    :rtype: str
+
+    :raises ValueError: If no user with the specified name is found
+    :raises ApiException: If the API call to list users fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.user import coerce_user_id_or_name_to_user_id
+
+        user_id = coerce_user_id_or_name_to_user_id("Jane Doe")
+
+        print(f"User ID: {user_id}")
+        # User ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     if is_uuid_format(user_id_or_user_name):
         return user_id_or_user_name
@@ -140,20 +211,46 @@ def coerce_user_id_or_name_to_user_id(user_id_or_user_name: str) -> str:
 
 def get_user_id_from_configuration() -> str:
     """
-    Use jwt to get username from access token
+    Extract the user identifier from the current access token configuration.
 
-    :return: The user id
+    :return: The user identifier extracted from the JWT access token
     :rtype: str
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.user import get_user_id_from_configuration
+
+        user_id = get_user_id_from_configuration()
+
+        print(f"Current user ID: {user_id}")
+        # Current user ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     return get_jwt_token_obj(get_icav2_configuration().access_token, ICAV2_ACCESS_TOKEN_AUDIENCE).get("sub")
 
 
-def get_tenant_id_for_user():
+def get_tenant_id_for_user() -> str:
     """
-    Get user and return tenant id from user
+    Return the tenant identifier for the currently authenticated user.
 
-    :return: The tenant id
+    :return: The tenant identifier associated with the current user
     :rtype: str
+
+    :raises ApiException: If the API call to retrieve the user fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.user import get_tenant_id_for_user
+
+        tenant_id = get_tenant_id_for_user()
+
+        print(f"Tenant ID: {tenant_id}")
+        # Tenant ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     user_id = get_user_id_from_configuration()
 
