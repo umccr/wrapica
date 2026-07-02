@@ -131,9 +131,26 @@ def get_storage_credential_list() -> List[StorageCredentialMappingModel]:
 
 def get_storage_credential_id_from_s3_uri(s3_uri: str) -> Optional[str]:
     """
-    Get the storage credential id from an s3 uri
-    :param s3_uri:
-    :return:
+    Return the storage credential ID matching the given S3 URI.
+
+    :param s3_uri: The S3 URI to resolve against registered storage credentials
+
+    :return: The storage credential ID if a match is found, or None if no credential matches
+    :rtype: Optional[str]
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_credentials import get_storage_credential_id_from_s3_uri
+
+        credential_id = get_storage_credential_id_from_s3_uri(
+            "s3://my-bucket/path/to/data/"
+        )
+
+        print(f"Storage credential ID: {credential_id}")
+        # Storage credential ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     for credential_obj in get_storage_credential_list():
         for s3_uri_list in credential_obj['s3UriList']:
@@ -157,11 +174,28 @@ def get_relative_path_from_credentials_prefix(
         s3_uri: str
 ) -> str:
     """
-    Get the appropriate mount path for an analysis given a
-    storage credential id and an s3 uri
-    :param storage_credential_id:
-    :param s3_uri:
-    :return:
+    Return the relative path from the credential prefix for the given S3 URI.
+
+    :param storage_credential_id: The storage credential identifier as a UUID4 object or UUID-formatted string
+    :param s3_uri: The S3 URI to resolve relative to the credential key prefix
+
+    :return: The path segment relative to the credential prefix
+    :rtype: str
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_credentials import get_relative_path_from_credentials_prefix
+
+        relative_path = get_relative_path_from_credentials_prefix(
+            storage_credential_id="abcd1234-5678-efgh-9012-ijklmnopqrst",
+            s3_uri="s3://my-bucket/prefix/path/to/file.txt"
+        )
+
+        print(f"Relative path: {relative_path}")
+        # Relative path: path/to/file.txt
     """
     # Get credential object
     credential_object = next(filter(
