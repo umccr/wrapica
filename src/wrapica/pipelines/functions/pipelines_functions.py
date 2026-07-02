@@ -37,29 +37,28 @@ def get_pipeline_obj_from_pipeline_id(
     pipeline_id: Union[UUID4, str]
 ) -> PipelineType:
     """
-    Get the pipeline object from the pipeline id
+    Return the pipeline object for a given pipeline ID.
 
-    :param pipeline_id:
+    :param pipeline_id: The pipeline identifier as a UUID4 object or UUID-formatted string
 
-    :return: The pipeline object
+    :return: The pipeline object matching the given ID
     :rtype: `Pipeline <https://umccr.github.io/libica/openapi/v3/docs/Pipeline/>`_
 
-    :raises ApiException: If the pipeline is not found
+    :raises ApiException: If the API call to retrieve the pipeline fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from pathlib import Path
         from wrapica.pipelines import get_pipeline_obj_from_pipeline_id
 
-        # Use wrapica.pipelines.get_pipeline_obj_from_pipeline_code
-        # If you need to convert a pipeline code to a pipeline object
-
-        pipeline_obj: Pipeline = get_pipeline_obj_from_pipeline_id(
-            pipeline_id="pipeline_id"
+        pipeline_obj = get_pipeline_obj_from_pipeline_id(
+            pipeline_id="abcd1234-ab12-ab12-ab12-abcdef123456"
         )
+
+        print(f"Pipeline ID: {pipeline_obj.id}, Code: {pipeline_obj.code}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my-pipeline
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         # Force the API client to send back the v4 API
@@ -85,33 +84,28 @@ def get_pipeline_obj_from_pipeline_code(
     pipeline_code: str
 ) -> PipelineType:
     """
-    Get the pipeline object from the pipeline code
+    Return the pipeline object matching the given pipeline code.
 
-    :param pipeline_code:
+    :param pipeline_code: The unique code string identifying the pipeline
 
-    :return: The pipeline object
+    :return: The pipeline object whose code matches the input
     :rtype: `Pipeline <https://umccr.github.io/libica/openapi/v3/docs/Pipeline/>`_
 
-    :raises ApiException: If the pipeline is not found
+    :raises StopIteration: If no pipeline matches the given code
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from pathlib import Path
         from wrapica.pipelines import get_pipeline_obj_from_pipeline_code
 
-        # Use wrapica.pipelines.get_pipeline_obj_from_pipeline_id
-        # If you need to convert a pipeline id to a pipeline object
-        # Since get_pipeline_obj_from_pipeline_code will need to list all pipelines first
-        # To find a matching pipeline, if a user has a pipeline id, it is recommended to use
-        # get_pipeline_obj_from_pipeline_id instead of this function.
-
-        pipeline_obj: Pipeline = get_pipeline_obj_from_pipeline_code(
-            pipeline_code="pipeline_code"
+        pipeline_obj = get_pipeline_obj_from_pipeline_code(
+            pipeline_code="my-pipeline-code"
         )
 
+        print(f"Pipeline ID: {pipeline_obj.id}, Code: {pipeline_obj.code}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my-pipeline-code
     """
 
     try:
@@ -128,28 +122,29 @@ def get_pipeline_obj_from_pipeline_code(
 
 def coerce_pipeline_id_or_code_to_pipeline_obj(pipeline_id_or_code: str) -> PipelineType:
     """
-    Given either a pipeline id or code, check if the input value is uuid4 format,
+    Coerce a pipeline ID or code string to a pipeline object.
 
-    If so, assume it is a pipeline id and collect the object. Otherwise, assume it is a pipeline code and
-    call get_pipeline_obj_from_pipeline_code to get the pipeline object
+    :param pipeline_id_or_code: The pipeline identifier as a UUID-formatted string or a pipeline code
 
-    :param pipeline_id_or_code:
-    :return: The pipeline object
+    :return: The resolved pipeline object for the given identifier
     :rtype: `Pipeline <https://umccr.github.io/libica/openapi/v3/docs/Pipeline/>`_
 
-    :raises ValueError: If the pipeline cannot be found
+    :raises ApiException: If the API call to retrieve the pipeline fails
+    :raises StopIteration: If the pipeline code does not match any pipeline
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipelines import coerce_pipeline_id_or_code_to_pipeline_obj
+        from wrapica.pipelines import coerce_pipeline_id_or_code_to_pipeline_obj
 
-        pipeline_code = "pipeline-123"
+        pipeline_obj = coerce_pipeline_id_or_code_to_pipeline_obj(
+            "my-pipeline-code"
+        )
 
-        pipeline_obj = coerce_pipeline_id_or_code_to_pipeline_obj(pipeline_code)
-
+        print(f"Pipeline ID: {pipeline_obj.id}, Code: {pipeline_obj.code}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my-pipeline-code
     """
 
     # Check uuid format
@@ -161,27 +156,28 @@ def coerce_pipeline_id_or_code_to_pipeline_obj(pipeline_id_or_code: str) -> Pipe
 
 def coerce_pipeline_id_or_code_to_pipeline_id(pipeline_id_or_code: str) -> Union[UUID4, str]:
     """
-    Given either a pipeline id or code, check if the input value is uuid4 format,
-    If so, assume it is a pipeline id. Otherwise, assume it is a pipeline code and
-    call get_project_pipeline_id_from_pipeline_code to get the pipeline id
+    Coerce a pipeline ID or code string to the pipeline ID.
 
-    :param pipeline_id_or_code:    The pipeline id or code to retrieve
-    :return: The pipeline id       The pipeline id
+    :param pipeline_id_or_code: The pipeline identifier as a UUID-formatted string or a pipeline code
+
+    :return: The pipeline ID for the given identifier
     :rtype: str
 
-    :raises: ValueError: If the pipeline cannot be found
+    :raises StopIteration: If the pipeline code does not match any pipeline
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipelines import coerce_pipeline_id_or_code_to_pipeline_id
+        from wrapica.pipelines import coerce_pipeline_id_or_code_to_pipeline_id
 
-        project_id = "project-123"
-        pipeline_code = "pipeline-123"
+        pipeline_id = coerce_pipeline_id_or_code_to_pipeline_id(
+            "my-pipeline-code"
+        )
 
-        pipeline_id = coerce_pipeline_id_or_code_to_pipeline_id(project_id, pipeline_code)
+        print(pipeline_id)
+        # abcd1234-ab12-ab12-ab12-abcdef123456
     """
 
     # Check uuid format
@@ -194,22 +190,25 @@ def coerce_pipeline_id_or_code_to_pipeline_id(pipeline_id_or_code: str) -> Union
 
 def list_all_pipelines() -> List[PipelineType]:
     """
-    List all pipelines available to a user through the pipelines/ endpoint
+    Return all pipelines available to the user in this tenant.
 
-    :return: List of pipelines
+    :return: The list of all available pipelines
     :rtype: List[`Pipeline <https://umccr.github.io/libica/openapi/v3/docs/Pipeline/>`_]
 
-    :raises ApiException: If the pipeline list cannot be retrieved
+    :raises ApiException: If the API call to retrieve the pipeline list fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from pathlib import Path
         from wrapica.pipelines import list_all_pipelines
 
-        pipelines: List[Pipeline] = list_all_pipelines()
+        pipelines = list_all_pipelines()
+
+        for pipeline in pipelines:
+            print(f"Pipeline: {pipeline.code}")
+            # Pipeline: my-pipeline
     """
 
     # Create an instance of the API class
@@ -239,16 +238,17 @@ def download_pipeline_file(
     file_path: Optional[Path] = None
 ) -> Optional[BytesIO]:
     """
-    Download pipeline file
+    Download the content of a pipeline file by file ID.
 
-    :param pipeline_id:  The pipeline id
-    :param file_id:  The file id
-    :param file_path:  The file path to save the file to (if not set, the file content will be returned)
+    :param pipeline_id: The pipeline identifier as a UUID4 object or UUID-formatted string
+    :param file_id: The file identifier as a UUID4 object or UUID-formatted string
+    :param file_path: The local path to save the file to. Defaults to None, in which case
+        the file content is returned as a BytesIO object
 
-    :return: The file content if file_path is not set
-    :rtype: `BytesIO <https://docs.python.org/3/library/io.html#io.BytesIO>`_
+    :return: The file content as a BytesIO object, or None if file_path is provided
+    :rtype: Optional[BytesIO]
 
-    :raises ApiException: If the file cannot be downloaded
+    :raises ApiException: If the API call to download the file content fails
 
     :Examples:
 
@@ -258,12 +258,25 @@ def download_pipeline_file(
         from pathlib import Path
         from wrapica.pipelines import download_pipeline_file
 
+        # Downloads the pipeline file content to the local path
         download_pipeline_file(
-            pipeline_id="pipeline_id",
-            file_id="file_id",
-            file_path=Path("path/to/file")
+            pipeline_id="abcd1234-ab12-ab12-ab12-abcdef123456",
+            file_id="efgh5678-ef56-ef56-ef56-efghij789012",
+            file_path=Path("workflow.cwl")
         )
 
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.pipelines import download_pipeline_file
+
+        content = download_pipeline_file(
+            pipeline_id="abcd1234-ab12-ab12-ab12-abcdef123456",
+            file_id="efgh5678-ef56-ef56-ef56-efghij789012"
+        )
+
+        print(content)
+        # <_io.BytesIO object>
     """
     assert file_path.parent.is_dir(), f"Parent directory {file_path.parent} does not exist"
 
@@ -304,27 +317,29 @@ def list_pipeline_files(
     pipeline_id: Union[UUID4, str]
 ) -> List[PipelineFile]:
     """
-    List pipeline files
+    Return the list of files for a given pipeline.
 
-    :param pipeline_id:
+    :param pipeline_id: The pipeline identifier as a UUID4 object or UUID-formatted string
 
-    :return: List of pipeline files
+    :return: The list of files belonging to the pipeline
     :rtype: List[`PipelineFile <https://umccr.github.io/libica/openapi/v3/docs/PipelineFile/>`_]
 
-    :raises ApiException: If the pipeline files cannot be retrieved
+    :raises ApiException: If the API call to retrieve pipeline files fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.pipelines import list_pipeline_files
 
-        # List pipeline files
-        pipeline_files: List[PipelineFile] = list_pipeline_files(
-            pipeline_id="pipeline_id"
+        pipeline_files = list_pipeline_files(
+            pipeline_id="abcd1234-ab12-ab12-ab12-abcdef123456"
         )
+
+        for pf in pipeline_files:
+            print(f"File: {pf.name}")
+            # File: workflow.cwl
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -347,27 +362,26 @@ def download_pipeline_to_directory(
         output_directory: Path
 ):
     """
-    Download a pipeline to a directory
+    Download all files of a pipeline to a local directory.
 
-    :param pipeline_id
-    :param output_directory
+    :param pipeline_id: The pipeline identifier as a UUID4 object or UUID-formatted string
+    :param output_directory: The local directory path to download pipeline files into
 
-    :raises ApiException: If the pipeline files cannot be retrieved
-    :raises AssertionError: If the parent directory does not exist
+    :raises ApiException: If the API call to retrieve pipeline files fails
+    :raises AssertionError: If the parent directory of the output path does not exist
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from pathlib import Path
         from wrapica.pipelines import download_pipeline_to_directory
 
-        # Download pipeline to local directory
+        # Downloads all pipeline files to the specified directory
         download_pipeline_to_directory(
-            pipeline_id="pipeline_id",
-            output_directory=Path("path/to/output/directory")
+            pipeline_id="abcd1234-ab12-ab12-ab12-abcdef123456",
+            output_directory=Path("my-pipeline")
         )
     """
 
@@ -391,11 +405,26 @@ def download_pipeline_to_zip(
         zip_path: Path
 ):
     """
-    Given a pipeline id, download the pipeline to a zip file
+    Download all files of a pipeline into a zip archive.
 
-    :param pipeline_id:
-    :param zip_path:
-    :return:
+    :param pipeline_id: The pipeline identifier as a UUID4 object or UUID-formatted string
+    :param zip_path: The local file path for the output zip archive
+
+    :raises ApiException: If the API call to retrieve pipeline files fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from pathlib import Path
+        from wrapica.pipelines import download_pipeline_to_zip
+
+        # Downloads all pipeline files into a zip archive
+        download_pipeline_to_zip(
+            pipeline_id="abcd1234-ab12-ab12-ab12-abcdef123456",
+            zip_path=Path("my-pipeline.zip")
+        )
     """
     # Get the pipeline as an object
     pipeline_obj = get_pipeline_obj_from_pipeline_id(pipeline_id)
@@ -426,11 +455,29 @@ def get_cwl_obj_from_pipeline_id(
         pipeline_id: Union[UUID4, str]
 ) -> WorkflowType:
     """
-    Get the pipeline files from a project pipeline
-    Arrange the files as they're named to generate the workflow object
+    Return the parsed CWL workflow object for a given pipeline ID.
 
-    :param pipeline_id:
-    :return:
+    :param pipeline_id: The pipeline identifier as a UUID4 object or UUID-formatted string
+
+    :return: The parsed CWL workflow object from the pipeline files
+    :rtype: WorkflowType
+
+    :raises ApiException: If the API call to retrieve pipeline files fails
+    :raises FileNotFoundError: If the pipeline does not contain a workflow.cwl file
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.pipelines import get_cwl_obj_from_pipeline_id
+
+        cwl_obj = get_cwl_obj_from_pipeline_id(
+            pipeline_id="abcd1234-ab12-ab12-ab12-abcdef123456"
+        )
+
+        print(type(cwl_obj).__name__)
+        # Workflow
     """
 
     # Create a temp directory
