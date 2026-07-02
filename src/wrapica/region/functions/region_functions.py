@@ -24,13 +24,14 @@ DEFAULT_REGION: Optional[Region] = None
 
 def get_regions() -> List[Region]:
     """
-    Return a list of regions
+    Return a list of regions available to the user in this tenant.
 
-    :return: The list of regions available to the user in this tenant
+    :return: The list of regions available to the user
     :rtype: List[`Region <https://umccr.github.io/libica/openapi/v3/docs/Region/>`_]
-    :raises ApiException: If an error occurs while retrieving the regions
 
-    :Example:
+    :raises ApiException: If the API call to retrieve regions fails
+
+    :Examples:
 
     .. code-block:: python
         :linenos:
@@ -39,12 +40,11 @@ def get_regions() -> List[Region]:
 
         regions = get_regions()
 
-        if len(regions) == 0:
-            print("No regions found")
-        else:
-            print(f"Found {len(regions)} region(s)")
-            for region in regions:
-                print(f"Region ID: {region.id}, City Name: {region.city_name}")
+        print(f"Found {len(regions)} region(s)")
+        # Found 3 region(s)
+        for region in regions:
+            print(f"Region ID: {region.id}, City Name: {region.city_name}")
+            # Region ID: abcd1234-..., City Name: Sydney
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
@@ -65,11 +65,14 @@ def get_region_obj_from_region_id(
         region_id: Union[UUID4, str]
 ) -> Region:
     """
-    Get region object from the region id
+    Return the region object for a given region ID.
 
-    :param region_id:  The region ID
-    :return: The region object
-    :rtype: `Region <https://umccr.github.io/libica/openapi/v3/docs/Region/>`
+    :param region_id: The region identifier as a UUID4 object or UUID-formatted string
+
+    :return: The region object matching the given ID
+    :rtype: `Region <https://umccr.github.io/libica/openapi/v3/docs/Region/>`_
+
+    :raises ApiException: If the API call to retrieve the region fails
 
     :Examples:
 
@@ -78,10 +81,10 @@ def get_region_obj_from_region_id(
 
         from wrapica.region import get_region_obj_from_region_id
 
-        region_id = "region-1234"
-        region = get_region_obj_from_region_id(region_id)
+        region = get_region_obj_from_region_id("abcd1234-ab12-ab12-ab12-abcdef123456")
 
         print(f"Region ID: {region.id}, City Name: {region.city_name}")
+        # Region ID: abcd1234-ab12-ab12-ab12-abcdef123456, City Name: Sydney
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         # Create an instance of the API class
@@ -100,10 +103,14 @@ def get_region_obj_from_region_id(
 
 def get_region_obj_from_city_name(city_name: str) -> Region:
     """
-    Get the region id from the city name
+    Return the region object matching the given city name.
 
-    :param city_name: The city name
-    :return: The region object
+    :param city_name: The city name to look up in the available regions
+
+    :return: The region object whose city name matches the input
+    :rtype: `Region <https://umccr.github.io/libica/openapi/v3/docs/Region/>`_
+
+    :raises StopIteration: If no region matches the given city name
 
     :Examples:
 
@@ -112,10 +119,10 @@ def get_region_obj_from_city_name(city_name: str) -> Region:
 
         from wrapica.region import get_region_obj_from_city_name
 
-        city_name = "Sydney"
-        region = get_region_obj_from_city_name(city_name)
+        region = get_region_obj_from_city_name("Sydney")
 
         print(f"Region ID: {region.id}, City Name: {region.city_name}")
+        # Region ID: abcd1234-ab12-ab12-ab12-abcdef123456, City Name: Sydney
     """
     try:
         return next(
@@ -133,11 +140,24 @@ def coerce_region_id_or_city_name_to_region_obj(
         region_id_or_city_name: Union[UUID4, str]
 ) -> Region:
     """
-    Given either a region id or a region city name, coerce to region object
+    Coerce a region ID or city name to a region object.
 
-    :param region_id_or_city_name: The region id or city name
-    :return: The region object
+    :param region_id_or_city_name: The region identifier as a UUID4 or a city name string
+
+    :return: The region object resolved from the input
     :rtype: `Region <https://umccr.github.io/libica/openapi/v3/docs/Region/>`_
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.region import coerce_region_id_or_city_name_to_region_obj
+
+        region = coerce_region_id_or_city_name_to_region_obj("Sydney")
+
+        print(f"Region ID: {region.id}, City Name: {region.city_name}")
+        # Region ID: abcd1234-ab12-ab12-ab12-abcdef123456, City Name: Sydney
     """
     if is_uuid_format(region_id_or_city_name):
         return get_region_obj_from_region_id(region_id_or_city_name)
@@ -148,12 +168,24 @@ def coerce_region_id_or_city_name_to_region_id(
         region_id_or_city_name: Union[UUID4, str]
 ) -> str:
     """
-    Given either a region id or a region city name, coerce to region id
+    Coerce a region ID or city name to a region ID string.
 
-    :param region_id_or_city_name:
+    :param region_id_or_city_name: The region identifier as a UUID4 or a city name string
 
-    :return: The region id
+    :return: The region ID as a string
     :rtype: str
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.region import coerce_region_id_or_city_name_to_region_id
+
+        region_id = coerce_region_id_or_city_name_to_region_id("Sydney")
+
+        print(region_id)
+        # abcd1234-ab12-ab12-ab12-abcdef123456
     """
     if is_uuid_format(region_id_or_city_name):
         return str(region_id_or_city_name)
@@ -164,10 +196,11 @@ def get_region_obj_from_project_id(
         project_id: Union[UUID4, str]
 ) -> Region:
     """
-    Collect the region object from the project id
+    Return the region object associated with a project.
 
-    :param project_id: The project ID
-    :return: The region object
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+
+    :return: The region object assigned to the project
     :rtype: `Region <https://umccr.github.io/libica/openapi/v3/docs/Region/>`_
 
     :Examples:
@@ -177,8 +210,10 @@ def get_region_obj_from_project_id(
 
         from wrapica.region import get_region_obj_from_project_id
 
-        project_id = "project-1234"
-        region = get_region_obj_from_project_id(project_id)
+        region = get_region_obj_from_project_id("abcd1234-ab12-ab12-ab12-abcdef123456")
+
+        print(f"Region ID: {region.id}, City Name: {region.city_name}")
+        # Region ID: abcd1234-ab12-ab12-ab12-abcdef123456, City Name: Sydney
     """
     from ...project import get_project_obj_from_project_id
     return get_project_obj_from_project_id(project_id).region
@@ -188,11 +223,11 @@ def get_region_from_bundle_id(
         bundle_id: Union[UUID4, str]
 ) -> Region:
     """
-    Get the region object from the bundle id
+    Return the region object associated with a bundle.
 
-    :param bundle_id: The bundle ID
+    :param bundle_id: The bundle identifier as a UUID4 object or UUID-formatted string
 
-    :return: The region object
+    :return: The region object assigned to the bundle
     :rtype: `Region <https://umccr.github.io/libica/openapi/v3/docs/Region/>`_
 
     :Examples:
@@ -202,21 +237,31 @@ def get_region_from_bundle_id(
 
         from wrapica.region import get_region_from_bundle_id
 
-        bundle_id = "bundle-1234"
-        region = get_region_from_bundle_id(bundle_id)
+        region = get_region_from_bundle_id("abcd1234-ab12-ab12-ab12-abcdef123456")
+
+        print(f"Region ID: {region.id}, City Name: {region.city_name}")
+        # Region ID: abcd1234-ab12-ab12-ab12-abcdef123456, City Name: Sydney
     """
     from ...bundle import get_bundle_obj_from_bundle_id
     bundle_obj = get_bundle_obj_from_bundle_id(bundle_id)
     return bundle_obj.region
 
 
-def set_default_region():
+def set_default_region() -> None:
     """
-    Set the default region
-    Assumes only one region is available to the user
-    This is used by get_default_region,
-    region is stored as a global python variable and is available for the rest of the session.
+    Set the default region from the single available region in the tenant.
 
+    :raises Exception: If no regions are found or multiple regions exist
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.region import set_default_region
+
+        # Sets the global default region for the session
+        set_default_region()
     """
 
     global DEFAULT_REGION
@@ -234,14 +279,23 @@ def set_default_region():
 
 def get_default_region() -> Region:
     """
-    Get the default region, if no region is set, invocate set_default_region and assign global variable
-    Used by bundle and project functions to get the default region when no region is provided
+    Return the default region, setting it automatically if not already set.
 
-    :return: The default region object
-    :rtype: `Region <https://umccr.github.io/libica/openapi/v3/docs/Region/>`
+    :return: The default region object for the session
+    :rtype: `Region <https://umccr.github.io/libica/openapi/v3/docs/Region/>`_
 
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.region import get_default_region
+
+        region = get_default_region()
+
+        print(f"Default region: {region.city_name}")
+        # Default region: Sydney
     """
     if DEFAULT_REGION is None:
         set_default_region()
     return DEFAULT_REGION
-
