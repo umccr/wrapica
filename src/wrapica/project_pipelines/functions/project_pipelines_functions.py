@@ -1142,7 +1142,8 @@ def convert_uris_to_data_ids_from_cwl_input_json(
 
 
 def convert_uris_to_data_ids_from_str(
-        input_str: str
+        input_str: str,
+        inside_samplesheet: bool = False
 ) -> Tuple[
     str,
     List[AnalysisInputDataMount],
@@ -1152,6 +1153,7 @@ def convert_uris_to_data_ids_from_str(
     Convert uris to data ids from str
 
     :param input_str: The input string containing one or more uris
+    :param inside_samplesheet: Are we currently inside the samplesheet nested list
 
     :return: The converted input object, mount list and external data list
 
@@ -1183,12 +1185,11 @@ def convert_uris_to_data_ids_from_str(
 
         # Try to get the storage credential id from the uri
         storage_credential_id = get_storage_credential_id_from_s3_uri(cast(str, uri_match))
+
         if storage_credential_id is not None:
-            mount_path = CES_DATA_ABS_PATH.joinpath(
-                get_relative_path_from_credentials_prefix(
-                    storage_credential_id,
-                    cast(str, uri_match),
-                )
+            mount_path = get_relative_path_from_credentials_prefix(
+                storage_credential_id,
+                cast(str, uri_match),
             )
 
             if uri_match.endswith("/"):
@@ -1263,11 +1264,9 @@ def convert_uris_to_data_ids_from_str(
 
             # Set mount path
             mount_path = str(
-                CES_DATA_ABS_PATH.joinpath(
-                    Path(owning_project_id) /
-                    Path(data_id) /
-                    Path(basename)
-                )
+                Path(owning_project_id) /
+                Path(data_id) /
+                Path(basename)
             )
 
             # Append the mount list
@@ -1300,7 +1299,16 @@ def convert_uris_to_data_ids_from_str(
 
         # Replace the URI in the new value
         # With the mount path
-        new_value = re.sub(uri_match, mount_path, new_value)
+        new_value = re.sub(
+            uri_match,
+            (
+                # We can use the __CES_WORKING_DIR__ placeholder inside the samplesheet
+                str(CES_DATA_ABS_PATH.joinpath(mount_path))
+                if inside_samplesheet
+                else mount_path
+            ),
+            new_value
+        )
 
     # Return the new value, mount list and external data list
     return new_value, mount_list, external_data_list
