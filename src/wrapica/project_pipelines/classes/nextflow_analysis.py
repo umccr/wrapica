@@ -36,6 +36,7 @@ from .. import (
 from ...literals import (
     WorkflowLanguageType, AnalysisStorageSizeType,
 )
+from ...utils.globals import FILE_DATA_TYPE
 from ...utils.logger import get_logger
 from ...utils.miscell import coerce_to_uuid4_obj
 
@@ -312,7 +313,8 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
         # Create the placeholder file object
         samplesheet_placeholder_file_object = get_project_data_obj_from_project_id_and_path(
             project_id=self.project_id,
-            data_path=Path(samplesheet_dir_folder_obj.data.details.path) / SAMPLESHEET_WITH_PLACEHOLDERS_NAME
+            data_path=Path(samplesheet_dir_folder_obj.data.details.path) / SAMPLESHEET_WITH_PLACEHOLDERS_NAME,
+            data_type=FILE_DATA_TYPE,
         )
 
         # Create samplesheet from existing object

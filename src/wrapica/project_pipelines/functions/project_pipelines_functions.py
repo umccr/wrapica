@@ -60,7 +60,6 @@ from ...utils.configuration import get_icav2_configuration
 from ...utils.cwl_typing_helpers import WorkflowInputParameterType, WorkflowType
 from ...utils.globals import (
     BLANK_PARAMS_XML_V2_FILE_CONTENTS,
-    FILE_DATA_TYPE,
     FOLDER_DATA_TYPE,
     ICAV2_URI_SCHEME,
     S3_URI_SCHEME,
