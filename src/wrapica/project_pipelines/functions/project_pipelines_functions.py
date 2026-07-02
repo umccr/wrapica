@@ -891,7 +891,6 @@ def get_project_pipeline_configuration_parameters(
         api_response: PipelineConfigurationParameterList = api_instance.get_project_pipeline_configuration_parameters(
             project_id=str(project_id),
             pipeline_id=str(pipeline_id),
-            _check_return_type=False  # We return a list of dicts because of this
         )
     except ApiException as e:
         logger.error("Exception when calling ProjectPipelineApi->get_project_pipeline_input_parameters: %s\n" % e)
