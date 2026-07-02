@@ -41,7 +41,7 @@ def get_user_obj_from_user_id(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve a user.
-        api_response: User = api_instance.get_user(user_id)
+        api_response: User = api_instance.get_user(user_id=user_id)
     except ApiException as e:
         logger.error("Exception when calling UserApi->get_user: %s\n" % e)
         raise ApiException

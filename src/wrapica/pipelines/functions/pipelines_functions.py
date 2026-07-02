@@ -73,7 +73,7 @@ def get_pipeline_obj_from_pipeline_id(
     # example, this endpoint has no required or optional parameters
     try:
         # Retrieve a list of pipelines.
-        api_response: PipelineV4 = api_instance.get_pipeline(str(pipeline_id))
+        api_response: PipelineV4 = api_instance.get_pipeline(pipeline_id=str(pipeline_id))
     except ApiException as e:
         logger.error("Exception when calling PipelineApi->get_pipelines: %s\n" % e)
         raise ApiException
@@ -334,7 +334,7 @@ def list_pipeline_files(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve files for a project pipeline.
-        api_response = api_instance.get_pipeline_files(str(pipeline_id))
+        api_response = api_instance.get_pipeline_files(pipeline_id=str(pipeline_id))
     except ApiException as e:
         logger.error("Exception when calling ProjectPipelineApi->get_pipeline_files1: %s\n" % e)
         raise ApiException

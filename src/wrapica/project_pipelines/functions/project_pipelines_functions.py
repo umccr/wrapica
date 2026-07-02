@@ -374,7 +374,7 @@ def get_analysis_storage_from_analysis_storage_id(
     try:
         # Retrieve the list of analysis storage options.
         api_response = api_instance.get_project_analysis_storage_options(
-            project_id=project_id
+            project_id=str(project_id)
         )
     except ApiException as e:
         logger.error("Exception when calling AnalysisStorageApi->get_analysis_storage_options: %s\n" % e)
@@ -765,8 +765,8 @@ def launch_nextflow_workflow(
     try:
         # Create and start an analysis for a CWL pipeline.
         api_response: AnalysisV4 = api_instance.create_nextflow_analysis_with_custom_input(
-            str(project_id),
-            nextflow_analysis,
+            project_id=str(project_id),
+            create_nextflow_with_custom_input_analysis=nextflow_analysis,
             **analysis_kwargs
         )
     except ApiException as e:
@@ -1516,7 +1516,7 @@ def list_project_pipelines(
         api_instance = ProjectPipelineApi(api_client)
 
     try:
-        api_response = api_instance.get_project_pipelines(str(project_id))
+        api_response = api_instance.get_project_pipelines(project_id=str(project_id))
     except ApiException as e:
         raise ValueError("Exception when calling ProjectPipelineApi->get_project_pipelines: %s\n" % e)
 
@@ -1690,7 +1690,7 @@ def release_project_pipeline(
     # example passing only required values which don't have defaults set
     try:
         # Release a pipeline.
-        api_instance.release_project_pipeline(str(project_id), str(pipeline_id))
+        api_instance.release_project_pipeline(project_id=str(project_id), pipeline_id=str(pipeline_id))
     except ApiException as e:
         logger.error("Exception when calling ProjectPipelineApi->release_project_pipeline: %s\n" % e)
         raise ApiException

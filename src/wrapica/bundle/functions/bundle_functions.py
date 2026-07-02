@@ -471,7 +471,7 @@ def release_bundle(
 
     try:
         # release a bundle
-        api_instance.release_bundle(str(bundle_id))
+        api_instance.release_bundle(bundle_id=str(bundle_id))
     except ApiException as e:
         logger.error("Exception when calling BundleApi->release_bundle: %s\n" % e)
         raise ApiException
@@ -782,7 +782,7 @@ def list_pipelines_in_bundle(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve a list of bundle pipelines.
-        api_response: BundlePipelineList = api_instance.get_bundle_pipelines(str(bundle_id))
+        api_response: BundlePipelineList = api_instance.get_bundle_pipelines(bundle_id=str(bundle_id))
     except ApiException as e:
         logger.error("Exception when calling BundlePipelineApi->get_bundle_pipelines: %s\n" % e)
         raise ApiException
@@ -821,7 +821,7 @@ def list_bundles_in_project(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve project bundles.
-        api_response = api_instance.get_project_bundles(str(project_id))
+        api_response = api_instance.get_project_bundles(project_id=str(project_id))
     except ApiException as e:
         logger.warning("Exception when calling ProjectApi->get_project_bundles: %s\n" % e)
         raise ApiException
@@ -981,7 +981,7 @@ def deprecate_bundle(
 
     try:
         # Deprecate a bundle
-        api_instance.deprecate_bundle(str(bundle_id))
+        api_instance.deprecate_bundle(bundle_id=str(bundle_id))
     except ApiException as e:
         logger.error("Exception when calling BundleApi->deprecate_bundle: %s\n" % e)
         raise ApiException
