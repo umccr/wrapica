@@ -41,6 +41,7 @@ Homepage = "https://github.com/umccr/wrapica"
 test = [
     "pytest",
     "pytest-mock",
+    "hypothesis>=6.0,<7",
 ]
 build = [
     "build",
