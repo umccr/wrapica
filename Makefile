@@ -1,12 +1,9 @@
 SHELL=/bin/bash -o pipefail
 
 # Run tests
-#test:
-#	@pip install .[test]
-#	@PYTHONPATH=src/ pytest \
-#      --cov src/v2_samplesheet_maker \
-#      --capture=no | \
-#      tee coverage_report.txt
+test: 
+	@pip install .[test]
+	@PYTHONPATH=src/ pytest tests/ | tee coverage_report.txt
 
 # Run build
 build_package:
