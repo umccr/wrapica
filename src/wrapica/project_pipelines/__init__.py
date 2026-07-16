@@ -88,6 +88,7 @@ from .functions.project_pipelines_functions import (
     create_nextflow_pipeline_from_zip,
     create_nextflow_pipeline_from_nf_core_zip,
     create_nextflow_project_pipeline,
+    pipeline_update_from_zip,
 )
 
 from .classes.analysis import (
@@ -169,6 +170,7 @@ __all__ = [
     'create_nextflow_pipeline_from_zip',
     'create_nextflow_pipeline_from_nf_core_zip',
     'create_nextflow_project_pipeline',
+    'pipeline_update_from_zip',
     # classes
     'ICAv2AnalysisInput',
     'ICAv2PipelineAnalysisTags',
