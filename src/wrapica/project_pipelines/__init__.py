@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 
 # Standard imports
+from pathlib import Path
 from typing import Union
+from os import environ
 
+# Libica objects
 from libica.openapi.v3 import ProjectPipelineV4
+
 # Libica models
 from libica.openapi.v3.models import (
     ActivationCodeDetail,
@@ -29,6 +33,25 @@ from libica.openapi.v3.models import (
     SearchMatchingActivationCodesForCwlAnalysis,
     SearchMatchingActivationCodesForNextflowAnalysis
 )
+
+# Literal / Types
+AnalysisType = Union[AnalysisV3, AnalysisV4]
+AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
+ProjectPipelineType = Union[ProjectPipeline, ProjectPipelineV4]
+
+# Class globals
+CES_WORKING_DIR_PLACEHOLDER = "__CES_WORKING_DIR__"
+CES_WORKING_DIR_REPLACEMENT = "/ces/scheduler/run/{__ANALYSIS_ID__}"
+CES_DATA_ABS_PATH = Path("__CES_WORKING_DIR__") / "data"
+SAMPLESHEET_WITH_PLACEHOLDERS_NAME = ".samplesheet_with_placeholders.csv.tmp"
+SAMPLESHEET_WITH_ABS_PATHS_NAME = "samplesheet_nf.csv"
+
+SAMPLESHEET_DIR_NAME_ENV_VAR = "ICAV2_NF_SAMPLESHEET_DIR_NAME"
+
+if not environ.get(SAMPLESHEET_DIR_NAME_ENV_VAR):
+    SAMPLESHEET_DIR_NAME = "wrapica_samplesheet_dir"
+else:
+    SAMPLESHEET_DIR_NAME = environ.get(SAMPLESHEET_DIR_NAME_ENV_VAR)
 
 # Import everything
 from .functions.project_pipelines_functions import (
@@ -87,10 +110,6 @@ from .classes.nextflow_analysis import (
     ICAv2NextflowEngineParameters,
     ICAv2NextflowPipelineAnalysis
 )
-
-AnalysisType = Union[AnalysisV3, AnalysisV4]
-AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
-ProjectPipelineType = Union[ProjectPipeline, ProjectPipelineV4]
 
 __all__ = [
     # Libica models

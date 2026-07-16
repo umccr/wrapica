@@ -5,6 +5,8 @@ Nextflow analysis
 """
 # Standard imports
 import json
+from io import StringIO
+from pathlib import Path
 from typing import List, Dict, Optional, Union, cast
 from pydantic import UUID4
 
@@ -12,7 +14,7 @@ from pydantic import UUID4
 from libica.openapi.v3 import (
     AnalysisInputDataMount, AnalysisInputExternalData, NextflowAnalysisWithCustomInput,
     AnalysisOutputMapping, CreateNextflowWithCustomInputAnalysis,
-    AnalysisV4 as Analysis, CreateAnalysisLogs
+    AnalysisV4 as Analysis, CreateAnalysisLogs, AnalysisV4
 )
 
 # Local parent imports
@@ -22,13 +24,21 @@ from .analysis import (
     ICAv2EngineParameters,
     ICAv2AnalysisInput
 )
+from .. import (
+    SAMPLESHEET_WITH_ABS_PATHS_NAME,
+    SAMPLESHEET_DIR_NAME,
+    SAMPLESHEET_WITH_PLACEHOLDERS_NAME,
+    CES_WORKING_DIR_REPLACEMENT,
+    CES_WORKING_DIR_PLACEHOLDER
+)
 
 # Local imports
 from ...literals import (
     WorkflowLanguageType, AnalysisStorageSizeType,
 )
+from ...utils.globals import FILE_DATA_TYPE
 from ...utils.logger import get_logger
-
+from ...utils.miscell import coerce_to_uuid4_obj
 
 # Set logger
 logger = get_logger()
@@ -80,7 +90,7 @@ class ICAv2NextflowAnalysisInput(ICAv2AnalysisInput):
 
         self.validate_input()
 
-        # Generate a CWL analysis input
+        # Generate a Nextflow analysis input
         return NextflowAnalysisWithCustomInput(
             customInput=cast(str, self.input_json_str),
             dataIds=self.data_ids,
@@ -216,7 +226,11 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
             pipelineId=str(self.pipeline_id),
             tags=self.engine_parameters.tags(),
             analysisInput=cast(NextflowAnalysisWithCustomInput, self.analysis_input),
-            analysisStorageId=self.engine_parameters.analysis_storage_id,
+            analysisStorageId=(
+                coerce_to_uuid4_obj(self.engine_parameters.analysis_storage_id)
+                if self.engine_parameters.analysis_storage_id is not None
+                else None
+            ),
             analysisOutput=self.engine_parameters.analysis_output,
             logs=self.engine_parameters.logs_output,
             outputParentFolderId=None,
@@ -224,8 +238,109 @@ class ICAv2NextflowPipelineAnalysis(ICAv2PipelineAnalysis):
 
     def launch_analysis(self, idempotency_key: Optional[str] = None) -> Analysis:
         from ..functions.project_pipelines_functions import launch_nextflow_workflow
-        return launch_nextflow_workflow(
+        from ...project_analysis import abort_analysis
+
+        # Cast nextflow analysis
+        nextflow_analysis = cast(CreateNextflowWithCustomInputAnalysis, self.analysis)
+
+        # Launch the nextflow workflow object
+        nextflow_workflow_obj = launch_nextflow_workflow(
             project_id=self.project_id,
-            nextflow_analysis=self.analysis,
+            nextflow_analysis=nextflow_analysis,
             idempotency_key=idempotency_key
+        )
+
+        # Check if 'input' exists in the keys and points to a samplesheet
+        input_json_dict: Dict = json.loads(nextflow_analysis.analysis_input.custom_input)
+        if 'input' in input_json_dict.keys() and input_json_dict['input'].endswith(SAMPLESHEET_WITH_ABS_PATHS_NAME):
+            # Update the samplesheet to use the abs paths
+            try:
+                self._update_samplesheet_with_abs_paths(nextflow_workflow_obj)
+            except Exception as e:  # Accept any
+                error_msg = (
+                    "Analysis launched but we failed to create the nextflow samplesheet, "
+                    "aborting analysis, it would fail anyway on start"
+                )
+                logger.error(error_msg)
+                abort_analysis(
+                    project_id=self.project_id,
+                    analysis_id=nextflow_workflow_obj.id,
+                )
+                raise FileNotFoundError(error_msg) from e
+
+
+        return nextflow_workflow_obj
+
+
+    def _update_samplesheet_with_abs_paths(self, analysis_object: AnalysisV4):
+        # Local imports
+        from ...project_data import (
+            get_project_data_obj_by_id,
+            get_project_data_obj_from_project_id_and_path,
+            read_icav2_file_contents_to_string,
+            write_icav2_file_contents,
+            delete_project_data
+        )
+
+        # Cast to nextflow with custom input type
+        nextflow_analysis = cast(CreateNextflowWithCustomInputAnalysis, self.analysis)
+
+        # Collect the mount paths
+        mount_paths = cast(
+            List[AnalysisInputDataMount],
+            (
+                nextflow_analysis.analysis_input.mounts
+                if nextflow_analysis.analysis_input.mounts is not None
+                else []
+            )
+        )
+        try:
+            samplesheet_dir_input_data_mount: AnalysisInputDataMount = next(filter(
+                lambda input_data_mount_iter_: input_data_mount_iter_.mount_path.endswith(SAMPLESHEET_DIR_NAME),
+                mount_paths
+            ))
+            samplesheet_dir_data_id = str(samplesheet_dir_input_data_mount.data_id)
+
+        except StopIteration:
+            raise ValueError("Could not find samplesheet directory data mounted to this analysis")
+
+        # Get the folder object
+        samplesheet_dir_folder_obj = get_project_data_obj_by_id(
+            project_id=self.project_id,
+            data_id=samplesheet_dir_data_id,
+        )
+
+        # Create the placeholder file object
+        samplesheet_placeholder_file_object = get_project_data_obj_from_project_id_and_path(
+            project_id=self.project_id,
+            data_path=Path(samplesheet_dir_folder_obj.data.details.path) / SAMPLESHEET_WITH_PLACEHOLDERS_NAME,
+            data_type=FILE_DATA_TYPE,
+        )
+
+        # Create samplesheet from existing object
+        existing_contents = read_icav2_file_contents_to_string(
+            project_id=self.project_id,
+            data_id=samplesheet_placeholder_file_object.data.id
+        )
+
+        # Write up new contents
+        write_icav2_file_contents(
+            self.project_id,
+            Path(samplesheet_dir_folder_obj.data.details.path) / SAMPLESHEET_WITH_ABS_PATHS_NAME,
+            StringIO(
+                existing_contents.replace(
+                    CES_WORKING_DIR_PLACEHOLDER,
+                    CES_WORKING_DIR_REPLACEMENT.format(
+                        **{
+                            '__ANALYSIS_ID__': analysis_object.id
+                        }
+                    )
+                )
+            )
+        )
+
+        # Delete the temp samplesheet with placeholders file
+        delete_project_data(
+            project_id=self.project_id,
+            data_id=samplesheet_placeholder_file_object.data.id
         )

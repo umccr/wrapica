@@ -60,7 +60,6 @@ from ...utils.configuration import get_icav2_configuration
 from ...utils.cwl_typing_helpers import WorkflowInputParameterType, WorkflowType
 from ...utils.globals import (
     BLANK_PARAMS_XML_V2_FILE_CONTENTS,
-    FILE_DATA_TYPE,
     FOLDER_DATA_TYPE,
     ICAV2_URI_SCHEME,
     S3_URI_SCHEME,
@@ -74,19 +73,33 @@ from ...utils.nextflow_helpers import (
     include_icav2_config_into_nextflow_config,
     get_default_icav2_config_content,
 )
+from .. import (
+    CES_DATA_ABS_PATH,
+    SAMPLESHEET_WITH_PLACEHOLDERS_NAME,
+    SAMPLESHEET_WITH_ABS_PATHS_NAME,
+    SAMPLESHEET_DIR_NAME,
+)
 
 if typing.TYPE_CHECKING:
     # Import type hints for IDE only, not at runtime
     # Prevents circular imports
-    from .. import ICAv2PipelineAnalysisTags
+    from .. import (
+        ICAv2PipelineAnalysisTags,
+    )
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis
     from mypy_boto3_s3 import S3Client
 
+
+# Literals
 DEFAULT_ANALYSIS_STORAGE_SIZE: AnalysisStorageSizeType = "Small"
 
+
+# Types
 AnalysisStorageType = Union[AnalysisStorageV3, AnalysisStorageV4]
 PipelineType = Union[ProjectPipeline, ProjectPipelineV4]
 
+
+# Logging
 logger = get_logger()
 
 
@@ -1129,7 +1142,8 @@ def convert_uris_to_data_ids_from_cwl_input_json(
 
 
 def convert_uris_to_data_ids_from_str(
-        input_str: str
+        input_str: str,
+        inside_samplesheet: bool = False
 ) -> Tuple[
     str,
     List[AnalysisInputDataMount],
@@ -1139,6 +1153,7 @@ def convert_uris_to_data_ids_from_str(
     Convert uris to data ids from str
 
     :param input_str: The input string containing one or more uris
+    :param inside_samplesheet: Are we currently inside the samplesheet nested list
 
     :return: The converted input object, mount list and external data list
 
@@ -1162,6 +1177,7 @@ def convert_uris_to_data_ids_from_str(
     external_data_list: List[AnalysisInputExternalData] = []
     new_value = input_str
 
+    uri_match: str
     for uri_match in URI_REGEX_OBJ.findall(input_str):
         # We only need to mount each once but the ways in which we mount are different
         # For folders, we need to first check if we can list all the files since external data mounts only support files
@@ -1169,6 +1185,7 @@ def convert_uris_to_data_ids_from_str(
 
         # Try to get the storage credential id from the uri
         storage_credential_id = get_storage_credential_id_from_s3_uri(cast(str, uri_match))
+
         if storage_credential_id is not None:
             mount_path = get_relative_path_from_credentials_prefix(
                 storage_credential_id,
@@ -1228,7 +1245,7 @@ def convert_uris_to_data_ids_from_str(
                     AnalysisInputExternalData(
                         url=cast(str, uri_match),
                         type=S3_URI_SCHEME,
-                        mountPath=mount_path,
+                        mountPath=str(mount_path),
                         s3Details=AnalysisS3DataDetails(
                             storageCredentialsId=coerce_to_uuid4_obj(storage_credential_id)
                         ),
@@ -1282,7 +1299,16 @@ def convert_uris_to_data_ids_from_str(
 
         # Replace the URI in the new value
         # With the mount path
-        new_value = re.sub(uri_match, mount_path, new_value)
+        new_value = re.sub(
+            uri_match,
+            (
+                # We can use the __CES_WORKING_DIR__ placeholder inside the samplesheet
+                str(CES_DATA_ABS_PATH.joinpath(mount_path))
+                if inside_samplesheet
+                else mount_path
+            ),
+            new_value
+        )
 
     # Return the new value, mount list and external data list
     return new_value, mount_list, external_data_list
@@ -1291,7 +1317,8 @@ def convert_uris_to_data_ids_from_str(
 def convert_uris_to_data_ids_from_nextflow_input_json(
         input_obj: Union[str, int, bool, Dict[str, Any], List],
         cache_uri: Optional[str] = None,
-        is_top_level: bool = True
+        is_top_level: bool = True,
+        inside_samplesheet: bool = False,
 ) -> Optional[Tuple[
     Union[str, Dict, List, bool, int, float],
     List[AnalysisInputDataMount],
@@ -1323,6 +1350,7 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
         get_project_data_obj_from_project_id_and_path,
         coerce_data_id_uri_or_path_to_project_data_obj,
         # Needed for uploading samplesheet
+        create_folder_in_project,
         write_icav2_file_contents
     )
 
@@ -1340,7 +1368,10 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
         return input_obj, mount_list, external_data_list
 
     if isinstance(input_obj, str):
-        new_value, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_str(input_obj)
+        new_value, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_str(
+            input_obj,
+            inside_samplesheet=inside_samplesheet
+        )
         mount_list.extend(mount_list_new)
         external_data_list.extend(external_data_list_new)
         return new_value, mount_list, external_data_list
@@ -1351,7 +1382,8 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
             input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
                 input_item,
                 cache_uri,
-                is_top_level=False
+                is_top_level=False,
+                inside_samplesheet=inside_samplesheet,
             )
             input_obj_new_list.append(input_obj_new_item)
             mount_list.extend(mount_list_new)
@@ -1374,7 +1406,8 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                 # Extend all values to input object lists
                 input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
                     value,
-                    is_top_level=False
+                    is_top_level=False,
+                    inside_samplesheet=True,
                 )
 
                 # Add in the mounts / external data mounts
@@ -1389,33 +1422,44 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                     logger.error("Cache URI must end with a trailing slash")
                     raise ValueError("Cache URI must end with a trailing slash")
                 # Get cache uri as an icav2 object
-                cache_uri_obj = coerce_data_id_uri_or_path_to_project_data_obj(
-                    cache_uri,
-                    create_data_if_not_found=True
+                cache_uri_obj = cast(
+                    ProjectData,
+                    coerce_data_id_uri_or_path_to_project_data_obj(
+                        cache_uri,
+                        create_data_if_not_found=True
+                    )
                 )
-                logger.info("Uploading deferenced samplesheet to cache uri: %s", cache_uri_obj.data.details.path)
-                logger.info(pd.DataFrame(input_obj_new_item).to_csv(header=True, index=False))
+                # Create the samplesheet folder
+                logger.info("Creating samplesheet folder")
+                samplesheet_folder_obj = create_folder_in_project(
+                    project_id=cache_uri_obj.project_id,
+                    folder_path=(Path(cast(str, cache_uri_obj.data.details.path)) / SAMPLESHEET_DIR_NAME)
+                )
+
+                # Upload the dereferenced samplesheet
+                logger.info("Uploading dereferenced samplesheet to cache uri: %s", cache_uri_obj.data.details.path)
                 write_icav2_file_contents(
                     cache_uri_obj.project_id,
-                    Path(cache_uri_obj.data.details.path, 'samplesheet.csv'),
+                    Path(samplesheet_folder_obj.data.details.path, SAMPLESHEET_WITH_PLACEHOLDERS_NAME),
                     StringIO(pd.DataFrame(input_obj_new_item).to_csv(header=True, index=False)),
                 )
                 # Add the samplesheet to the mount list
-                logger.info("Adding samplesheet to the mount list")
+                logger.info("Adding samplesheet directory to the mount list")
+                samplesheet_mount_dir_path = Path(str(samplesheet_folder_obj.project_id)) / samplesheet_folder_obj.data.id / SAMPLESHEET_DIR_NAME
                 mount_list.append(
                     AnalysisInputDataMount(
                         dataId=get_project_data_obj_from_project_id_and_path(
                             project_id=cache_uri_obj.project_id,
-                            data_path=Path(cache_uri_obj.data.details.path, 'samplesheet.csv'),
-                            data_type=FILE_DATA_TYPE
+                            data_path=Path(cast(str, samplesheet_folder_obj.data.details.path)),
+                            data_type=FOLDER_DATA_TYPE,
                         ).data.id,
-                        mountPath=str(Path(str(cache_uri_obj.project_id), cache_uri_obj.data.id, 'samplesheet.csv'))
+                        mountPath=str(samplesheet_mount_dir_path)
                     )
                 )
 
-                # The samplesheet is labelled as 'input' for nf-core pipelines
+                # The samplesheet is labeled as 'input' for nf-core pipelines
                 new_input_obj.update({
-                    "input": str(Path(str(cache_uri_obj.project_id), cache_uri_obj.data.id, 'samplesheet.csv'))
+                    "input": str(samplesheet_mount_dir_path / SAMPLESHEET_WITH_ABS_PATHS_NAME)
                 })
 
                 continue
@@ -1424,7 +1468,8 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                 input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
                     value,
                     cache_uri,
-                    is_top_level=False
+                    is_top_level=False,
+                    inside_samplesheet=inside_samplesheet,
                 )
                 new_input_obj.update({
                     key: input_obj_new_item
@@ -1437,7 +1482,8 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
             if isinstance(value, List):
                 input_obj_new_item, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_nextflow_input_json(
                     value,
-                    is_top_level=False
+                    is_top_level=False,
+                    inside_samplesheet=inside_samplesheet,
                 )
                 # Update the new input object with the new item list
                 new_input_obj.update({
@@ -1450,7 +1496,10 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
             if (
                     isinstance(value, str)
             ):
-                new_value, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_str(value)
+                new_value, mount_list_new, external_data_list_new = convert_uris_to_data_ids_from_str(
+                    value,
+                    inside_samplesheet=inside_samplesheet,
+                )
 
                 # Now update the new input value with the substituted mount path values
                 new_input_obj.update({
