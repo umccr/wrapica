@@ -10,7 +10,7 @@ from textwrap import dedent
 from typing import List, Dict, Union
 from xml.dom.minidom import Document
 import pandas as pd
-from libica.openapi.v3 import ApiClient
+from libica.openapi.v3 import ApiClient, PipelineFile
 from ruamel.yaml import CommentedMap, CommentedSeq
 from pydantic import UUID4
 
@@ -511,7 +511,12 @@ def generate_input_yaml_from_schema_json(
         filter(
             # We don't want the generic options though
             lambda kv: kv[0] not in ["generic_options", "institutional_config_options"],
-            nextflow_schema_json.get("definitions").items()
+            (
+                nextflow_schema_json.get("definitions").items()
+                if "definitions" in nextflow_schema_json
+                else
+                nextflow_schema_json.get("$defs").items()
+            )
         )
     )
 
@@ -668,16 +673,16 @@ def download_nextflow_schema_file_from_pipeline_id(
         download_pipeline_file, list_pipeline_files
     )
 
-    schema_json_pipeline_file_id = next(
+    schema_json_pipeline_file: PipelineFile = next(
         filter(
-            lambda pipeline_file_iter: pipeline_file_iter.get("name") == "nextflow_schema.json",
+            lambda pipeline_file_iter: pipeline_file_iter.name == "nextflow_schema.json",
             list_pipeline_files(pipeline_id)
         )
     )
 
     download_pipeline_file(
         pipeline_id=pipeline_id,
-        file_id=schema_json_pipeline_file_id.get("id"),
+        file_id=schema_json_pipeline_file.id,
         file_path=schema_json_path
     )
 
@@ -697,16 +702,16 @@ def download_nextflow_schema_input_json_from_pipeline_id(
         download_pipeline_file, list_pipeline_files
     )
 
-    schema_json_pipeline_file_id = next(
+    schema_json_pipeline_file: PipelineFile = next(
         filter(
-            lambda pipeline_file_iter: pipeline_file_iter.get("name") == "assets/schema_input.json",
+            lambda pipeline_file_iter: pipeline_file_iter.name == "assets/schema_input.json",
             list_pipeline_files(pipeline_id)
         )
     )
 
     download_pipeline_file(
         pipeline_id=pipeline_id,
-        file_id=schema_json_pipeline_file_id.get("id"),
+        file_id=schema_json_pipeline_file.id,
         file_path=schema_input_json_path
     )
 
