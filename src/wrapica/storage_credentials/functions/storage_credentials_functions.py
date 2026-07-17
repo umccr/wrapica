@@ -86,7 +86,7 @@ def get_storage_credential_api_list() -> List[StorageCredentialMappingModel]:
                 cast(
                     object,
                     {
-                        "id": item_iter_.id,
+                        "id": str(item_iter_.id),
                         "name": item_iter_.name,
                         "s3UriList": list(map(
                             lambda storage_configuration_iter: cast(
