@@ -372,7 +372,7 @@ def get_analysis_obj_from_analysis_id(
 def get_analysis_steps(
         project_id: Union[UUID4, str],
         analysis_id: Union[UUID4, str],
-        include_technical_steps: bool = False
+        include_technical_steps: Optional[bool] = False
 ) -> List[AnalysisStep]:
     """
     Get the workflow steps for a given analysis

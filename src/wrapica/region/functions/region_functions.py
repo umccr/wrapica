@@ -87,12 +87,12 @@ def get_region_obj_from_region_id(
         # Create an instance of the API class
         api_instance = RegionApi(api_client)
 
-    # example, this endpoint has no required or optional parameters
+    # example passing only required values which don't have defaults set
     try:
         # Get region
-        api_response = api_instance.get_region(str(region_id))
+        api_response = api_instance.get_region(region_id=str(region_id))
     except ApiException as e:
-        logger.error("Exception when calling RegionApi->get_regions: %s\n" % e)
+        logger.error("Exception when calling RegionApi->get_region: %s\n" % e)
         raise ApiException
 
     return api_response

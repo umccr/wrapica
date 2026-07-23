@@ -77,7 +77,7 @@ def get_data_obj_from_data_id(
     # example passing only required values which don't have defaults set
     try:
         # Retrieve a data.
-        api_response: Data = api_instance.get_data(data_urn)
+        api_response: Data = api_instance.get_data(data_urn=data_urn)
     except ApiException as e:
         logger.error("Exception when calling DataApi->get_data: %s\n" % e)
         raise ApiException
