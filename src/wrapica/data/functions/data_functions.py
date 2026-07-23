@@ -39,29 +39,28 @@ def get_data_obj_from_data_id(
         region_id: Optional[Union[UUID4, str]] = None
 ) -> Data:
     """
-    Get data object by id
+    Return the data object for a given data ID.
 
-    :param data_id:
-    :param region_id:
+    :param data_id: The data identifier as a UUID4 object or UUID-formatted string
+    :param region_id: The region identifier to scope the lookup. Defaults to None,
+        in which case the default region is used
 
-    :return: The data object
+    :return: The data object matching the given ID
     :rtype: `Data <https://umccr.github.io/libica/openapi/v3/docs/Data/>`_
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve the data object fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
-        from wrapica.data import get_data_obj_by_id
+        from wrapica.data import get_data_obj_from_data_id
 
-        # Set vars
-        data_id = "fil.123456"
+        data_obj = get_data_obj_from_data_id("fil.123456")
 
-        # Get data object by id
-        data_obj = get_data_obj_by_id(data_id)
+        print(f"ID: {data_obj.id}, Name: {data_obj.details.name}")
+        # ID: fil.1234567890abcdef1234567890abcdef, Name: file.txt
     """
     from ...region.functions.region_functions import get_default_region
     if region_id is None:
@@ -90,30 +89,28 @@ def get_owning_project_id(
         region_id: Optional[Union[UUID4, str]] = None
 ) -> str:
     """
-    Get the owning project id of a data object
+    Return the owning project ID for a given data object.
 
-    :param data_id:
-    :param region_id:
+    :param data_id: The data identifier as a UUID4 object or UUID-formatted string
+    :param region_id: The region identifier to scope the lookup. Defaults to None,
+        in which case the default region is used
 
-    :return: The owning project id
+    :return: The owning project ID as a string
     :rtype: str
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve the data object fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.data import get_owning_project_id
 
-        # Set vars
-        data_id = "fil.123456"
+        owning_project_id = get_owning_project_id("fil.123456")
 
-        # Get owning project id
-        owning_project_id = get_owning_project_id(data_id)
-
+        print(owning_project_id)
+        # abcd1234-ab12-ab12-ab12-abcdef123456
     """
     data_obj = get_data_obj_from_data_id(data_id, region_id)
     return str(data_obj.details.owning_project_id)
@@ -123,28 +120,26 @@ def get_project_data_obj_from_data_id(
         data_id: Union[UUID4, str]
 ) -> ProjectData:
     """
-    Get the project data object from a data id
+    Return the project data object for a given data ID.
 
-    :param data_id:  The data id
+    :param data_id: The data identifier as a UUID4 object or UUID-formatted string
 
-    :return: The project data object
+    :return: The project data object matching the given ID
     :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve the data or project data object fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.data import get_project_data_obj_from_data_id
 
-        # Set vars
-        data_id = "fil.123456"
+        project_data_obj = get_project_data_obj_from_data_id("fil.123456")
 
-        # Get project data object from just data id
-        project_data_obj = get_project_data_obj_from_data_id(data_id)
+        print(f"Data ID: {project_data_obj.data.id}, Name: {project_data_obj.data.details.name}")
+        # Data ID: fil.1234567890abcdef1234567890abcdef, Name: file.txt
     """
     # Local imports to prevent circular dependency
     from ...project_data import get_project_data_obj_by_id
@@ -160,27 +155,30 @@ def convert_icav2_uri_to_data_obj(
         create_data_if_not_found: bool = False
 ) -> Data:
     """
-    Given a data uri, convert to a data object
+    Convert an icav2:// URI to a data object.
 
-    :param data_uri:  The data uri
-    :param create_data_if_not_found:  If true, create the data if not found
+    :param data_uri: The icav2:// URI to convert to a data object
+    :param create_data_if_not_found: Create the data entry if it does not exist.
+        Defaults to False
 
-    :return: The data object
+    :return: The data object resolved from the URI
     :rtype: `Data <https://umccr.github.io/libica/openapi/v3/docs/Data/>`_
+
+    :raises ApiException: If the API call to retrieve or create the data object fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.data import convert_icav2_uri_to_data_obj
 
-        # Set vars
-        data_uri = "icav2://project_id/path/to/data_obj"
+        data_obj = convert_icav2_uri_to_data_obj(
+            "icav2://project_id/path/to/file.txt"
+        )
 
-        # Convert to data object
-        data_obj = convert_icav2_uri_to_data_obj(data_uri)
+        print(f"ID: {data_obj.id}, Name: {data_obj.details.name}")
+        # ID: fil.1234567890abcdef1234567890abcdef, Name: file.txt
     """
     # Local imports to prevent circular dependency
     from ...project_data import convert_icav2_uri_to_project_data_obj
@@ -197,10 +195,11 @@ def convert_icav2_uri_to_data_obj(
 
 def convert_data_obj_to_icav2_uri(data_obj: Data) -> str:
     """
-    Given a data object, convert to a data uri
+    Convert a data object to an icav2:// URI string.
 
-    :param data_obj:
-    :return: The data uri
+    :param data_obj: The data object to convert to an icav2:// URI
+
+    :return: The icav2:// URI representation of the data object
     :rtype: str
 
     :Examples:
@@ -208,15 +207,16 @@ def convert_data_obj_to_icav2_uri(data_obj: Data) -> str:
     .. code-block:: python
         :linenos:
 
-        # Imports
-        from wrapica.data import convert_data_obj_to_icav2_uri
+        from wrapica.data import (
+            get_data_obj_from_data_id,
+            convert_data_obj_to_icav2_uri
+        )
 
-        # Set vars
         data_obj = get_data_obj_from_data_id("fil.123456")
-
-        # Convert to data uri
         data_uri = convert_data_obj_to_icav2_uri(data_obj)
 
+        print(data_uri)
+        # icav2://abcd1234-ab12-ab12-ab12-abcdef123456/path/to/file.txt
     """
     return str(
         urlunparse(
@@ -235,27 +235,40 @@ def coerce_data_id_path_or_icav2_uri_to_data_obj(
         create_data_if_not_found: bool = False
 ) -> Optional[Data]:
     """
-    Given a data id or uri, convert to a data object
+    Coerce a data ID, file path, or icav2:// URI to a data object.
 
-    :param data_id_path_or_uri:
-    :param create_data_if_not_found:  If true, create the data if not found (only applicable to paths or uris)
+    :param data_id_path_or_uri: The data identifier, absolute path, or icav2:// URI to resolve
+    :param create_data_if_not_found: Create the data entry if it does not exist.
+        Defaults to False. Only applicable to paths or URIs
 
-    :return: The data object
-    :rtype: `Data <https://umccr.github.io/libica/openapi/v3/docs/Data/>`_
+    :return: The resolved data object, or None if the path is the root directory
+    :rtype: Optional[`Data <https://umccr.github.io/libica/openapi/v3/docs/Data/>`_]
+
+    :raises ApiException: If the API call to retrieve or create the data object fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
-        from wrapica.data import coerce_data_id_or_icav2_uri_to_data_obj
+        from wrapica.data import coerce_data_id_path_or_icav2_uri_to_data_obj
 
-        # Set vars
-        data_id_path_or_uri = "fil.123456"  # Or icav2://project-id/path/to/file  # Or  /path/to/file
+        data_obj = coerce_data_id_path_or_icav2_uri_to_data_obj("fil.123456")
 
-        # Coerce to data object
-        data_obj = coerce_data_id_or_icav2_uri_to_data_obj(data_id_path_or_uri)
+        print(f"ID: {data_obj.id}, Name: {data_obj.details.name}")
+        # ID: fil.1234567890abcdef1234567890abcdef, Name: file.txt
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.data import coerce_data_id_path_or_icav2_uri_to_data_obj
+
+        data_obj = coerce_data_id_path_or_icav2_uri_to_data_obj(
+            "icav2://project-id/path/to/file.txt"
+        )
+
+        print(f"ID: {data_obj.id}, Name: {data_obj.details.name}")
+        # ID: fil.1234567890abcdef1234567890abcdef, Name: file.txt
     """
     from ...project_data import get_project_data_obj_from_project_id_and_path
     from ...project import get_project_id

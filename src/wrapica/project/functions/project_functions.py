@@ -56,13 +56,26 @@ def get_project_obj_from_project_id(
     project_id: Union[UUID4, str]
 ) -> Project:
     """
-    Given a project id return the project object
+    Return the project object for a given project ID.
 
-    :param project_id: The id of the project
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
 
-    :return: The project object
-    :rtype: List[`Project <https://umccr.github.io/libica/openapi/v3/docs/Project/>`_]
+    :return: The project object matching the given ID
+    :rtype: `Project <https://umccr.github.io/libica/openapi/v3/docs/Project/>`_
 
+    :raises ApiException: If the API call to retrieve the project fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project import get_project_obj_from_project_id
+
+        project = get_project_obj_from_project_id("abcd-1234-efab-5678")
+
+        print(f"Project name: {project.name}")
+        # Project name: my-project-name
     """
 
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -81,28 +94,26 @@ def get_project_obj_from_project_name(
     project_name: str
 ) -> Project:
     """
-    Given a project name, get the project as an object
+    Return the project object matching the given project name.
 
-    Will raise an error if the project id cannot be found
+    :param project_name: The name of the project to look up
 
-    :param project_name: The name of the project
+    :return: The project object whose name matches the input
+    :rtype: `Project <https://umccr.github.io/libica/openapi/v3/docs/Project/>`_
 
-    :return: The id of the project
-    :rtype: str
-
-    :raises ValueError, ApiException
+    :raises StopIteration: If no project matches the given name
 
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
-        from wrapica.project import get_project_id_from_project_name
+        from wrapica.project import get_project_obj_from_project_name
 
-        project_obj = get_project_obj_from_project_name("my_project")
+        project = get_project_obj_from_project_name("my_project")
 
-        print(project_obj.id)
-        # "1234-5678-9012-3456"
-
+        print(f"Project ID: {project.id}")
+        # Project ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     try:
         return next(
@@ -120,26 +131,26 @@ def get_project_id_from_project_name(
     project_name: str
 ) -> str:
     """
-    Given a project name return the id of the project
-    Will raise an error if the project id cannot be found
+    Return the project ID for a given project name.
 
-    :param project_name: The name of the project
+    :param project_name: The name of the project to look up
 
-    :return: The id of the project
+    :return: The project ID as a string
     :rtype: str
 
-    :raises StopIteration, ApiException
+    :raises StopIteration: If no project matches the given name
 
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
         from wrapica.project import get_project_id_from_project_name
 
         project_id = get_project_id_from_project_name("my_project")
 
-        print(project_id)
-        # "1234-5678-9012-3456"
+        print(f"Project ID: {project_id}")
+        # Project ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     try:
         return next(filter(
@@ -150,14 +161,30 @@ def get_project_id_from_project_name(
         raise StopIteration("Could not find project id from project name: %s" % project_name) from e
 
 
-# And vice-versa
 def get_project_name_from_project_id(
         project_id: Union[UUID4, str]
 ) -> str:
     """
-    Given a project id, get the project object and return the name attribute
-    :param project_id:
-    :return:
+    Return the project name for a given project ID.
+
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+
+    :return: The project name as a string
+    :rtype: str
+
+    :raises StopIteration: If no project matches the given ID
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project import get_project_name_from_project_id
+
+        project_name = get_project_name_from_project_id("abcd-1234-efab-5678")
+
+        print(f"Project name: {project_name}")
+        # Project name: my-project-name
     """
     try:
         return next(filter(
@@ -172,25 +199,26 @@ def check_project_has_data_sharing_enabled(
         project_id: Union[UUID4, str]
 ) -> bool:
     """
-    Given a project id return whether the project has data sharing enabled
+    Check whether a project has data sharing enabled.
 
-    :param project_id: The id of the project
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
 
     :return: True if data sharing is enabled, False otherwise
-    :rtype: str
+    :rtype: bool
 
-    :raises ValueError, ApiException
+    :raises ApiException: If the API call to retrieve the project fails
 
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
-        from wrapica.project import get_project_id_from_project_name
+        from wrapica.project import check_project_has_data_sharing_enabled
 
-        project_id = get_project_id_from_project_name("my_project")
+        is_enabled = check_project_has_data_sharing_enabled("abcd-1234-efab-5678")
 
-        print(check_project_has_data_sharing_enabled(project_id))
-        # False
+        print(f"Data sharing enabled: {is_enabled}")
+        # Data sharing enabled: True
     """
 
     # Configuration
@@ -216,14 +244,15 @@ def check_project_has_data_sharing_enabled(
 
 def list_projects(include_hidden_projects: bool = False) -> List[Project]:
     """
-    List all projects
+    Return a list of all projects accessible to the user.
 
-    :param include_hidden_projects:
+    :param include_hidden_projects: Whether to include hidden projects in the result.
+        Defaults to False, in which case only visible projects are returned
 
-    :return: List of project objects
+    :return: The list of project objects accessible to the user
     :rtype: List[`Project <https://umccr.github.io/libica/openapi/v3/docs/Project/>`_]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve projects fails
 
     :Examples:
 
@@ -231,7 +260,14 @@ def list_projects(include_hidden_projects: bool = False) -> List[Project]:
         :linenos:
 
         from wrapica.project import list_projects
-        all_active_projects = list_projects()
+
+        projects = list_projects()
+
+        print(f"Found {len(projects)} project(s)")
+        # Found 3 project(s)
+        for project in projects:
+            print(f"Project ID: {project.id}, Name: {project.name}")
+            # Project ID: abcd1234-..., Name: my-project-name
     """
 
     # Create api instance
@@ -270,11 +306,24 @@ def list_projects(include_hidden_projects: bool = False) -> List[Project]:
 
 def coerce_project_id_or_name_to_project_obj(project_id_or_name: str) -> Project:
     """
-    Given a project id or name, coerce to a project object
+    Coerce a project ID or name to a project object.
 
-    :param project_id_or_name: The project id or name
+    :param project_id_or_name: The project identifier as a UUID-formatted string or project name
 
-    :return: The project object
+    :return: The project object resolved from the input
+    :rtype: `Project <https://umccr.github.io/libica/openapi/v3/docs/Project/>`_
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project import coerce_project_id_or_name_to_project_obj
+
+        project = coerce_project_id_or_name_to_project_obj("my_project")
+
+        print(f"Project ID: {project.id}, Name: {project.name}")
+        # Project ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my-project-name
     """
     # Check if the input is in uuid format
     if is_uuid_format(project_id_or_name):
@@ -285,25 +334,24 @@ def coerce_project_id_or_name_to_project_obj(project_id_or_name: str) -> Project
 
 def coerce_project_id_or_name_to_project_id(project_id_or_name: str) -> str:
     """
-    Given a project id or name, return the project id
+    Coerce a project ID or name to a project ID string.
 
-    :param project_id_or_name: The id or name of the project
+    :param project_id_or_name: The project identifier as a UUID-formatted string or project name
 
-    :return: The id of the project
+    :return: The project ID as a string
     :rtype: str
-
-    :raises ValueError, ApiException
 
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
         from wrapica.project import coerce_project_id_or_name_to_project_id
 
         project_id = coerce_project_id_or_name_to_project_id("my_project")
 
-        print(project_id)
-        # "1234-5678-9012-3456"
+        print(f"Project ID: {project_id}")
+        # Project ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
 
     # Check if the input is in uuid format
@@ -314,6 +362,26 @@ def coerce_project_id_or_name_to_project_id(project_id_or_name: str) -> str:
 
 
 def get_project_id() -> str:
+    """
+    Return the active project ID from environment variable or session file.
+
+    :return: The project ID as a string
+    :rtype: str
+
+    :raises ValueError: If the project ID cannot be found in environment or session
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project import get_project_id
+
+        project_id = get_project_id()
+
+        print(f"Active project ID: {project_id}")
+        # Active project ID: abcd1234-ab12-ab12-ab12-abcdef123456
+    """
     # Try get project id from env var
     try:
         project_id = get_project_id_from_env_var()

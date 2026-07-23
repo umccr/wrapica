@@ -182,16 +182,23 @@ def _set_storage_configuration_list():
 
 def get_storage_configuration_list() -> List[StorageConfigurationObjectModel]:
     """
-    Get the storage configuration list, this will first check if the list has already been set,
-    if not it will set the list using the _set_storage_configuration_list function
+    Return the list of storage configurations available in the tenant.
 
-    The storage configuration list is expected to be a list of storage configurations with the following format:
-    - id: str
-    - bucketName: str
-    - keyPrefix: str
+    :return: The list of storage configuration objects
+    :rtype: List[StorageConfigurationObjectModel]
 
-    :return: The storage configuration list
-    :rtype: `List[StorageConfigurationObjectModel]`
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_configuration import get_storage_configuration_list
+
+        configs = get_storage_configuration_list()
+
+        for config in configs:
+            print(f"ID: {config['id']}, Bucket: {config['bucketName']}")
+            # ID: abcd1234-..., Bucket: my-bucket-name
     """
     if STORAGE_CONFIGURATION_OBJECT_LIST is None:
         _set_storage_configuration_list()
@@ -348,16 +355,23 @@ def _set_project_to_storage_configuration_mapping():
 
 def get_project_to_storage_configuration_mapping_list() -> List[ProjectToStorageMappingDictModel]:
     """
-    Get the project to storage configuration mapping list, this will first check if the list has already been set,
-    if not it will set the list using the _set_project_to_storage_configuration_mapping function
-    The project to storage configuration mapping list is expected to be a list of projects with the following format:
-    - id: str
-    - name: str
-    - storageConfigurationId: str
-    - prefix: Optional[str]
+    Return the mapping of projects to their storage configurations.
 
-    :return: The project to storage configuration mapping list
-    :rtype: `List[ProjectToStorageMappingDictModel]`
+    :return: The list of project-to-storage-configuration mapping objects
+    :rtype: List[ProjectToStorageMappingDictModel]
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_configuration import get_project_to_storage_configuration_mapping_list
+
+        mappings = get_project_to_storage_configuration_mapping_list()
+
+        for mapping in mappings:
+            print(f"Project: {mapping['name']}, Config ID: {mapping['storageConfigurationId']}")
+            # Project: my-project-name, Config ID: abcd1234-...
     """
     if PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST is None:
         _set_project_to_storage_configuration_mapping()
@@ -367,11 +381,24 @@ def get_project_to_storage_configuration_mapping_list() -> List[ProjectToStorage
 
 def get_project_id_by_s3_key_prefix(s3_key_prefix: str) -> Optional[str]:
     """
-    Get the project id by the s3 key prefix
+    Return the project ID whose storage configuration matches the given S3 key prefix.
 
-    :param s3_key_prefix: The s3 key prefix
-    :return: The project id, or None if no project id can be found for this
+    :param s3_key_prefix: The S3 URI prefix to look up against configured projects
+
+    :return: The project ID matching the prefix, or None if no match is found
     :rtype: Optional[str]
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_configuration import get_project_id_by_s3_key_prefix
+
+        project_id = get_project_id_by_s3_key_prefix("s3://my-bucket/key-prefix/project-sub/")
+
+        print(project_id)
+        # abcd1234-ab12-ab12-ab12-abcdef123456
     """
 
     # Iterate through the storage configuration mapping dict
@@ -414,17 +441,27 @@ def get_project_self_storage_configuration_s3_uri(
         project_id: Union[UUID4, str]
 ) -> Optional[str]:
     """
-    Get the storage configuration subfolder (key prefix) for a project's
-    self-managed storage configuration.
+    Return the S3 URI subfolder for a project's self-managed storage configuration.
 
-    This function queries the ICA v3 REST API for the given project and, if a
-    self-managed storage configuration exists, returns the associated
-    `storageConfigurationSubFolder` value.
+    :param project_id: The ICA project identifier as a UUID4 object or UUID-formatted string
 
-    :param project_id: The ICA project identifier, as a UUID4 or string.
-    :return: The storage configuration subfolder for the project, or ``None``
-        if the project does not have a self-managed storage configuration.
+    :return: The S3 URI subfolder for the project, or None if no self-managed
+        storage configuration exists
     :rtype: Optional[str]
+
+    :raises HTTPError: If the API call to retrieve the storage configuration fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_configuration import get_project_self_storage_configuration_s3_uri
+
+        s3_uri = get_project_self_storage_configuration_s3_uri("abcd-1234-efab-5678")
+
+        print(s3_uri)
+        # s3://bucket-name/key/prefix/project-sub/
     """
     # FIXME - use libica on next libica release
     # Local import
@@ -469,12 +506,25 @@ def get_s3_key_prefix_by_project_id(
         project_id: Union[UUID4, str]
 ) -> Optional[str]:
     """
-    Get the s3 key prefix for a project id, this is the root s3 key prefix that is used for this project,
-    including any project specific subfolder if they have a self managed storage configuration
+    Return the S3 key prefix URI for a given project ID.
 
-    :param project_id: The project id
-    :return: The s3 key prefix for this project, or None if no s3 key prefix can be found for this project id
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+
+    :return: The S3 key prefix URI for the project, or None if no storage
+        configuration is found
     :rtype: Optional[str]
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_configuration import get_s3_key_prefix_by_project_id
+
+        s3_prefix = get_s3_key_prefix_by_project_id("abcd-1234-efab-5678")
+
+        print(s3_prefix)
+        # s3://bucket-name/key/prefix/project-sub/
     """
     # Local imports
     # Return Key Prefix with project name extension
@@ -525,11 +575,26 @@ def get_s3_key_prefix_by_project_id(
 
 def convert_s3_uri_to_icav2_uri(s3_uri: str) -> str:
     """
-    Convert S3 URI to ICAv2 URI
+    Convert an S3 URI to the corresponding ICAv2 URI.
 
-    :param s3_uri: The S3 URI to convert, expected to be in the format s3://{bucket_name}/{key_prefix}/{path/to/data_obj}
-    :return: The corresponding ICAv2 URI, in the format icav2://{project_id}/{path/to/data_obj}
+    :param s3_uri: The S3 URI to convert, in the format s3://bucket/key-prefix/path
+
+    :return: The corresponding ICAv2 URI in the format icav2://project-id/path
     :rtype: str
+
+    :raises ValueError: If no project ID can be resolved from the S3 URI prefix
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_configuration import convert_s3_uri_to_icav2_uri
+
+        icav2_uri = convert_s3_uri_to_icav2_uri("s3://my-bucket/prefix/data/file.txt")
+
+        print(icav2_uri)
+        # icav2://abcd1234-ab12-ab12-ab12-abcdef123456/data/file.txt
     """
     # Convert S3 URI to ICAv2 URI
     # Putting it all together
@@ -569,11 +634,26 @@ def convert_s3_uri_to_icav2_uri(s3_uri: str) -> str:
 
 def convert_icav2_uri_to_s3_uri(icav2_uri: str) -> str:
     """
-    Convert ICAv2 URI to S3 URI
+    Convert an ICAv2 URI to the corresponding S3 URI.
 
-    :param icav2_uri: The ICAv2 URI to convert, expected to be in the format icav2://{project_id}/{path/to/data_obj}
-    :return: The corresponding S3 URI, in the format s3://{bucket_name}/{key_prefix}/{path/to/data_obj}
+    :param icav2_uri: The ICAv2 URI to convert, in the format icav2://project-id/path
+
+    :return: The corresponding S3 URI in the format s3://bucket/key-prefix/path
     :rtype: str
+
+    :raises ValueError: If no S3 prefix can be resolved for the project
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_configuration import convert_icav2_uri_to_s3_uri
+
+        s3_uri = convert_icav2_uri_to_s3_uri("icav2://abcd-1234-efab-5678/data/file.txt")
+
+        print(s3_uri)
+        # s3://bucket-name/key/prefix/data/file.txt
     """
     # Convert ICAv2 URI to S3 URI
     # Putting it all together, in-fact this is a little more straight forward
@@ -611,11 +691,27 @@ def convert_icav2_uri_to_s3_uri(icav2_uri: str) -> str:
 
 def convert_project_data_obj_to_s3_uri(project_data_obj: ProjectData) -> str:
     """
-    Convert a ProjectData object to an S3 URI, this will use the project id and path of the ProjectData object to determine the corresponding S3 URI
+    Convert a ProjectData object to its corresponding S3 URI.
 
     :param project_data_obj: The ProjectData object to convert to an S3 URI
-    :return: The corresponding S3 URI, in the format s3://{bucket_name}/{key_prefix}/{path/to/data_obj}
+
+    :return: The corresponding S3 URI in the format s3://bucket/key-prefix/path
     :rtype: str
+
+    :raises ValueError: If no S3 prefix can be resolved for the owning project
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_configuration import convert_project_data_obj_to_s3_uri
+
+        # Given a ProjectData object retrieved from ICAv2
+        s3_uri = convert_project_data_obj_to_s3_uri(project_data_obj)
+
+        print(s3_uri)
+        # s3://bucket-name/key/prefix/path/to/file.txt
     """
     # Convert ProjectData object to S3 URI
     project_s3_prefix = get_s3_key_prefix_by_project_id(str(project_data_obj.data.details.owning_project_id))
@@ -655,13 +751,30 @@ def convert_s3_uri_to_project_data_obj(
         create_data_if_not_found: bool = False
 ) -> ProjectData:
     """
-    Convert an S3 URI to a ProjectData object, this will use the project id and path of the S3 URI to determine the corresponding ProjectData object
+    Convert an S3 URI to the corresponding ProjectData object.
 
-    :param s3_uri: The S3 URI to convert, expected to be in the format s3://{bucket_name}/{key_prefix}/{path/to/data_obj}
-    :param create_data_if_not_found: If true, create the data if it cannot be found, this is only applicable to paths or uris, if the data cannot be found and this parameter is false, an error will be raised
+    :param s3_uri: The S3 URI to convert, in the format s3://bucket/key-prefix/path
+    :param create_data_if_not_found: If True, create the data object when it does not
+        exist. Defaults to False
 
-    :return: The corresponding ProjectData object
+    :return: The ProjectData object corresponding to the S3 URI
     :rtype: `ProjectData <https://umccr.github.io/libica/openapi/v3/docs/ProjectData/>`_
+
+    :raises ValueError: If no project ID can be resolved from the S3 URI prefix
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_configuration import convert_s3_uri_to_project_data_obj
+
+        project_data = convert_s3_uri_to_project_data_obj(
+            "s3://my-bucket/prefix/data/file.txt"
+        )
+
+        print(f"Data ID: {project_data.data.id}")
+        # Data ID: fil.1234567890abcdef1234567890abcdef
     """
     # Convert S3 URI to ProjectData object
     # Easiest to convert to icav2 uri first and then to project data object
@@ -674,11 +787,26 @@ def convert_s3_uri_to_project_data_obj(
 
 def unpack_s3_uri(uri: str) -> Tuple[str, str]:
     """
-    Unpack an S3 URI into the project id and path, this will use the project id and path of the S3 URI to determine the corresponding project id and path
+    Unpack an S3 URI into its project ID and data path components.
 
-    :param uri: The S3 URI to unpack, expected to be in the format s3://{bucket_name}/{key_prefix}/{path/to/data_obj}
-    :return: A tuple of the project id and path, where the project id is the id of the project that this S3 URI belongs to, and the path is the path to the data object within the project
+    :param uri: The S3 URI to unpack, in the format s3://bucket/key-prefix/path
+
+    :return: A tuple of the project ID and the data path within the project
     :rtype: Tuple[str, str]
+
+    :raises ValueError: If no project ID can be resolved from the S3 URI prefix
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.storage_configuration import unpack_s3_uri
+
+        project_id, data_path = unpack_s3_uri("s3://my-bucket/prefix/data/file.txt")
+
+        print(f"Project ID: {project_id}, Path: {data_path}")
+        # Project ID: abcd1234-ab12-ab12-ab12-abcdef123456, Path: /data/file.txt
     """
     # Unpack S3 URI
     # Get the project id from the s3 uri

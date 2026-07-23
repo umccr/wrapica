@@ -108,15 +108,15 @@ def get_project_pipeline_obj(
         pipeline_id: Union[UUID4, str],
 ) -> ProjectPipelineV4:
     """
-    Given a project id and pipeline id, return the project pipeline object
+    Return the project pipeline object for a given project and pipeline ID.
 
-    :param project_id: The project id that the pipeline exists in
-    :param pipeline_id: The pipeline id to retrieve
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier to retrieve from the project
 
-    :return: The project pipeline object
-    :rtype: `ProjectPipeline <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipeline/>`_
+    :return: The project pipeline object matching the given IDs
+    :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
 
-    :raises: ValueError: If the pipeline cannot be found
+    :raises ValueError: If the pipeline cannot be found in the project
 
     :Examples:
 
@@ -125,10 +125,13 @@ def get_project_pipeline_obj(
 
         from wrapica.project_pipelines import get_project_pipeline_obj
 
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
+        project_pipeline_obj = get_project_pipeline_obj(
+            project_id="project-123",
+            pipeline_id="pipeline-456"
+        )
 
-        project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
+        print(f"Pipeline ID: {project_pipeline_obj.pipeline.id}, Code: {project_pipeline_obj.pipeline.code}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my-pipeline
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -158,27 +161,30 @@ def get_project_pipeline_obj_from_pipeline_code(
         pipeline_code: str
 ) -> ProjectPipeline:
     """
-    Given a project id and pipeline code, return the project pipeline object
+    Return the project pipeline object matching a given pipeline code.
 
-    :param project_id: The project id that the pipeline exists in
-    :param pipeline_code: The pipeline code to retrieve
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_code: The pipeline code string to look up in the project
 
-    :return: The pipeline id
-    :rtype: str
+    :return: The project pipeline object matching the given code
+    :rtype: `ProjectPipeline <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipeline/>`_
 
-    :raises: ValueError: If the pipeline cannot be found
+    :raises ValueError: If the pipeline code cannot be found in the project
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipelines import get_project_pipeline_id_from_pipeline_code
+        from wrapica.project_pipelines import get_project_pipeline_obj_from_pipeline_code
 
-        project_id = "project-123"
-        pipeline_code = "pipeline-123"
+        project_pipeline_obj = get_project_pipeline_obj_from_pipeline_code(
+            project_id="project-123",
+            pipeline_code="my_pipeline_code"
+        )
 
-        pipeline_id = get_project_pipeline_id_from_pipeline_code(project_id, pipeline_code)
+        print(f"Pipeline ID: {project_pipeline_obj.pipeline.id}, Code: {project_pipeline_obj.pipeline.code}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_pipeline_code
     """
     try:
         return next(
@@ -197,15 +203,15 @@ def get_project_pipeline_id_from_pipeline_code(
         pipeline_code: str
 ) -> str:
     """
-    Given a project pipeline code and project id, return the pipeline id
+    Return the pipeline ID for a given pipeline code within a project.
 
-    :param project_id: The project id that the pipeline exists in
-    :param pipeline_code: The pipeline code to retrieve
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_code: The pipeline code string to look up
 
-    :return: The pipeline id
+    :return: The pipeline ID as a string
     :rtype: str
 
-    :raises: ValueError: If the pipeline cannot be found
+    :raises ValueError: If the pipeline code cannot be found in the project
 
     :Examples:
 
@@ -214,10 +220,13 @@ def get_project_pipeline_id_from_pipeline_code(
 
         from wrapica.project_pipelines import get_project_pipeline_id_from_pipeline_code
 
-        project_id = "project-123"
-        pipeline_code = "pipeline-123"
+        pipeline_id = get_project_pipeline_id_from_pipeline_code(
+            project_id="project-123",
+            pipeline_code="my_pipeline_code"
+        )
 
-        pipeline_id = get_project_pipeline_id_from_pipeline_code(project_id, pipeline_code)
+        print(pipeline_id)
+        # abcd1234-ab12-ab12-ab12-abcdef123456
     """
     return str(get_project_pipeline_obj_from_pipeline_code(project_id, pipeline_code).pipeline.id)
 
@@ -227,30 +236,31 @@ def get_default_analysis_storage_obj_from_project_pipeline(
         pipeline_id: Union[UUID4, str]
 ) -> AnalysisStorageType:
     """
-    Given a project id and pipeline id, return the default analysis storage object for that pipeline
+    Return the default analysis storage object for a given project pipeline.
 
-    :param project_id:
-    :param pipeline_id:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier to retrieve storage configuration from
 
-    :return: The analysis storage
-    :rtype: `AnalysisStorage <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStorage/>`_
+    :return: The default analysis storage object for the pipeline
+    :rtype: `AnalysisStorageV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStorageV4/>`_
 
-    :raises: ValueError, ApiException
+    :raises ValueError: If the pipeline cannot be found in the project
+    :raises ApiException: If the API call to retrieve the pipeline fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipelines import get_default_analysis_storage_id_from_project_pipeline
+        from wrapica.project_pipelines import get_default_analysis_storage_obj_from_project_pipeline
 
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
+        analysis_storage_obj = get_default_analysis_storage_obj_from_project_pipeline(
+            project_id="project-123",
+            pipeline_id="pipeline-456"
+        )
 
-        # Use get_project_pipeline_id_from_pipeline_code to get the pipeline id
-
-        analysis_storage_obj = get_default_analysis_storage_obj_from_project_pipeline(project_id, pipeline_id)
-
+        print(f"Storage ID: {analysis_storage_obj.id}")
+        # Storage ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
 
     # Get the project pipeline object
@@ -265,15 +275,16 @@ def get_default_analysis_storage_id_from_project_pipeline(
         pipeline_id: Union[UUID4, str]
 ) -> str:
     """
-    Given a project id and pipeline id, return the default analysis storage id for that pipeline
+    Return the default analysis storage ID for a given project pipeline.
 
-    :param project_id: The project id that the pipeline exists in
-    :param pipeline_id: The pipeline id to retrieve the analysis storage information from
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier to retrieve storage information from
 
-    :return: The analysis storage id
+    :return: The analysis storage ID as a string
     :rtype: str
 
-    :raises: ValueError, ApiException
+    :raises ValueError: If the pipeline cannot be found in the project
+    :raises ApiException: If the API call to retrieve the pipeline fails
 
     :Examples:
 
@@ -282,12 +293,13 @@ def get_default_analysis_storage_id_from_project_pipeline(
 
         from wrapica.project_pipelines import get_default_analysis_storage_id_from_project_pipeline
 
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
+        analysis_storage_id = get_default_analysis_storage_id_from_project_pipeline(
+            project_id="project-123",
+            pipeline_id="pipeline-456"
+        )
 
-        # Use get_project_pipeline_id_from_pipeline_code to get the pipeline id
-
-        analysis_storage_id = get_default_analysis_storage_id_from_project_pipeline(project_id, pipeline_id)
+        print(analysis_storage_id)
+        # abcd1234-ab12-ab12-ab12-abcdef123456
     """
 
     # Get the project pipeline object
@@ -302,15 +314,16 @@ def get_project_pipeline_description_from_pipeline_id(
         pipeline_id: Union[UUID4, str]
 ) -> str:
     """
-    Get a project pipeline description from a project id and pipeline id
+    Return the description of a project pipeline given its project and pipeline IDs.
 
-    :param project_id: The project id that the pipeline exists in
-    :param pipeline_id: The pipeline id to retrieve the description from
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier to retrieve the description from
 
-    :return: The pipeline description
+    :return: The pipeline description text string
     :rtype: str
 
-    :raises: ValueError, ApiException
+    :raises ValueError: If the pipeline cannot be found in the project
+    :raises ApiException: If the API call to retrieve the pipeline fails
 
     :Examples:
 
@@ -319,11 +332,13 @@ def get_project_pipeline_description_from_pipeline_id(
 
         from wrapica.project_pipelines import get_project_pipeline_description_from_pipeline_id
 
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
+        pipeline_description = get_project_pipeline_description_from_pipeline_id(
+            project_id="project-123",
+            pipeline_id="pipeline-456"
+        )
 
-        # Use get_project_pipeline_id_from_pipeline_code to get the pipeline id
-        pipeline_description = get_project_pipeline_description_from_pipeline_id(project_id, pipeline_id)
+        print(pipeline_description)
+        # My CWL workflow for alignment
     """
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
 
@@ -332,12 +347,15 @@ def get_project_pipeline_description_from_pipeline_id(
 
 def coerce_pipeline_id_or_code_to_project_pipeline_obj(pipeline_id_or_code: str) -> PipelineType:
     """
-    Coerce a pipeline id or code to a project pipeline object
+    Coerce a pipeline ID or code string to a project pipeline object.
 
-    :param pipeline_id_or_code:
-    :return: The project pipeline object
+    :param pipeline_id_or_code: The pipeline identifier as a UUID string or pipeline code
 
-    :raises: ValueError, ApiException
+    :return: The resolved project pipeline object
+    :rtype: `ProjectPipeline <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipeline/>`_
+
+    :raises ValueError: If the pipeline cannot be found in the current project
+    :raises ApiException: If the API call to retrieve the pipeline fails
 
     :Examples:
 
@@ -346,9 +364,12 @@ def coerce_pipeline_id_or_code_to_project_pipeline_obj(pipeline_id_or_code: str)
 
         from wrapica.project_pipelines import coerce_pipeline_id_or_code_to_project_pipeline_obj
 
-        pipeline_id_or_code = "pipeline-123"
+        project_pipeline_obj = coerce_pipeline_id_or_code_to_project_pipeline_obj(
+            pipeline_id_or_code="my_pipeline_code"
+        )
 
-        project_pipeline_obj = coerce_pipeline_id_or_code_to_project_pipeline_obj(pipeline_id_or_code)
+        print(f"Pipeline ID: {project_pipeline_obj.pipeline.id}, Code: {project_pipeline_obj.pipeline.code}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_pipeline_code
     """
     from ...project import get_project_id
 
@@ -364,14 +385,31 @@ def get_analysis_storage_from_analysis_storage_id(
         analysis_storage_id: Union[UUID4, str]
 ) -> AnalysisStorageType:
     """
-    Given an analysis storage id, return the analysis storage object
-    :param project_id:
-    :param analysis_storage_id:
+    Return the analysis storage object matching a given storage ID.
 
-    :return: The analysis storage object
-    :rtype: `AnalysisStorage <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStorage/>`_
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param analysis_storage_id: The analysis storage identifier to look up
 
-    :raises: ValueError, ApiException
+    :return: The analysis storage object matching the given ID
+    :rtype: `AnalysisStorageV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStorageV4/>`_
+
+    :raises ValueError: If the analysis storage ID cannot be found
+    :raises ApiException: If the API call to retrieve storage options fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_pipelines import get_analysis_storage_from_analysis_storage_id
+
+        analysis_storage_obj = get_analysis_storage_from_analysis_storage_id(
+            project_id="project-123",
+            analysis_storage_id="storage-456"
+        )
+
+        print(f"Storage ID: {analysis_storage_obj.id}")
+        # Storage ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -410,11 +448,31 @@ def get_analysis_storage_from_analysis_storage_size(
         analysis_storage_size: AnalysisStorageSizeType
 ) -> AnalysisStorageType:
     """
-    Given an analysis storage size, return the analysis storage object
+    Return the analysis storage object matching a given storage size name.
 
-    :param project_id:
-    :param analysis_storage_size:
-    :return:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param analysis_storage_size: The analysis storage size name to look up
+
+    :return: The analysis storage object matching the given size
+    :rtype: `AnalysisStorageV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStorageV4/>`_
+
+    :raises ValueError: If the analysis storage size cannot be found
+    :raises ApiException: If the API call to retrieve storage options fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_pipelines import get_analysis_storage_from_analysis_storage_size
+
+        analysis_storage_obj = get_analysis_storage_from_analysis_storage_size(
+            project_id="project-123",
+            analysis_storage_size="Small"
+        )
+
+        print(f"Storage ID: {analysis_storage_obj.id}")
+        # Storage ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -453,15 +511,16 @@ def get_analysis_storage_id_from_analysis_storage_size(
         analysis_storage_size: AnalysisStorageSizeType
 ) -> str:
     """
-    Given an analysis storage size, return the analysis storage id
+    Return the analysis storage ID for a given storage size name.
 
-    :param project_id: The project id that the analysis storage exists in
-    :param analysis_storage_size: The analysis storage size to retrieve the id for
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param analysis_storage_size: The analysis storage size name to look up
 
-    :return: The analysis storage id
+    :return: The analysis storage ID as a string
     :rtype: str
 
-    :raises: ValueError, ApiException
+    :raises ValueError: If the analysis storage size cannot be found
+    :raises ApiException: If the API call to retrieve storage options fails
 
     :Examples:
 
@@ -469,11 +528,14 @@ def get_analysis_storage_id_from_analysis_storage_size(
         :linenos:
 
         from wrapica.project_pipelines import get_analysis_storage_id_from_analysis_storage_size
-        from wrapica.enums import AnalysisStorageSize
 
-        analysis_storage_size = AnalysisStorageSize.SMALL
+        analysis_storage_id = get_analysis_storage_id_from_analysis_storage_size(
+            project_id="project-123",
+            analysis_storage_size="Small"
+        )
 
-        analysis_storage_id = get_analysis_storage_id_from_analysis_storage_size(analysis_storage_size)
+        print(analysis_storage_id)
+        # abcd1234-ab12-ab12-ab12-abcdef123456
     """
     return str(get_analysis_storage_from_analysis_storage_size(project_id, analysis_storage_size).id)
 
@@ -485,11 +547,32 @@ def coerce_analysis_storage_id_or_size_to_analysis_storage(
         ]
 ) -> AnalysisStorageType:
     """
-    Given either an analysis storage id or analysis storage size, return the analysis storage id
+    Coerce an analysis storage ID or size name to an analysis storage object.
 
-    :param project_id:
-    :param analysis_storage_id_or_size:
-    :return:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param analysis_storage_id_or_size: The analysis storage identifier as a UUID string
+        or a size name such as "Small", "Medium", or "Large"
+
+    :return: The resolved analysis storage object
+    :rtype: `AnalysisStorageV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisStorageV4/>`_
+
+    :raises ValueError: If the analysis storage cannot be resolved
+    :raises ApiException: If the API call to retrieve storage options fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_pipelines import coerce_analysis_storage_id_or_size_to_analysis_storage
+
+        analysis_storage = coerce_analysis_storage_id_or_size_to_analysis_storage(
+            project_id="project-123",
+            analysis_storage_id_or_size="Small"
+        )
+
+        print(f"Storage ID: {analysis_storage.id}")
+        # Storage ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     if is_uuid_format(analysis_storage_id_or_size):
         return get_analysis_storage_from_analysis_storage_id(project_id, analysis_storage_id_or_size)
@@ -514,71 +597,45 @@ def create_cwl_input_json_analysis_obj(
         cwltool_overrides: Optional[Dict] = None
 ) -> 'ICAv2CWLPipelineAnalysis':
     """
-    Given a pipeline id (optional - can be in the ICAv2EngineParameters
-    An input json where the location attributes point to icav2 uris
-    Generate a CreateCwlAnalysisWithJsonInput object ready for launch
+    Create a CWL pipeline analysis object ready for launch from an input JSON dictionary.
 
-    :param user_reference: The user reference to use for the analysis
-    :param project_id: The project id that the pipeline exists in
-    :param pipeline_id: The pipeline id to launch
-    :param analysis_input_dict: The analysis input dictionary
-    :param analysis_storage_id: The analysis storage id to use
-    :param analysis_storage_size: The analysis storage size to use
-    :param analysis_output_uri: The analysis output uri to use
-    :param tags: The tags to use
-    :param cwltool_overrides: The cwltool overrides to use
+    :param user_reference: The user reference string to label the analysis
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier to launch in the project
+    :param analysis_input_dict: The CWL input JSON as a dictionary with location URIs
+    :param analysis_storage_id: The analysis storage identifier to use. Defaults to None,
+        in which case the default storage for the pipeline is used
+    :param analysis_storage_size: The analysis storage size name to use. Defaults to None,
+        in which case the default storage for the pipeline is used
+    :param analysis_output_uri: The output URI for analysis results. Defaults to None,
+        in which case the default output location is used
+    :param tags: The pipeline analysis tags object for metadata. Defaults to None,
+        in which case no tags are applied
+    :param cwltool_overrides: The cwltool overrides dictionary for resource hints. Defaults to None,
+        in which case no overrides are applied
 
-    :return: The CWL analysis object
-    :rtype: `ICAv2CWLPipelineAnalysis <wrapica.project_pipelines.ICAv2CWLPipelineAnalysis>`_
+    :return: The CWL pipeline analysis object ready for launch
+    :rtype: ICAv2CWLPipelineAnalysis
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_analysis import (
-            # Classes
-            ICAv2PipelineAnalysisTags,
-        )
-
-        from wrapica.project_pipelines import (
-            # Functions
-            create_cwl_input_json_analysis_obj,
-        )
-
-        user_reference = "user-123"
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
-        analysis_input_dict = {
-            "my_input_parameter": {
-              "class": "File",
-              "location": "icav2://project-123/data-path/file.txt"
+        from wrapica.project_pipelines import create_cwl_input_json_analysis_obj
+        cwl_analysis = create_cwl_input_json_analysis_obj(
+            user_reference="my-analysis-run",
+            project_id="project-123",
+            pipeline_id="pipeline-456",
+            analysis_input_dict={
+                "input_file": {
+                    "class": "File",
+                    "location": "icav2://project-123/data/file.txt"
+                }
             }
-        }
-        analysis_storage_id = "analysis-storage-123"
-        analysis_storage_size = AnalysisStorageSize.SMALL
-        analysis_output_uri = "icav2://project-123/output-path"
-        tags = ICAv2PipelineAnalysisTags(
-            technical_tags=[
-              "my_technical_tag",
-            ]
-            user_tags=[
-              "user='John'",
-              "billing='ExpensiveGroup'"
-            ]
         )
-
-        cwl_pipeline_analysis = create_cwl_input_json_analysis_obj(
-            user_reference=user_reference,
-            project_id=project_id,
-            pipeline_id=pipeline_id,
-            analysis_input_dict=analysis_input_dict,
-            analysis_storage_id=analysis_storage_id,
-            analysis_storage_size=analysis_storage_size,
-            analysis_output_uri=analysis_output_uri,
-            tags=tags
-        )
-
+        print(f"User Reference: {cwl_analysis.user_reference}")
+        # User Reference: my-analysis-run
     """
     # Import classes locally to prevent circular imports
     from ..classes.cwl_analysis import ICAv2CWLPipelineAnalysis, ICAv2CwlAnalysisJsonInput
@@ -611,53 +668,37 @@ def launch_cwl_workflow(
         idempotency_key=None
 ) -> AnalysisV4:
     """
-    Launch a CWL Workflow in a specific project context
+    Launch a CWL workflow analysis in a specific project context.
 
-    :param project_id: The project id to launch the CWL workflow in
-    :param cwl_analysis: The CWL analysis object to launch
-    :param idempotency_key: The Idempotency-Key header can be used to prevent duplicate requests and support retries.
+    :param project_id: The project identifier to launch the workflow in
+    :param cwl_analysis: The CWL analysis object containing inputs and configuration
+    :param idempotency_key: The idempotency key header for preventing duplicate requests.
+        Defaults to None, in which case no idempotency key is sent
 
-    :return: the analysis ID along with the deconstructed json used for submission to the end point
-    :rtype: `Analysis <https://umccr.github.io/libica/openapi/v3/docs/Analysis/>`_
+    :return: The launched analysis object with its ID and status
+    :rtype: `AnalysisV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisV4/>`_
+
+    :raises ApiException: If the API call to create the CWL analysis fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from pathlib import Path
-        from wrapica.project_pipelines import (
-            # Functions
-            launch_cwl_workflow,
-            # Wrapica classes
-            ICAv2CWLPipelineAnalysis,
-        )
-
+        from wrapica.project_pipelines import launch_cwl_workflow
         from wrapica.libica_models import CreateCwlWithJsonInputAnalysis
 
-        # Initialise an ICAv2CWLPipeline Analysis object
-        cwl_analysis = ICAv2CWLPipelineAnalysis(
-            user_reference="user-123",
-            project_id="project-123",
-            pipeline_id="pipeline-123",
-            analysis_input={
-                "input": "json"
-            }
+        cwl_analysis_obj = CreateCwlWithJsonInputAnalysis(
+          ...
         )
 
-        # Generate the inputs and analysis object
-        cwl_analysis.check_engine_parameters()
-        cwl_analysis.create_analysis()
+        analysis = launch_cwl_workflow(
+            project_id="project-123",
+            cwl_analysis=cwl_analysis_obj
+        )
 
-        # Launch the analysis pipeline
-        analysis = launch_cwl_workflow(project_id, cwl_analysis.analysis)
-
-        # Alternatively, just call cwl_analysis and it will launch the pipeline.
-        # analysis = cwl_analysis()
-
-        # Save the analysis
-        cwl_analysis.save_analysis(Path("/path/to/analysis.json"))
-
+        print(f"Analysis ID: {analysis.id}, Status: {analysis.status}")
+        # Analysis ID: abcd1234-ab12-ab12-ab12-abcdef123456, Status: REQUESTED
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -698,56 +739,33 @@ def launch_nextflow_workflow(
         idempotency_key=None
 ) -> AnalysisV4:
     """
-    Launch a Nextflow Workflow in a specific project context
+    Launch a Nextflow workflow analysis in a specific project context.
 
-    :param project_id: The project id to launch the Nextflow workflow in
-    :param nextflow_analysis: The Nextflow analysis object to launch
-    :param idempotency_key: Prevent duplicate requests and support retries by providing an Idempotency-Key header.
+    :param project_id: The project identifier to launch the workflow in
+    :param nextflow_analysis: The Nextflow analysis object containing inputs and configuration
+    :param idempotency_key: The idempotency key header for preventing duplicate requests.
+        Defaults to None, in which case no idempotency key is sent
 
-    :return: the analysis ID along with the deconstructed json used for submission to the end point
-    :rtype: `Analysis <https://umccr.github.io/libica/openapi/v3/docs/Analysis/>`_
+    :return: The launched analysis object with its ID and status
+    :rtype: `AnalysisV4 <https://umccr.github.io/libica/openapi/v3/docs/AnalysisV4/>`_
 
-    :Examples:
+    :raises ApiException: If the API call to create the Nextflow analysis fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from pathlib import Path
-        from wrapica.project_pipelines import (
-            # Functions
-            launch_nextflow_workflow,
-            # Wrapica classes
-            ICAv2NextflowPipelineAnalysis,
-        )
+        from wrapica.project_pipelines import launch_nextflow_workflow
+        from wrapica.libica_models import CreateNextflowWithCustomInputAnalysis
 
-        from wrapica.libica_models import CreateNextflowAnalysis, Analysis
-
-        # Initialise an ICAv2CWLPipeline Analysis object
-        nextflow_analysis = ICAv2NextflowPipelineAnalysis(
-            user_reference="user-123",
+        analysis = launch_nextflow_workflow(
             project_id="project-123",
-            pipeline_id="pipeline-123",
-            analysis_input={
-                "my_input_parameter": "icav2://path/to/data",
-                "my_config_parameter": "value"
-            }
+            nextflow_analysis=nextflow_analysis_obj
         )
 
-        # Generate the inputs and analysis object
-        nextflow_analysis.check_engine_parameters()
-        nextflow_analysis.create_analysis()
-
-        # Launch the analysis pipeline
-        analysis = launch_nextflow_workflow(project_id, nextflow_analysis.analysis)
-
-        # Alternatively, just call cwl_analysis and it will launch the pipeline.
-        # analysis = nextflow_analysis()
-
-        # Save the analysis
-        nextflow_analysis.save_analysis(Path("/path/to/analysis.json"))
-
+        print(f"Analysis ID: {analysis.id}, Status: {analysis.status}")
+        # Analysis ID: abcd1234-ab12-ab12-ab12-abcdef123456, Status: REQUESTED
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -794,41 +812,33 @@ def get_project_pipeline_input_parameters(
         pipeline_id: Union[UUID4, str]
 ) -> List[InputParameter]:
     """
-    Get project pipeline input parameters, needed for structured input validation
+    Return the input parameters for a given project pipeline.
 
-    :param project_id:
-    :param pipeline_id:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier to retrieve input parameters for
 
-    :return: The input parameters for the project pipeline
+    :return: The list of input parameters for the pipeline
     :rtype: List[`InputParameter <https://umccr.github.io/libica/openapi/v3/docs/InputParameter/>`_]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve pipeline input parameters fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipelines import (
-            # Functions
-            get_project_pipeline_input_parameters
+        from wrapica.project_pipelines import get_project_pipeline_input_parameters
+
+        input_parameters = get_project_pipeline_input_parameters(
+            project_id="project-123",
+            pipeline_id="pipeline-456"
         )
-        from wrapica.libica_models import InputParameter
 
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
-
-        input_parameters: List[InputParameter] = get_project_pipeline_input_parameters(project_id, pipeline_id)
-
-        for input_parameter in input_parameters:
-            print(input_parameter.code)
-            print(input_parameter.required)
-            print(input_parameter.multi_value)
-
-        # Output:
-        # input_parameter_1
-        # false
-        # true
+        print(f"Found {len(input_parameters)} parameter(s)")
+        # Found 3 parameter(s)
+        for param in input_parameters:
+            print(f"Parameter: {param.code}")
+            # Parameter: my-input-param
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -854,44 +864,33 @@ def get_project_pipeline_configuration_parameters(
         pipeline_id: Union[UUID4, str]
 ) -> List[PipelineConfigurationParameter]:
     """
-    Given a pipeline and project id, return the configuration parameters for the pipeline
+    Return the configuration parameters for a given project pipeline.
 
-    :param project_id:
-    :param pipeline_id:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier to retrieve configuration parameters for
 
-    :return: The configuration parameters for the project pipeline
+    :return: The list of configuration parameters for the pipeline
     :rtype: List[`PipelineConfigurationParameter <https://umccr.github.io/libica/openapi/v3/docs/PipelineConfigurationParameter/>`_]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve pipeline configuration parameters fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        from wrapica.project_pipelines import (
-            get_project_pipeline_configuration_parameters
-        )
-        from wrapica.libica_models import PipelineConfigurationParameter
+        from wrapica.project_pipelines import get_project_pipeline_configuration_parameters
 
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
-
-        configuration_parameters: List[PipelineConfigurationParameter] = (
-            get_project_pipeline_configuration_parameters(project_id, pipeline_id)
+        configuration_parameters = get_project_pipeline_configuration_parameters(
+            project_id="project-123",
+            pipeline_id="pipeline-456"
         )
 
-        for configuration_parameter in configuration_parameters:
-            print(configuration_parameter.code)
-            print(configuration_parameter.required)
-            print(configuration_parameter.multi_value)
-            print(configuration_parameter.type)
-
-        # Output:
-        # configuration_parameter_1
-        # false
-        # true
-        # boolean
+        print(f"Found {len(configuration_parameters)} parameter(s)")
+        # Found 3 parameter(s)
+        for param in configuration_parameters:
+            print(f"Parameter: {param.code}")
+            # Parameter: my-config-param
     """
 
     # Enter a context with an instance of the API client
@@ -923,6 +922,20 @@ def convert_icav2_uris_to_data_ids_from_cwl_input_json(
         # External Data List
     List[AnalysisInputExternalData]
 ]:
+    """
+    Convert ICAv2 URIs to data IDs from a CWL input JSON object.
+
+    .. deprecated:: 2.45.0
+        Use :func:`convert_uris_to_data_ids_from_cwl_input_json` instead.
+
+    :param input_obj: The CWL input object containing URIs to convert
+
+    :return: A tuple of the converted input object, mount list, and external data list
+    :rtype: Tuple[Union[str, Dict, List], List[`AnalysisInputDataMount <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInputDataMount/>`_], List[`AnalysisInputExternalData <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInputExternalData/>`_]]
+
+    :raises ValueError: If the input object cannot be parsed
+    :raises ApiException: If the API call to resolve URIs fails
+    """
     DeprecationWarning(
         "This function is deprecated, "
         "please use convert_uris_to_data_ids_from_cwl_input_json instead"
@@ -941,49 +954,33 @@ def convert_uris_to_data_ids_from_cwl_input_json(
     List[AnalysisInputExternalData]
 ]]:
     """
-    From a cwl input json, convert all the icav2 uris to data ids
+    Convert all URIs in a CWL input JSON to data IDs with mount paths.
 
-    :param input_obj: The CWL input object to convert
+    :param input_obj: The CWL input object containing icav2:// or s3:// URIs to resolve
 
-    :return: The converted input object, mount list and external data list
-    :rtype: Tuple[Union[str, int, float, bool, Dict, List], List[AnalysisInputDataMount], List[AnalysisInputExternalData]]
+    :return: A tuple of the converted input object, mount list, and external data list
+    :rtype: Tuple[Union[str, int, float, bool, Dict, List], List[`AnalysisInputDataMount <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInputDataMount/>`_], List[`AnalysisInputExternalData <https://umccr.github.io/libica/openapi/v3/docs/AnalysisInputExternalData/>`_]]
 
-    :raises: ValueError, ApiException
+    :raises ValueError: If the input object type cannot be parsed
+    :raises ApiException: If the API call to resolve URIs fails
 
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
-        from wrapica.project_pipelines import convert_icav2_uris_to_data_ids_from_cwl_input_json
-
+        from wrapica.project_pipelines import convert_uris_to_data_ids_from_cwl_input_json
         input_obj = {
             "input_file": {
                 "class": "File",
                 "location": "icav2://project-123/data-path/file.txt"
             }
         }
-
-        input_obj_new, mount_list, external_data_list = convert_icav2_uris_to_data_ids_from_cwl_input_json(
+        input_obj_new, mount_list, external_data_list = convert_uris_to_data_ids_from_cwl_input_json(
             input_obj
         )
-
-        print(input_obj_new)
-        # Output: {
-        #   "input_file": {
-        #     "class": "File",
-        #     "location": "path/to/mount/file.txt"
-        #   }
-        # }
-
-        print(mount_list)
-        # Output: [
-        #   AnalysisInputDataMount(
-        #     dataId="fil.1234567890",
-        #     mountPath="path/to/mount/file.txt"
-        #   )
-
-        print(external_data_list)
-        # Output: []
+        print(f"Mounts: {len(mount_list)}, External: {len(external_data_list)}")
+        # Mounts: 1, External: 0
     """
     # Importing from another functions directory should be done locally
     from ...project_data import (
@@ -1523,39 +1520,29 @@ def list_project_pipelines(
         project_id: Union[UUID4, str]
 ) -> List[ProjectPipeline]:
     """
-    List pipelines in project
+    List all pipelines available in a given project.
 
-    :param project_id: List all pipelines avialable to this project
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
 
-    :return: The list of pipelines
+    :return: The list of project pipeline objects in the project
     :rtype: List[`ProjectPipeline <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipeline/>`_]
 
-    :raises: ValueError, ApiException
+    :raises ValueError: If the API call to list project pipelines fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
-        import json
-        from wrapica.project_pipelines import list_pipelines_in_project
+        from wrapica.project_pipelines import list_project_pipelines
 
-        # Get list of pipelines in project
-        project_id = "project-123"
-        pipeline_list = list_pipelines_in_project(project_id)
+        pipeline_list = list_project_pipelines(project_id="project-123")
 
-        print(
-          json.dumps(
-            map(
-                lambda: pipeline_iter: {
-                    "id": pipeline_iter.id,
-                    "code": pipeline_iter.code,
-                },
-                pipeline_list
-            )
-          )
-        )
+        print(f"Found {len(pipeline_list)} pipeline(s)")
+        # Found 3 pipeline(s)
+        for pipeline in pipeline_list:
+            print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
+            # Pipeline ID: abcd1234-..., Code: my-pipeline
     """
 
     # Get api instance
@@ -1576,12 +1563,12 @@ def is_pipeline_in_project(
         pipeline_id: Union[UUID4, str]
 ) -> bool:
     """
-    Check if a pipeline is in a project
+    Check whether a pipeline is linked to a given project.
 
-    :param project_id:  The project id to check
-    :param pipeline_id: The pipeline id to check
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier to check for in the project
 
-    :return: True if the pipeline is in the project, False otherwise
+    :return: True if the pipeline exists in the project, False otherwise
     :rtype: bool
 
     :Examples:
@@ -1589,13 +1576,15 @@ def is_pipeline_in_project(
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.project_pipelines import is_pipeline_in_project
 
-        # Check if pipeline is in project
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
-        pipeline_is_in_project = is_pipeline_in_project(project_id, pipeline_id)
+        pipeline_is_in_project = is_pipeline_in_project(
+            project_id="project-123",
+            pipeline_id="pipeline-456"
+        )
+
+        print(pipeline_is_in_project)
+        # True
     """
 
     try:
@@ -1615,25 +1604,34 @@ def list_projects_with_pipeline(
         include_hidden_projects: bool
 ) -> List[Project]:
     """
-    Given a pipeline id, return a list of projects that the pipeline is linked to
+    Return a list of projects that have a given pipeline linked.
 
-    :param pipeline_id: The pipeline id to check
-    :param include_hidden_projects: Include hidden projects in the list
+    :param pipeline_id: The pipeline identifier to search for across projects
+    :param include_hidden_projects: Whether to include hidden projects in the search
 
-    :return: The list of projects
-    :rtype: :rtype: List[`Project <https://umccr.github.io/libica/openapi/v3/docs/Project/>`_]
-    :raises: ValueError, ApiException
+    :return: The list of projects containing the specified pipeline
+    :rtype: List[`Project <https://umccr.github.io/libica/openapi/v3/docs/Project/>`_]
+
+    :raises ValueError: If the pipeline ID is invalid
+    :raises ApiException: If the API call to list projects fails
 
     :Examples:
 
     .. code-block:: python
+        :linenos:
 
         from wrapica.project_pipelines import list_projects_with_pipeline
 
-        pipeline_id = "pipeline-123"
-        project_id = next(list_projects_with_pipeline(pipeline_id, include_hidden_projects=False)).id
+        projects = list_projects_with_pipeline(
+            pipeline_id="pipeline-456",
+            include_hidden_projects=False
+        )
 
-        project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
+        print(f"Found {len(projects)} project(s)")
+        # Found 3 project(s)
+        for project in projects:
+            print(f"Project ID: {project.id}, Name: {project.name}")
+            # Project ID: abcd1234-..., Name: my-project-name
     """
     from ...project import list_projects
     return list(
@@ -1646,23 +1644,20 @@ def list_projects_with_pipeline(
 
 def create_blank_params_xml(output_file_path: Path):
     """
-    Create a params.xml file with no inputs
+    Create an empty params.xml file with no input parameters defined.
 
-    :param output_file_path: The output file path we wish to write the file to
-
-    :return: None
+    :param output_file_path: The file system path to write the blank params XML to
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
+        from pathlib import Path
         from wrapica.project_pipelines import create_blank_params_xml
 
-        # Create blank params file
-        output_file_path = Path("/path/to/params.xml")
-        create_blank_params_xml(output_file_path)
+        # Creates an empty params.xml file at the specified path
+        create_blank_params_xml(output_file_path=Path("/path/to/params.xml"))
     """
     with open(output_file_path, "w") as params_h:
         for line in BLANK_PARAMS_XML_V2_FILE_CONTENTS:
@@ -1671,24 +1666,21 @@ def create_blank_params_xml(output_file_path: Path):
 
 def create_params_xml(inputs: List[WorkflowInputParameterType], output_path: Path):
     """
-    From the inputs, create a params xml file
+    Create a params.xml file from a list of workflow input parameters.
 
-    :param inputs:
-    :param output_path:
-
-    :return:
+    :param inputs: The list of CWL workflow input parameter type objects
+    :param output_path: The file system path to write the generated params XML to
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
+        from pathlib import Path
         from wrapica.project_pipelines import create_params_xml
 
-        # Create params xml file
-        output_path = Path("/path/to/params.xml")
-        create_params_xml([], output_path)
+        # Creates a params.xml file from the input parameter definitions
+        create_params_xml(inputs=[], output_path=Path("/path/to/params.xml"))
     """
     _ = inputs
     # FIXME - waiting on https://github.com/umccr-illumina/ica_v2/issues/17
@@ -1700,13 +1692,26 @@ def release_project_pipeline(
         pipeline_id: Union[UUID4, str]
 ):
     """
-    Convert a project pipeline from a draft status to a released status
+    Convert a project pipeline from draft status to released status.
 
-    :param project_id:
-    :param pipeline_id:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier to release within the project
 
-    :raises ValueError: If the pipeline is not in draft status, or if the pipeline does not belong to the user
-    :raises ApiException: If the API call fails
+    :raises ValueError: If the pipeline is not in draft status or does not belong to the user
+    :raises ApiException: If the API call to release the pipeline fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_pipelines import release_project_pipeline
+
+        # Releases the pipeline from draft to released status
+        release_project_pipeline(
+            project_id="project-123",
+            pipeline_id="pipeline-456"
+        )
     """
     from ...user import get_user_id_from_configuration
 
@@ -1751,39 +1756,31 @@ def update_pipeline_file(
         file_path: Path,
 ):
     """
-    Update the pipeline file on icav2
+    Update the content of an existing pipeline file on ICAv2.
 
-    :param project_id:
-    :param pipeline_id:
-    :param file_id:
-    :param file_path:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier containing the file to update
+    :param file_id: The pipeline file identifier to update
+    :param file_path: The local file path containing the new content
 
-    :raises: ApiException
+    :raises ValueError: If the pipeline is not in draft status
+    :raises ApiException: If the API call to update the file fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
+        from pathlib import Path
         from wrapica.project_pipelines import update_pipeline_file
 
-        # Set vars
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
-
-        # Find pipefile where the file name is 'tabix-tool.cwl'
-        file_id = next(
-            filter(
-                lambda file_iter: file_iter.name == "tabix-tool.cwl",
-                get_pipeline_files(project_id, pipeline_id)
-            )
-        ).id
-
-        tool_file_with_new_content = Path("/path/to/tabix-tool.cwl")
-
-        update_pipeline_file(project_id, pipeline_id, file_id, file_path_with_new_content)
-
+        # Updates the pipeline file content on ICAv2
+        update_pipeline_file(
+            project_id="project-123",
+            pipeline_id="pipeline-456",
+            file_id="file-789",
+            file_path=Path("/path/to/updated-tool.cwl")
+        )
     """
     # First confirm pipeline is in draft mode
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
@@ -1815,36 +1812,28 @@ def delete_pipeline_file(
         file_id: Union[UUID4, str]
 ):
     """
-    Delete the pipeline file on icav2
+    Delete a pipeline file from a draft pipeline on ICAv2.
 
-    :param project_id:
-    :param pipeline_id:
-    :param file_id:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier containing the file to delete
+    :param file_id: The pipeline file identifier to delete
 
-    :raises: ApiException
+    :raises ValueError: If the pipeline is not in draft status
+    :raises ApiException: If the API call to delete the file fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
-        from wrapica.project_pipelines import update_pipeline_file
+        from wrapica.project_pipelines import delete_pipeline_file
 
-        # Set vars
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
-
-        # Find pipefile where the file name is 'tabix-tool.cwl'
-        # And delete it
-        file_id = next(
-            filter(
-                lambda file_iter: file_iter.name == "tabix-tool.cwl",
-                get_pipeline_files(project_id, pipeline_id)
-            )
-        ).id
-
-        delete_pipeline_file(project_id, pipeline_id, file_id)
+        # Deletes the specified file from the draft pipeline
+        delete_pipeline_file(
+            project_id="project-123",
+            pipeline_id="pipeline-456",
+            file_id="file-789"
+        )
     """
     # First confirm pipeline is in draft mode
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
@@ -1877,31 +1866,36 @@ def add_pipeline_file(
         relative_path: Optional[Path] = None
 ) -> Optional[PipelineFile]:
     """
-    Add a pipeline file to a pipeline on icav2
+    Add a file to a draft pipeline on ICAv2.
 
-    :param project_id: The project id to add the file to
-    :param pipeline_id: The pipeline id to add the file to
-    :param file_path: The file path to add to the pipeline
-    :param relative_path:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier to add the file to
+    :param file_path: The local file path to upload to the pipeline
+    :param relative_path: The relative path within the pipeline for the file. Defaults to None,
+        in which case the file name is used directly
 
-    :return: The pipeline file object
-    :rtype: `PipelineFile <https://umccr.github.io/libica/openapi/v3/docs/PipelineFile/>`_
+    :return: The created pipeline file object, or None if the file is empty
+    :rtype: Optional[`PipelineFile <https://umccr.github.io/libica/openapi/v3/docs/PipelineFile/>`_]
 
-    :raises: ApiException
+    :raises ValueError: If the pipeline is not in draft status
+    :raises ApiException: If the API call to add the file fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
+        from pathlib import Path
         from wrapica.project_pipelines import add_pipeline_file
 
-        # Add pipeline file
-        project_id = "project-123"
-        pipeline_id = "pipeline-123"
-        file_path = Path("/path/to/file.txt")
-        pipeline_file = add_pipeline_file(project_id, pipeline_id, file_path)
+        pipeline_file = add_pipeline_file(
+            project_id="project-123",
+            pipeline_id="pipeline-456",
+            file_path=Path("/path/to/tool.cwl")
+        )
+
+        print(f"File ID: {pipeline_file.id}")
+        # File ID: abcd1234-ab12-ab12-ab12-abcdef123456
     """
     # First confirm pipeline is in draft mode
     project_pipeline_obj = get_project_pipeline_obj(project_id, pipeline_id)
@@ -1958,18 +1952,45 @@ def create_cwl_project_pipeline(
         resource_type: Optional[ResourceType] = None
 ) -> ProjectPipelineV4:
     """
-    Create a CWL project pipeline from a workflow path and tool paths
+    Create a CWL project pipeline from a workflow file and optional tool files.
 
-    :param resource_type:
-    :param project_id:
-    :param pipeline_code:
-    :param workflow_path:
-    :param tool_paths:
-    :param workflow_description:
-    :param params_xml_file:
-    :param analysis_storage:
-    :param workflow_html_documentation:
-    :return:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_code: The unique code string for the new pipeline
+    :param workflow_path: The local path to the CWL workflow file
+    :param tool_paths: The list of local paths to CWL tool files. Defaults to None,
+        in which case no additional tools are uploaded
+    :param workflow_description: The description text for the pipeline. Defaults to None,
+        in which case no description is set
+    :param params_xml_file: The local path to a params.xml file. Defaults to None,
+        in which case a blank params XML is generated
+    :param analysis_storage: The analysis storage object to use. Defaults to None,
+        in which case the default Small storage is used
+    :param workflow_html_documentation: The local path to HTML documentation. Defaults to None,
+        in which case no documentation is attached
+    :param resource_type: The compute resource type for the pipeline. Defaults to None,
+        in which case no specific resource is requested
+
+    :return: The created project pipeline object
+    :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
+
+    :raises ApiException: If the API call to create the pipeline fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from pathlib import Path
+        from wrapica.project_pipelines import create_cwl_project_pipeline
+
+        pipeline = create_cwl_project_pipeline(
+            project_id="project-123",
+            pipeline_code="my_cwl_pipeline",
+            workflow_path=Path("/path/to/workflow.cwl")
+        )
+
+        print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_cwl_pipeline
     """
 
     # Add in workflow and
@@ -2103,16 +2124,42 @@ def create_cwl_workflow_from_zip(
         resource_type: Optional[ResourceType] = None
 ) -> ProjectPipelineV4:
     """
-    Create a CWL project pipeline from a zip file containing the workflow and tools
+    Create a CWL project pipeline from a zip file containing workflow and tools.
 
-    :param project_id:
-    :param pipeline_code:
-    :param zip_path:
-    :param analysis_storage:
-    :param workflow_description:
-    :param html_documentation_path:
-    :param resource_type:
-    :return:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_code: The unique code string for the new pipeline
+    :param zip_path: The local path to the zip file containing workflow.cwl and tools
+    :param analysis_storage: The analysis storage object to use. Defaults to None,
+        in which case the default Small storage is used
+    :param workflow_description: The description text for the pipeline. Defaults to None,
+        in which case the doc attribute from workflow.cwl is used
+    :param html_documentation_path: The local path to HTML documentation. Defaults to None,
+        in which case no documentation is attached
+    :param resource_type: The compute resource type for the pipeline. Defaults to None,
+        in which case no specific resource is requested
+
+    :return: The created project pipeline object
+    :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
+
+    :raises FileNotFoundError: If the zip file does not contain a workflow.cwl file
+    :raises ApiException: If the API call to create the pipeline fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from pathlib import Path
+        from wrapica.project_pipelines import create_cwl_workflow_from_zip
+
+        pipeline = create_cwl_workflow_from_zip(
+            project_id="project-123",
+            pipeline_code="my_cwl_pipeline",
+            zip_path=Path("/path/to/workflow.zip")
+        )
+
+        print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_cwl_pipeline
     """
     # Unzip the workflow and tool files
     with (TemporaryDirectory() as temp_dir, ZipFile(zip_path, 'r') as zip_h):
@@ -2175,6 +2222,41 @@ def create_nextflow_pipeline_from_zip(
         html_documentation_path: Optional[Path] = None,
         resource_type: Optional[ResourceType] = None
 ) -> ProjectPipelineV4:
+    """
+    Create a Nextflow project pipeline from a zip file containing workflow files.
+
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_code: The unique code string for the new pipeline
+    :param zip_path: The local path to the zip file containing main.nf and config
+    :param workflow_description: The description text for the pipeline
+    :param html_documentation_path: The local path to HTML documentation. Defaults to None,
+        in which case no documentation is attached
+    :param resource_type: The compute resource type for the pipeline. Defaults to None,
+        in which case no specific resource is requested
+
+    :return: The created project pipeline object
+    :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
+
+    :raises ApiException: If the API call to create the pipeline fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from pathlib import Path
+        from wrapica.project_pipelines import create_nextflow_pipeline_from_zip
+
+        pipeline = create_nextflow_pipeline_from_zip(
+            project_id="project-123",
+            pipeline_code="my_nf_pipeline",
+            zip_path=Path("/path/to/pipeline.zip"),
+            workflow_description="My Nextflow pipeline"
+        )
+
+        print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_nf_pipeline
+    """
     # Extract the zip file
     with TemporaryDirectory() as temp_dir:
         zip_h = ZipFile(zip_path, 'r')
@@ -2242,43 +2324,41 @@ def create_nextflow_pipeline_from_nf_core_zip(
         resource_type: Optional[ResourceType] = None
 ) -> ProjectPipelineV4:
     """
-    Create a Nextflow project pipeline from a zip file containing the workflow and tools
-    This function is designed for a user to generate an nf-core pipeline from a zip file containing the workflow and tools.
+    Create a Nextflow project pipeline from an nf-core zip download.
 
-    :param pipeline_revision:
-    :param project_id:
-    :param pipeline_code:
-    :param zip_path:
-    :param workflow_description:
-    :param html_documentation_path:
-    :param resource_type:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_code: The unique code string for the new pipeline
+    :param zip_path: The local path to the nf-core zip file
+    :param pipeline_revision: The nf-core pipeline revision string used to locate the workflow directory
+    :param workflow_description: The description text for the pipeline. Defaults to None,
+        in which case no description is set
+    :param html_documentation_path: The local path to HTML documentation. Defaults to None,
+        in which case no documentation is attached
+    :param resource_type: The compute resource type for the pipeline. Defaults to None,
+        in which case no specific resource is requested
 
-    :return: The nextflow pipeline
-    :rtype: `ProjectPipeline <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipeline/>`_
+    :return: The created project pipeline object
+    :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
+
+    :raises ApiException: If the API call to create the pipeline fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
 
-        # Bash Prestep
-        # Create a nextflow pipeline from a zip file containing the workflow and tools
-        # nf-core download bamtofastq --compress zip --outdir bamtofastq
-
-        # Imports
-        from wrapica.project_pipelines import create_nextflow_pipeline_from_zip
-
-        # Set vars
-        project_id = "project-123"
-        pipeline_code = "pipeline-123"
-        zip_path = Path("/path/to/bamtofastq.zip")
-        workflow_description = "This is the nf-core pipeline for bamtofastq"
-
-        # Create nextflow pipeline from zip
-        nextflow_pipeline = create_nextflow_pipeline_from_zip(
-            project_id, pipeline_code, zip_path, workflow_description
+        from pathlib import Path
+        from wrapica.project_pipelines import create_nextflow_pipeline_from_nf_core_zip
+        pipeline = create_nextflow_pipeline_from_nf_core_zip(
+            project_id="project-123",
+            pipeline_code="nfcore_bamtofastq__1_0_0",
+            zip_path=Path("/path/to/bamtofastq.zip"),
+            pipeline_revision="1.0.0",
+            workflow_description="nf-core bamtofastq pipeline"
         )
+
+        print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: nfcore_bamtofastq__1_0_0
     """
 
     temp_dir = TemporaryDirectory()
@@ -2403,19 +2483,46 @@ def create_nextflow_project_pipeline(
         resource_type: Optional[ResourceType] = None
 ) -> ProjectPipelineV4:
     """
-    Create a CWL project pipeline from a workflow path and tool paths
+    Create a Nextflow project pipeline from individual workflow files.
 
-    :param project_id:
-    :param pipeline_code:
-    :param main_nextflow_file:
-    :param nextflow_config_file:
-    :param other_nextflow_files:
-    :param workflow_description:
-    :param params_xml_file:
-    :param analysis_storage:
-    :param workflow_html_documentation:
-    :param resource_type:
-    :return:
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_code: The unique code string for the new pipeline
+    :param main_nextflow_file: The local path to the main.nf file
+    :param nextflow_config_file: The local path to the nextflow.config file
+    :param other_nextflow_files: The list of local paths to additional pipeline files
+    :param workflow_description: The description text for the pipeline
+    :param params_xml_file: The local path to a params.xml file. Defaults to None,
+        in which case a blank params XML is generated
+    :param analysis_storage: The analysis storage object to use. Defaults to None,
+        in which case the default Small storage is used
+    :param workflow_html_documentation: The local path to HTML documentation. Defaults to None,
+        in which case no documentation is attached
+    :param resource_type: The compute resource type for the pipeline. Defaults to None,
+        in which case no specific resource is requested
+
+    :return: The created project pipeline object
+    :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
+
+    :raises ApiException: If the API call to create the pipeline fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from pathlib import Path
+        from wrapica.project_pipelines import create_nextflow_project_pipeline
+        pipeline = create_nextflow_project_pipeline(
+            project_id="project-123",
+            pipeline_code="my_nf_pipeline",
+            main_nextflow_file=Path("/path/to/main.nf"),
+            nextflow_config_file=Path("/path/to/nextflow.config"),
+            other_nextflow_files=[],
+            workflow_description="My Nextflow pipeline"
+        )
+
+        print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_nf_pipeline
     """
 
     # Get nextflow main and config files

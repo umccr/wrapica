@@ -52,39 +52,41 @@ def generate_empty_bundle(
         pipeline_release_url: Optional[str] = None
 ) -> Bundle:
     """
-    Generate an empty bundle (in DRAFT format) and return the bundle object
+    Create an empty bundle in DRAFT status and return the bundle object.
 
-    :param bundle_name:  The name of the bundle
-    :param bundle_version:  The version of the bundle
-    :param short_description:  The description of the bundle
-    :param version_comment:  The description of the version
-    :param region_id:  The region id of the bundle
-    :param categories:
-    :param pipeline_release_url:
+    :param bundle_name: The name to assign to the new bundle
+    :param bundle_version: The semantic version string for the bundle release
+    :param short_description: A brief description of the bundle contents
+    :param version_comment: A comment describing this version of the bundle
+    :param region_id: The region identifier as a UUID4 object or UUID-formatted
+        string. Defaults to None, in which case the default region is used
+    :param categories: A list of category strings to tag the bundle with.
+        Defaults to None, in which case an empty list is used
+    :param pipeline_release_url: The URL to the pipeline release page.
+        Defaults to None, in which case no link is added
 
-    :return: The newly created bundle object
+    :return: The newly created bundle object in DRAFT status
     :rtype: `Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_
 
-    :raises: ApiException
+    :raises ApiException: If the API call to create the bundle fails
 
     :Examples:
 
     .. code-block:: python
-
         :linenos:
 
         from wrapica.bundle import generate_empty_bundle
-        from wrapica.libica_models import Bundle
 
-        # Initialise bundle
-        bundle_obj: Bundle = generate_empty_bundle(
+        bundle_obj = generate_empty_bundle(
             bundle_name="my-first-bundle",
-            bundle_description="A quick description of the bundle",
             bundle_version="1.0.0",
-            bundle_version_description="First release of my-first-bundle",
+            short_description="A quick description of the bundle",
+            version_comment="First release of my-first-bundle",
             categories=["Test"]
         )
 
+        print(f"Bundle ID: {bundle_obj.id}, Name: {bundle_obj.name}")
+        # Bundle ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my-first-bundle
     """
     from ...region import get_default_region
 
@@ -143,14 +145,14 @@ def get_bundle_obj_from_bundle_id(
         bundle_id: Union[UUID4, str]
 ) -> Bundle:
     """
-    Given a bundle_id, return the bundle object
+    Return the bundle object for a given bundle ID.
 
-    :param bundle_id:
+    :param bundle_id: The bundle identifier as a UUID4 object or UUID-formatted string
 
-    :return: The bundle as an object
+    :return: The bundle object matching the given ID
     :rtype: `Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve the bundle fails
 
     :Examples:
 
@@ -158,13 +160,13 @@ def get_bundle_obj_from_bundle_id(
         :linenos:
 
         from wrapica.bundle import get_bundle_obj_from_bundle_id
-        from wrapica.libica_models import Bundle
 
-        # Get bundle object from the bundle id
-        bundle_obj: Bundle = get_bundle_obj_from_bundle_id(
-            bundle_id='abcdef-1234'
+        bundle_obj = get_bundle_obj_from_bundle_id(
+            bundle_id="abcd1234-ab12-ab12-ab12-abcdef123456"
         )
 
+        print(f"Bundle ID: {bundle_obj.id}, Name: {bundle_obj.name}")
+        # Bundle ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my-bundle-name
     """
 
     # Initialise the API client
@@ -189,16 +191,17 @@ def get_bundle_obj_from_bundle_name(
         region_id: Optional[Union[UUID4, str]] = None
 ) -> Bundle:
     """
-    Given a bundle name, return the bundle object
+    Return the bundle object matching the given bundle name.
 
-    :param bundle_name:  The bundle name
-    :param region_id:  The region id of the bundle
+    :param bundle_name: The exact name of the bundle to look up
+    :param region_id: The region identifier as a UUID4 object or UUID-formatted
+        string. Defaults to None, in which case all regions are searched
 
-    :return: The bundle as an object
-
+    :return: The bundle object matching the given name
     :rtype: `Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve bundles fails
+    :raises IndexError: If no bundle or multiple bundles match the name
 
     :Examples:
 
@@ -206,13 +209,13 @@ def get_bundle_obj_from_bundle_name(
         :linenos:
 
         from wrapica.bundle import get_bundle_obj_from_bundle_name
-        from wrapica.libica_models import Bundle
 
-        # Get bundle object from the bundle name
-        bundle_obj: Bundle = get_bundle_obj_from_bundle_name(
-            bundle_name='my-first-bundle'
+        bundle_obj = get_bundle_obj_from_bundle_name(
+            bundle_name="my-first-bundle"
         )
 
+        print(f"Bundle ID: {bundle_obj.id}, Name: {bundle_obj.name}")
+        # Bundle ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my-first-bundle
     """
     bundle_list = filter_bundles(
         bundle_name=bundle_name,
@@ -234,37 +237,30 @@ def add_pipeline_to_bundle(
         pipeline_id: Union[UUID4, str]
 ) -> bool:
     """
-    Add a pipeline to a bundle.
+    Add a released pipeline to a bundle.
 
-    :param bundle_id:
-    :param pipeline_id:
+    :param bundle_id: The bundle identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier as a UUID4 object or UUID-formatted string
 
-    :return: True if successful, False otherwise
+    :return: True if the pipeline was successfully linked to the bundle
     :rtype: bool
 
-    :raises: ApiException
+    :raises ApiException: If the API call to link the pipeline fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Wrapica imports
-        from wrapica.pipeline import get_pipeline_obj_from_pipeline_id
         from wrapica.bundle import add_pipeline_to_bundle
 
-        # Set vars
-        pipeline_code = "my_pipeline_code"
-        bundle_name = "my_bundle_name"
+        success = add_pipeline_to_bundle(
+            bundle_id="abcd1234-ab12-ab12-ab12-abcdef123456",
+            pipeline_id="abcd1234-ab12-ab12-ab12-abcdef123456"
+        )
 
-        # Get pipeline id from pipeline code
-        pipeline_id = get_pipeline_obj_from_pipeline_id(pipeline_code).id
-
-        # Get bundle id from bundle name
-        bundle_id = get_bundle_obj_from_bundle_name(bundle_name).id
-
-        # Link pipeline to bundle
-        add_pipeline_to_bundle(bundle_id, pipeline_id)
+        print(success)
+        # True
     """
 
     # Check Pipeline Status
@@ -309,36 +305,32 @@ def add_project_data_to_bundle(
     data_id: Union[UUID4, str]
 ) -> bool:
     """
-    Add project data to a bundle
+    Add project data to a bundle by linking data from a specific project.
 
-    :param bundle_id:
-    :param project_id:
-    :param data_id:
+    :param bundle_id: The bundle identifier as a UUID4 object or UUID-formatted string
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param data_id: The data identifier as a UUID4 object or UUID-formatted string
 
-    :return: True if successful, False otherwise
-
+    :return: True if the data was successfully linked to the bundle
     :rtype: bool
 
-    :raises: ApiException
+    :raises ApiException: If the API call to link data fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.bundle import add_project_data_to_bundle
-        from wrapica.project_data import convert_icav2_uri_to_data_obj
 
-        # Set vars
-        bundle_id = "abcdef-1234"
-        data_uri = "icav2://project_id/path/to/data"
+        success = add_project_data_to_bundle(
+            bundle_id="abcd1234-ab12-ab12-ab12-abcdef123456",
+            project_id="abcd1234-ab12-ab12-ab12-abcdef123456",
+            data_id="abcd1234-ab12-ab12-ab12-abcdef123456"
+        )
 
-        # Get project id and data id from data uri
-        project_data_obj = convert_icav2_uri_to_data_obj(data_uri)
-
-        # Add project data to bundle
-        add_project_data_to_bundle(bundle_id, project_data_obj.project_id, project_data_obj.data.id)
+        print(success)
+        # True
     """
 
     # Get Bundle
@@ -375,33 +367,30 @@ def add_data_to_bundle(
         data_id: Union[UUID4, str]
 ) -> bool:
     """
-    Add data to a bundle
+    Add data to a bundle by linking a data object directly.
 
-    :param bundle_id:
-    :param data_id:
+    :param bundle_id: The bundle identifier as a UUID4 object or UUID-formatted string
+    :param data_id: The data identifier as a UUID4 object or UUID-formatted string
 
-    :return: True if successful, False otherwise
+    :return: True if the data was successfully linked to the bundle
     :rtype: bool
 
-    :raises: ApiException
+    :raises ApiException: If the API call to link data fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
-        from wrapica.bundle import add_project_data_to_bundle
-        from wrapica.data import convert_icav2_uri_to_data_obj
+        from wrapica.bundle import add_data_to_bundle
 
-        # Set vars
-        # Use get_bundle_obj_from_bundle_name to get bundle_id if
-        # you have the bundle name and not the bundle id
-        bundle_id = "abcdef-1234"
-        data_uri = "icav2://project_id/path/to/data"
+        success = add_data_to_bundle(
+            bundle_id="abcd1234-ab12-ab12-ab12-abcdef123456",
+            data_id="abcd1234-ab12-ab12-ab12-abcdef123456"
+        )
 
-        # Add project data to bundle
-        add_data_to_bundle(bundle_id, convert_icav2_uri_to_data_obj(data_uri).id)
+        print(success)
+        # True
     """
 
     # Get Bundle
@@ -441,25 +430,21 @@ def release_bundle(
     bundle_id: Union[UUID4, str]
 ):
     """
-    Release a bundle, converts a bundle status from DRAFT to RELEASED.
+    Release a bundle by converting its status from DRAFT to RELEASED.
 
-    :param bundle_id:
+    :param bundle_id: The bundle identifier as a UUID4 object or UUID-formatted string
 
-    :raises: ApiException
+    :raises ApiException: If the API call to release the bundle fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.bundle import release_bundle
 
-        # Set vars
-        bundle_id = "abcdef-1234"
-
-        # Release bundle
-        release_bundle(bundle_id)
+        # Releases the bundle (changes status to RELEASED)
+        release_bundle(bundle_id="abcd1234-ab12-ab12-ab12-abcdef123456")
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         api_client.set_default_header(
@@ -487,42 +472,39 @@ def filter_bundles(
     creator_id: Optional[Union[UUID4, str]] = None
 ) -> Optional[List[Bundle]]:
     """
-    Get a list of bundles but filter by name, region id, status, and creator id
+    Filter bundles by name, region, status, or creator and return matching results.
 
-    :param bundle_name:  The name of the bundle
-    :param project_id: The project id
-    :param region_id:  The region id of the bundle
-    :param status:  The status of the bundle
-    :param creator_id:  The creator id of the bundle
+    :param bundle_name: A regex pattern to match against bundle names.
+        Defaults to None, in which case no name filtering is applied
+    :param project_id: The project identifier to list bundles from.
+        Defaults to None, in which case bundles across all projects are searched
+    :param region_id: The region identifier to filter bundles by.
+        Defaults to None, in which case all regions are included
+    :param status: The bundle status to filter by (e.g., DRAFT, RELEASED).
+        Defaults to None, in which case all statuses are included
+    :param creator_id: The creator user identifier to filter bundles by.
+        Defaults to None, in which case all creators are included
 
-    :return: List of bundles
-
+    :return: A list of bundles matching the filter criteria
     :rtype: List[`Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve bundles fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.bundle import filter_bundles
-        from wrapica.libica_models import Bundle
-        from wrapica.enums import BundleStatus
-        from wrapica.user import get_user_from_user_name
 
-        # Set vars
-        user_name = "Alexis Lucattini"
-
-        # Get creator id from user name
-        creator_id = get_user_from_user_name(user_name).id
-
-        # Filter bundles
-        bundle_list: List[Bundle] = filter_bundles(
-            bundle_status=BundleStatus.RELEASED,
-            creator_id=creator_id
+        bundle_list = filter_bundles(
+            bundle_name="my-bundle",
+            status="RELEASED"
         )
+
+        for bundle in bundle_list:
+            print(f"Bundle ID: {bundle.id}, Name: {bundle.name}")
+            # Bundle ID: abcd1234-..., Name: my-bundle-name
     """
 
     if project_id is not None:
@@ -595,25 +577,29 @@ def list_data_in_bundle(
     bundle_id: Union[UUID4, str]
 ) -> List[BundleData]:
     """
-    Given a bundle id, list data in a bundle
+    List all data items linked to a bundle.
 
-    :param bundle_id:
+    :param bundle_id: The bundle identifier as a UUID4 object or UUID-formatted string
 
-    :return: List of data items
+    :return: A list of data items linked to the bundle
     :rtype: List[`BundleData <https://umccr.github.io/libica/openapi/v3/docs/BundleData/>`_]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve bundle data fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
-        from wrapica.bundle import list_data_in_bundles
+        from wrapica.bundle import list_data_in_bundle
 
-        list_data_in_bundle(bundle_id='abcdef-1234')
+        bundle_data = list_data_in_bundle(
+            bundle_id="abcd1234-ab12-ab12-ab12-abcdef123456"
+        )
 
+        for item in bundle_data:
+            print(f"Data ID: {item.data.id}, Name: {item.data.details.name}")
+            # Data ID: abcd1234-..., Name: my-data-file.txt
     """
     data_items = []
 
@@ -652,11 +638,11 @@ def filter_bundle_data_to_top_level_only(
         bundle_data: List[BundleData]
 ) -> List[BundleData]:
     """
-    Filter bundle data to top level only (no subdirectories or files underneath folders)
+    Filter bundle data to return only top-level items excluding nested contents.
 
-    :param bundle_data: List of linked bundle data items
+    :param bundle_data: A list of bundle data items to filter
 
-    :return: List of top level bundle data items
+    :return: A list containing only top-level bundle data items
     :rtype: List[`BundleData <https://umccr.github.io/libica/openapi/v3/docs/BundleData/>`_]
 
     :Examples:
@@ -664,17 +650,17 @@ def filter_bundle_data_to_top_level_only(
     .. code-block:: python
         :linenos:
 
-        # Imports
-        from wrapica.bundle import filter_bundle_data_to_top_level_only, list_data_in_bundle
+        from wrapica.bundle import (
+            filter_bundle_data_to_top_level_only,
+            list_data_in_bundle
+        )
 
-        # Set vars
-        bundle_id = "abcdef-1234"
+        bundle_data = list_data_in_bundle("abcd1234-ab12-ab12-ab12-abcdef123456")
+        top_level_data = filter_bundle_data_to_top_level_only(bundle_data)
 
-        # Get all data
-        bundle_data = list_data_in_bundle(bundle_id)
-
-        # Filter to top level only
-        top_level_bundle_data = filter_bundle_data_to_top_level_only(bundle_data)
+        for item in top_level_data:
+            print(f"Data ID: {item.data.id}, Name: {item.data.details.name}")
+            # Data ID: abcd1234-..., Name: my-data-file.txt
     """
     # Find set of project ids
     project_ids: List[str] = list(set(list(map(
@@ -752,25 +738,29 @@ def list_pipelines_in_bundle(
     bundle_id: Union[UUID4, str]
 ) -> List[BundlePipeline]:
     """
-    Given a bundle id, list pipelines in a bundle
+    List all pipelines linked to a bundle.
 
-    :param bundle_id:  The bundle id
+    :param bundle_id: The bundle identifier as a UUID4 object or UUID-formatted string
 
-    :return: List of pipeline items
+    :return: A list of pipeline items linked to the bundle
     :rtype: List[`BundlePipeline <https://umccr.github.io/libica/openapi/v3/docs/BundlePipeline/>`_]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve bundle pipelines fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.bundle import list_pipelines_in_bundle
 
-        list_pipelines_in_bundle(bundle_id='abcdef-1234')
+        pipeline_list = list_pipelines_in_bundle(
+            bundle_id="abcd1234-ab12-ab12-ab12-abcdef123456"
+        )
 
+        for pipeline in pipeline_list:
+            print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
+            # Pipeline ID: abcd1234-..., Code: my-pipeline
     """
     # Use the curl api for now
     # No looping for pipelines
@@ -794,24 +784,29 @@ def list_bundles_in_project(
     project_id: Union[UUID4, str]
 ) -> List[Bundle]:
     """
-    List bundles in a project
+    List all bundles linked to a project.
 
-    :param project_id: The project id
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
 
-    :return: List of bundles linked to this project
+    :return: A list of bundles linked to the project
     :rtype: List[`Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_]
 
-    :raises: ApiException
+    :raises ApiException: If the API call to retrieve project bundles fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.bundle import list_bundles_in_project
 
-        list_bundles_in_project(project_id='abcdef-1234')    
+        bundle_list = list_bundles_in_project(
+            project_id="abcd1234-ab12-ab12-ab12-abcdef123456"
+        )
+
+        for bundle in bundle_list:
+            print(f"Bundle ID: {bundle.id}, Name: {bundle.name}")
+            # Bundle ID: abcd1234-..., Name: my-bundle-name
     """
     # while True: no iterator for bundles list
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -834,27 +829,25 @@ def link_bundle_to_project(
     bundle_id: Union[UUID4, str]
 ):
     """
-    Link bundle to project
+    Link a bundle to a project, making bundle contents accessible within the project.
 
-    :param project_id:  The project id
-    :param bundle_id:   The bundle id
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param bundle_id: The bundle identifier as a UUID4 object or UUID-formatted string
 
-    :raises: ApiException
+    :raises ApiException: If the API call to link the bundle fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.bundle import link_bundle_to_project
 
-        # Set vars
-        project_id = "abcdef-1234"
-        bundle_id = "abcdef-1234"
-
-        # Link bundle to project
-        link_bundle_to_project(project_id, bundle_id)
+        # Links the bundle to the project
+        link_bundle_to_project(
+            project_id="abcd1234-ab12-ab12-ab12-abcdef123456",
+            bundle_id="abcd1234-ab12-ab12-ab12-abcdef123456"
+        )
     """
     # Check bundle list
     existing_bundles: List[Bundle] = list_bundles_in_project(project_id)
@@ -890,27 +883,26 @@ def unlink_bundle_from_project(
         bundle_id: Union[UUID4, str],
 ):
     """
-    Remove the bundle from the project
+    Remove a bundle from a project, unlinking its contents from the project.
 
-    :param project_id:  The project id
-    :param bundle_id:   The bundle id
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param bundle_id: The bundle identifier as a UUID4 object or UUID-formatted string
 
-    :raises: ApiException
+    :raises ApiException: If the API call to unlink the bundle fails
+    :raises ValueError: If the bundle is not linked to the project
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.bundle import unlink_bundle_from_project
 
-        # Set vars
-        project_id = "abcdef-1234"
-        bundle_id = "abcdef-1234"
-
-        # Unlink bundle to project
-        unlink_bundle_from_project(project_id, bundle_id)
+        # Unlinks the bundle from the project
+        unlink_bundle_from_project(
+            project_id="abcd1234-ab12-ab12-ab12-abcdef123456",
+            bundle_id="abcd1234-ab12-ab12-ab12-abcdef123456"
+        )
     """
     # Check bundle list
     existing_bundles: List[Bundle] = list_bundles_in_project(project_id)
@@ -951,26 +943,21 @@ def deprecate_bundle(
         bundle_id: Union[UUID4, str]
 ):
     """
-    Given a bundle id, deprecate the bundle
+    Deprecate a bundle by changing its status to DEPRECATED.
 
-    :param bundle_id:
-    :return:
+    :param bundle_id: The bundle identifier as a UUID4 object or UUID-formatted string
 
-    :raises: ApiException
+    :raises ApiException: If the API call to deprecate the bundle fails
 
     :Examples:
 
     .. code-block:: python
         :linenos:
 
-        # Imports
         from wrapica.bundle import deprecate_bundle
 
-        # Set vars
-        bundle_id = "abcdef-1234"
-
-        # Deprecate the bundle
-        deprecate_bundle(bundle_id)
+        # Deprecates the bundle (changes status to DEPRECATED)
+        deprecate_bundle(bundle_id="abcd1234-ab12-ab12-ab12-abcdef123456")
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         api_client.set_default_header(
@@ -993,12 +980,30 @@ def coerce_bundle_id_or_name_to_bundle_obj(
         bundle_id_or_name: str
 ) -> Bundle:
     """
-    Given either a bundle id or bundle name, return the bundle object
+    Convert a bundle ID or bundle name string to a bundle object.
 
-    :param bundle_id_or_name:
+    :param bundle_id_or_name: The bundle identifier as a UUID-formatted string
+        or the bundle name as a plain string
 
-    :return: The bundle as an object
+    :return: The bundle object matching the given identifier or name
     :rtype: `Bundle <https://umccr.github.io/libica/openapi/v3/docs/Bundle/>`_
+
+    :raises ApiException: If the API call to retrieve the bundle fails
+    :raises IndexError: If no bundle matches the given name
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.bundle import coerce_bundle_id_or_name_to_bundle_obj
+
+        bundle_obj = coerce_bundle_id_or_name_to_bundle_obj(
+            bundle_id_or_name="my-first-bundle"
+        )
+
+        print(f"Bundle ID: {bundle_obj.id}, Name: {bundle_obj.name}")
+        # Bundle ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my-first-bundle
     """
     if is_uuid_format(bundle_id_or_name):
         return get_bundle_obj_from_bundle_id(bundle_id_or_name)
@@ -1009,12 +1014,30 @@ def coerce_bundle_id_or_name_to_bundle_id(
         bundle_id_or_name: str
 ) -> str:
     """
-    Given either a bundle id or bundle name, return the bundle id
+    Convert a bundle ID or bundle name string to a bundle ID string.
 
-    :param bundle_id_or_name:
+    :param bundle_id_or_name: The bundle identifier as a UUID-formatted string
+        or the bundle name as a plain string
 
-    :return: The bundle id
+    :return: The bundle identifier as a UUID-formatted string
     :rtype: str
+
+    :raises ApiException: If the API call to retrieve the bundle fails
+    :raises IndexError: If no bundle matches the given name
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.bundle import coerce_bundle_id_or_name_to_bundle_id
+
+        bundle_id = coerce_bundle_id_or_name_to_bundle_id(
+            bundle_id_or_name="my-first-bundle"
+        )
+
+        print(bundle_id)
+        # abcd1234-ab12-ab12-ab12-abcdef123456
     """
     if is_uuid_format(bundle_id_or_name):
         return bundle_id_or_name
