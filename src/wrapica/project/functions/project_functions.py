@@ -71,7 +71,7 @@ def get_project_obj_from_project_id(
     try:
         api_response: Project = api_instance.get_project(project_id=str(project_id))
     except ApiException as e:
-        logger.error("Exception when calling ProjectApi->get_project_by_id: %s\n" % e)
+        logger.error("Exception when calling ProjectApi->get_project: %s\n" % e)
         raise ApiException
 
     return api_response
@@ -208,7 +208,7 @@ def check_project_has_data_sharing_enabled(
         # Retrieve a list of projects.
         api_response: Project = api_instance.get_project(project_id=str(project_id))
     except ApiException as e:
-        logger.error("Exception when calling ProjectApi->get_project_by_id: %s\n" % e)
+        logger.error("Exception when calling ProjectApi->get_project: %s\n" % e)
         raise ApiException
 
     return api_response.data_sharing_enabled

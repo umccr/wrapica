@@ -377,7 +377,7 @@ def get_analysis_storage_from_analysis_storage_id(
             project_id=str(project_id)
         )
     except ApiException as e:
-        logger.error("Exception when calling AnalysisStorageApi->get_analysis_storage_options: %s\n" % e)
+        logger.error("Exception when calling ProjectAnalysisStorageApi->get_project_analysis_storage_options: %s\n" % e)
         raise ApiException
 
     try:
@@ -763,7 +763,7 @@ def launch_nextflow_workflow(
 
     # example passing only required values which don't have defaults set
     try:
-        # Create and start an analysis for a CWL pipeline.
+        # Create and start an analysis for a Nextflow pipeline.
         api_response: AnalysisV4 = api_instance.create_nextflow_analysis_with_custom_input(
             project_id=str(project_id),
             create_nextflow_with_custom_input_analysis=nextflow_analysis,
