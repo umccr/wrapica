@@ -13,6 +13,7 @@ from wrapica.utils.configuration import (
     get_project_id_from_env_var,
     get_jwt_token_obj,
 )
+from tests.test_helpers import DUMMY_ACCESS_TOKEN
 
 
 class TestGetIcav2Configuration:
@@ -32,7 +33,7 @@ class TestGetIcav2Configuration:
         configuration = get_icav2_configuration()
 
         assert configuration.host == "https://192.0.2.1/ica/rest"
-        assert configuration.access_token == "dummy.jwt.token"
+        assert configuration.access_token == DUMMY_ACCESS_TOKEN
 
 
 class TestGetIcav2AccessToken:
@@ -47,7 +48,7 @@ class TestGetIcav2AccessToken:
 
         token = get_icav2_access_token()
 
-        assert token == "dummy.jwt.token"
+        assert token == DUMMY_ACCESS_TOKEN
 
     def test_raises_not_implemented_without_env_var(self, monkeypatch, mocker):
         """Without ICAV2_ACCESS_TOKEN env var, falls back to session file and raises NotImplementedError."""

@@ -2,11 +2,13 @@
 import pytest
 from unittest.mock import MagicMock
 
+from tests.test_helpers import DUMMY_ACCESS_TOKEN
+
 
 @pytest.fixture(autouse=True)
 def mock_env_vars(monkeypatch):
     """Set dummy environment variables to prevent real credential usage."""
-    monkeypatch.setenv("ICAV2_ACCESS_TOKEN", "dummy.jwt.token")
+    monkeypatch.setenv("ICAV2_ACCESS_TOKEN", DUMMY_ACCESS_TOKEN)
     monkeypatch.setenv("ICAV2_BASE_URL", "https://192.0.2.1/ica/rest")  # RFC 5737 non-routable
     monkeypatch.setenv("ICAV2_PROJECT_ID", "00000000-0000-4000-8000-000000000000")
 
@@ -16,7 +18,7 @@ def configuration_fixture(mocker):
     """Return a mocked libica Configuration object and patch get_icav2_configuration."""
     mock_config = MagicMock()
     mock_config.host = "https://192.0.2.1/ica/rest"
-    mock_config.access_token = "dummy.jwt.token"
+    mock_config.access_token = DUMMY_ACCESS_TOKEN
     mocker.patch(
         "wrapica.utils.configuration.get_icav2_configuration",
         return_value=mock_config

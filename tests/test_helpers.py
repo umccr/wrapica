@@ -4,6 +4,20 @@ from unittest.mock import MagicMock
 
 
 # Reusable test constants
+
+# A syntactically valid JWT (header.payload.signature) with:
+#   sub: eeeeeeee-5555-4000-8000-eeeeeeeeeeee
+#   aud: ["ica"]
+#   exp: 9999999999 (far future)
+#   iat: 1700000000
+#   iss: https://192.0.2.1
+# Signature is a 32-byte zero placeholder (verification is disabled in tests).
+DUMMY_ACCESS_TOKEN = (
+    "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9"
+    ".eyJzdWIiOiJlZWVlZWVlZS01NTU1LTQwMDAtODAwMC1lZWVlZWVlZWVlZWUiLCJhdWQiOlsiaWNhIl0sImV4cCI6OTk5OTk5OTk5OSwiaWF0IjoxNzAwMDAwMDAwLCJpc3MiOiJodHRwczovLzE5Mi4wLjIuMSJ9"
+    ".AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+)
+
 DUMMY_PROJECT_ID = "aaaaaaaa-1111-4000-8000-aaaaaaaaaaaa"
 DUMMY_DATA_ID_FILE = "fil.1234567890abcdef1234567890abcdef"
 DUMMY_DATA_ID_FOLDER = "fol.abcdef1234567890abcdef1234567890"
