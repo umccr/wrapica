@@ -770,7 +770,7 @@ def launch_nextflow_workflow(
             **analysis_kwargs
         )
     except ApiException as e:
-        logger.error("Exception when calling ProjectAnalysisApi->create_nextflow_analysis: %s\n" % e)
+        logger.error("Exception when calling ProjectAnalysisApi->create_nextflow_analysis_with_custom_input: %s\n" % e)
         raise ApiException
 
     return api_response
