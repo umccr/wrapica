@@ -148,32 +148,33 @@ jobs:
       branch_name: ${{ steps.get_branch_name.outputs.branch_name }}
 
   # Run tests and generate report
-#  test:
-#    needs:
-#      - setup
-#    runs-on: ubuntu-latest
-#    defaults:
-#      run:
-#        shell: bash -l {0}
-#    steps:
-#      - id: git_checkout
-#        uses: actions/checkout@v4
-#      - id: setup_python
-#        uses: actions/setup-python@v5
-#        with:
-#          python-version: '3.10'
-#      - id: run_make_test
-#        run: |
-#          make test
-#      - uses: actions/upload-artifact@v4
-#        with:
-#          name: coverage_report
-#          path: coverage_report.txt
+  test:
+    needs:
+      - setup
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - id: git_checkout
+        uses: actions/checkout@v4
+      - id: setup_python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: run_make_test
+        run: |
+          make test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage_report
+          path: coverage_report.txt
 
   # Commit docs
   commit_docs_requirement_file:
     needs:
       - setup
+      - test
     uses: ./.github/workflows/build_docs_requirements_file.yml
     with:
       branch: ${{ needs.setup.outputs.branch_name }}
@@ -182,6 +183,7 @@ jobs:
   build_package_wheels:
     needs:
       - setup
+      - test
       - commit_docs_requirement_file
       # - test
     uses: ./.github/workflows/build_package.yml
@@ -190,8 +192,8 @@ jobs:
   build_release:
     needs:
       - setup
+      - test
       - commit_docs_requirement_file
-      # - test
       - build_package_wheels
     uses: ./.github/workflows/build_release.yml
     with:
@@ -206,8 +208,8 @@ jobs:
   publish_pypi:
     needs:
       - setup
+      - test
       - commit_docs_requirement_file
-      # - test
       - build_package_wheels
       - build_release
     uses: ./.github/workflows/publish_pypi.yml
@@ -228,8 +230,8 @@ jobs:
         shell: bash -l {0}
     needs:
       - setup
+      - test
       - commit_docs_requirement_file
-      # - test
       - build_package_wheels
       - build_release
       - publish_pypi
