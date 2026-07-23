@@ -278,8 +278,6 @@ def download_pipeline_file(
         print(content)
         # <_io.BytesIO object>
     """
-    assert file_path.parent.is_dir(), f"Parent directory {file_path.parent} does not exist"
-
     # Create an instance of the API class
     with ApiClient(get_icav2_configuration()) as api_client:
         # Force the API client to send back the v3 API

@@ -688,6 +688,10 @@ def launch_cwl_workflow(
         from wrapica.project_pipelines import launch_cwl_workflow
         from wrapica.libica_models import CreateCwlWithJsonInputAnalysis
 
+        cwl_analysis_obj = CreateCwlWithJsonInputAnalysis(
+          ...
+        )
+
         analysis = launch_cwl_workflow(
             project_id="project-123",
             cwl_analysis=cwl_analysis_obj
