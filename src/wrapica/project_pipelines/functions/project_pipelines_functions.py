@@ -66,12 +66,13 @@ from ...utils.globals import (
     URI_REGEX_OBJ,
     ICAV2_CONFIG_NEXTFLOW_PATH
 )
-from ...literals import DataType, PipelineStatusType, AnalysisStorageSizeType, ResourceType
+from ...literals import DataType, PipelineStatusType, AnalysisStorageSizeType, ResourceType, NextflowPipelineVersionType
 from ...utils.miscell import is_uuid_format, is_uri_format, coerce_to_uuid4_obj
 from ...utils.nextflow_helpers import (
-    get_default_nextflow_pipeline_version_id,
     include_icav2_config_into_nextflow_config,
     get_default_icav2_config_content,
+    get_nextflow_pipeline_versions_list,
+    get_default_nextflow_pipeline_version,
 )
 from .. import (
     CES_DATA_ABS_PATH,
@@ -2220,7 +2221,8 @@ def create_nextflow_pipeline_from_zip(
         zip_path: Path,
         workflow_description: str,
         html_documentation_path: Optional[Path] = None,
-        resource_type: Optional[ResourceType] = None
+        resource_type: Optional[ResourceType] = None,
+        nextflow_version: Optional[NextflowPipelineVersionType] = None
 ) -> ProjectPipelineV4:
     """
     Create a Nextflow project pipeline from a zip file containing workflow files.
@@ -2233,6 +2235,7 @@ def create_nextflow_pipeline_from_zip(
         in which case no documentation is attached
     :param resource_type: The compute resource type for the pipeline. Defaults to None,
         in which case no specific resource is requested
+    :param nextflow_version: The nextflow version to use. Defaults to None, in which case the default version is used
 
     :return: The created project pipeline object
     :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
@@ -2310,7 +2313,8 @@ def create_nextflow_pipeline_from_zip(
             workflow_description=workflow_description,
             params_xml_file=params_xml_file_path if params_xml_file_path.is_file() else None,
             workflow_html_documentation=html_documentation_path,
-            resource_type=resource_type
+            resource_type=resource_type,
+            nextflow_version=nextflow_version,
         )
 
 
@@ -2480,7 +2484,8 @@ def create_nextflow_project_pipeline(
         params_xml_file: Optional[Path] = None,
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
-        resource_type: Optional[ResourceType] = None
+        resource_type: Optional[ResourceType] = None,
+        nextflow_version: Optional[NextflowPipelineVersionType] = None
 ) -> ProjectPipelineV4:
     """
     Create a Nextflow project pipeline from individual workflow files.
@@ -2499,6 +2504,7 @@ def create_nextflow_project_pipeline(
         in which case no documentation is attached
     :param resource_type: The compute resource type for the pipeline. Defaults to None,
         in which case no specific resource is requested
+    :param nextflow_version: The nextflow version to use. Defaults to None, in which case the default version is used
 
     :return: The created project pipeline object
     :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
@@ -2594,6 +2600,26 @@ def create_nextflow_project_pipeline(
     else:
         resources = None
 
+    # Get the nextflow project pipeline version
+    if nextflow_version is None:
+        pipeline_version = get_default_nextflow_pipeline_version()
+    else:
+        nextflow_versions_list = get_nextflow_pipeline_versions_list()
+        try:
+            pipeline_version = next(filter(
+                lambda nextflow_version_iter_: nextflow_version_iter_.name == nextflow_version,
+                nextflow_versions_list
+            ))
+        except StopIteration:
+            valid_versions_str = ', '.join(list(map(
+                lambda nf_ver: nf_ver.name,
+                nextflow_versions_list
+            )))
+            raise ValueError(
+                f"Unknown nextflow_version '{nextflow_version}'. "
+                f"Valid versions: {valid_versions_str}"
+            )
+
 
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -2609,7 +2635,7 @@ def create_nextflow_project_pipeline(
             main_nextflow_file=main_nextflow_file_tuple_bytes,
             parameters_xml_file=params_xml_file_tuple_bytes,
             analysis_storage_id=coerce_to_uuid4_obj(analysis_storage.id),
-            pipeline_language_version_id=coerce_to_uuid4_obj(get_default_nextflow_pipeline_version_id()),
+            pipeline_language_version_id=coerce_to_uuid4_obj(pipeline_version.id),
             nextflow_config_file=nextflow_config_file_tuple_bytes,
             other_nextflow_files=other_nextflow_files_tuple_bytes_list,
             html_documentation=workflow_html_documentation_tuple_bytes,
