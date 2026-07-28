@@ -69,9 +69,10 @@ from ...utils.globals import (
 from ...literals import DataType, PipelineStatusType, AnalysisStorageSizeType, ResourceType, NextflowPipelineVersionType
 from ...utils.miscell import is_uuid_format, is_uri_format, coerce_to_uuid4_obj
 from ...utils.nextflow_helpers import (
-    get_default_nextflow_pipeline_version_id,
     include_icav2_config_into_nextflow_config,
-    get_default_icav2_config_content, get_nextflow_pipeline_versions_list, get_default_nextflow_pipeline_version,
+    get_default_icav2_config_content,
+    get_nextflow_pipeline_versions_list,
+    get_default_nextflow_pipeline_version,
 )
 from .. import (
     CES_DATA_ABS_PATH,
@@ -2221,7 +2222,7 @@ def create_nextflow_pipeline_from_zip(
         workflow_description: str,
         html_documentation_path: Optional[Path] = None,
         resource_type: Optional[ResourceType] = None,
-        nextflow_version: NextflowPipelineVersionType = None
+        nextflow_version: Optional[NextflowPipelineVersionType] = None
 ) -> ProjectPipelineV4:
     """
     Create a Nextflow project pipeline from a zip file containing workflow files.
@@ -2484,7 +2485,7 @@ def create_nextflow_project_pipeline(
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
         resource_type: Optional[ResourceType] = None,
-        nextflow_version: NextflowPipelineVersionType = None
+        nextflow_version: Optional[NextflowPipelineVersionType] = None
 ) -> ProjectPipelineV4:
     """
     Create a Nextflow project pipeline from individual workflow files.
@@ -2604,10 +2605,20 @@ def create_nextflow_project_pipeline(
         pipeline_version = get_default_nextflow_pipeline_version()
     else:
         nextflow_versions_list = get_nextflow_pipeline_versions_list()
-        pipeline_version = next(filter(
-            lambda nextflow_version_iter_: nextflow_version_iter_.name == nextflow_version,
-            nextflow_versions_list
-        ))
+        try:
+            pipeline_version = next(filter(
+                lambda nextflow_version_iter_: nextflow_version_iter_.name == nextflow_version,
+                nextflow_versions_list
+            ))
+        except StopIteration:
+            valid_versions_str = ', '.join(list(map(
+                lambda nf_ver: nf_ver.name,
+                nextflow_versions_list
+            )))
+            raise ValueError(
+                f"Unknown nextflow_version '{nextflow_version}'. "
+                f"Valid versions: {valid_versions_str}"
+            )
 
 
     # Enter a context with an instance of the API client
