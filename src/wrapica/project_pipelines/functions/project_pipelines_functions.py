@@ -2596,7 +2596,7 @@ def pipeline_update_from_zip(
         print(f"Deleted: {result['deleted']}")
     """
     from ...pipelines import list_pipeline_files, download_pipeline_to_directory
-    from ...user import get_user_obj_from_user_id, get_user_id_from_configuration
+    from ...user import get_user_id_from_configuration
 
     # Validate zip file
     if not zip_path.is_file():
