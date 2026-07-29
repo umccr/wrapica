@@ -451,3 +451,650 @@ class TestCreateParamsXml:
         assert "<pd:dataInputs/>" in content
         assert "<pd:steps/>" in content
         assert "</pd:pipeline>" in content
+
+
+class TestPipelineUpdateFromZip:
+    """Tests for pipeline_update_from_zip."""
+
+    PIPELINES_MODULE_PATH = "wrapica.pipelines"
+    USER_MODULE_PATH = "wrapica.user"
+    DUMMY_FILE_ID_1 = "11111111-aaaa-4000-8000-111111111111"
+    DUMMY_FILE_ID_2 = "22222222-bbbb-4000-8000-222222222222"
+    DUMMY_FILE_ID_3 = "33333333-cccc-4000-8000-333333333333"
+
+    @pytest.fixture
+    def draft_pipeline_mock(self, mocker):
+        """Create a mock draft pipeline owned by the current user."""
+        from tests.test_helpers import DUMMY_USER_ID
+
+        mock_pipeline = MagicMock()
+        mock_pipeline.pipeline.status = "DRAFT"
+        mock_pipeline.pipeline.owner.id = DUMMY_USER_ID
+        mocker.patch(
+            f"{MODULE_PATH}.get_project_pipeline_obj",
+            return_value=mock_pipeline,
+        )
+        return mock_pipeline
+
+    @pytest.fixture
+    def mock_user_id(self, mocker):
+        """Mock the user ID returned from configuration."""
+        from tests.test_helpers import DUMMY_USER_ID
+
+        mocker.patch(
+            f"{self.USER_MODULE_PATH}.get_user_id_from_configuration",
+            return_value=DUMMY_USER_ID,
+        )
+        return DUMMY_USER_ID
+
+    @pytest.fixture
+    def mock_download_pipeline(self, mocker):
+        """Mock download_pipeline_to_directory to write files into the temp dir."""
+        def _download(pipeline_id, output_directory, file_contents=None):
+            """Helper to set up the download mock with specific file contents.
+
+            Args:
+                file_contents: dict mapping relative path strings to file content.
+            """
+            if file_contents is None:
+                file_contents = {}
+
+            def side_effect(pid, output_dir):
+                for rel_path, content in file_contents.items():
+                    fpath = output_dir / rel_path
+                    fpath.parent.mkdir(parents=True, exist_ok=True)
+                    fpath.write_text(content)
+
+            return mocker.patch(
+                f"{self.PIPELINES_MODULE_PATH}.download_pipeline_to_directory",
+                side_effect=side_effect,
+            )
+
+        return _download
+
+    @pytest.fixture
+    def mock_pipeline_files(self, mocker):
+        """Mock list_pipeline_files to return a set of PipelineFile objects."""
+        def _make(file_mapping):
+            """file_mapping: dict of {relative_path_str: file_id}"""
+            pipeline_files = []
+            for name, fid in file_mapping.items():
+                pf = MagicMock()
+                pf.name = name
+                pf.id = fid
+                pipeline_files.append(pf)
+            return mocker.patch(
+                f"{self.PIPELINES_MODULE_PATH}.list_pipeline_files",
+                return_value=pipeline_files,
+            )
+
+        return _make
+
+    @pytest.fixture
+    def mock_update_delete_add(self, mocker):
+        """Mock the update, delete, and add pipeline file functions."""
+        mock_update = mocker.patch(f"{MODULE_PATH}.update_pipeline_file")
+        mock_delete = mocker.patch(f"{MODULE_PATH}.delete_pipeline_file")
+        mock_add = mocker.patch(f"{MODULE_PATH}.add_pipeline_file")
+        return mock_update, mock_delete, mock_add
+
+    def _create_zip(self, tmp_path, zip_name, file_contents):
+        """Helper to create a zip file with given contents.
+
+        Args:
+            tmp_path: pytest tmp_path fixture
+            zip_name: name of the zip file (without .zip extension)
+            file_contents: dict mapping paths relative to zip root dir to content strings
+
+        Returns:
+            Path to the created zip file.
+        """
+        zip_path = tmp_path / f"{zip_name}.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            for rel_path, content in file_contents.items():
+                zf.writestr(f"{zip_name}/{rel_path}", content)
+        return zip_path
+
+    def test_raises_file_not_found_for_missing_zip(self, configuration_fixture):
+        """Verify FileNotFoundError when zip_path doesn't exist."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        with pytest.raises(FileNotFoundError, match="does not exist"):
+            pipeline_update_from_zip(
+                project_id=DUMMY_PROJECT_ID,
+                pipeline_id=DUMMY_PIPELINE_ID,
+                zip_path=Path("/nonexistent/pipeline.zip"),
+                force=True,
+            )
+
+    def test_raises_value_error_for_non_zip_file(self, tmp_path, configuration_fixture):
+        """Verify ValueError when file doesn't have .zip extension."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        non_zip = tmp_path / "pipeline.tar.gz"
+        non_zip.write_text("not a zip")
+
+        with pytest.raises(ValueError, match="Expected a .zip file"):
+            pipeline_update_from_zip(
+                project_id=DUMMY_PROJECT_ID,
+                pipeline_id=DUMMY_PIPELINE_ID,
+                zip_path=non_zip,
+                force=True,
+            )
+
+    def test_raises_value_error_for_non_draft_pipeline(
+        self, mocker, tmp_path, configuration_fixture, mock_user_id
+    ):
+        """Verify ValueError when pipeline is not in DRAFT status."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        mock_pipeline = MagicMock()
+        mock_pipeline.pipeline.status = "RELEASED"
+        mock_pipeline.pipeline.owner.id = mock_user_id
+        mocker.patch(
+            f"{MODULE_PATH}.get_project_pipeline_obj",
+            return_value=mock_pipeline,
+        )
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", {"main.nf": "process {}"})
+
+        with pytest.raises(ValueError, match="must be DRAFT"):
+            pipeline_update_from_zip(
+                project_id=DUMMY_PROJECT_ID,
+                pipeline_id=DUMMY_PIPELINE_ID,
+                zip_path=zip_path,
+                force=True,
+            )
+
+    def test_raises_value_error_for_non_owner(
+        self, mocker, tmp_path, configuration_fixture
+    ):
+        """Verify ValueError when current user doesn't own the pipeline."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        mock_pipeline = MagicMock()
+        mock_pipeline.pipeline.status = "DRAFT"
+        mock_pipeline.pipeline.owner.id = "other-user-id-0000-0000-000000000000"
+        mocker.patch(
+            f"{MODULE_PATH}.get_project_pipeline_obj",
+            return_value=mock_pipeline,
+        )
+        mocker.patch(
+            f"{self.USER_MODULE_PATH}.get_user_id_from_configuration",
+            return_value="eeeeeeee-5555-4000-8000-eeeeeeeeeeee",
+        )
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", {"main.nf": "process {}"})
+
+        with pytest.raises(ValueError, match="not owned by the current user"):
+            pipeline_update_from_zip(
+                project_id=DUMMY_PROJECT_ID,
+                pipeline_id=DUMMY_PIPELINE_ID,
+                zip_path=zip_path,
+                force=True,
+            )
+
+    def test_no_changes_detected(
+        self,
+        mocker,
+        tmp_path,
+        configuration_fixture,
+        draft_pipeline_mock,
+        mock_user_id,
+        mock_download_pipeline,
+        mock_pipeline_files,
+        mock_update_delete_add,
+    ):
+        """Verify returns empty lists when zip matches ICAv2 contents exactly."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        files = {"main.cwl": "class: Workflow\n", "tools/tool1.cwl": "class: CommandLineTool\n"}
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", files)
+        mock_download_pipeline(DUMMY_PIPELINE_ID, None, file_contents=files)
+        mock_pipeline_files({
+            "main.cwl": self.DUMMY_FILE_ID_1,
+            "tools/tool1.cwl": self.DUMMY_FILE_ID_2,
+        })
+
+        result = pipeline_update_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_id=DUMMY_PIPELINE_ID,
+            zip_path=zip_path,
+            force=True,
+        )
+
+        assert result == {"edited": [], "added": [], "deleted": []}
+        mock_update, mock_delete, mock_add = mock_update_delete_add
+        mock_update.assert_not_called()
+        mock_delete.assert_not_called()
+        mock_add.assert_not_called()
+
+    def test_edited_files_are_updated(
+        self,
+        mocker,
+        tmp_path,
+        configuration_fixture,
+        draft_pipeline_mock,
+        mock_user_id,
+        mock_download_pipeline,
+        mock_pipeline_files,
+        mock_update_delete_add,
+    ):
+        """Verify edited files trigger update_pipeline_file calls."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        # Local zip has updated content
+        local_files = {"main.cwl": "class: Workflow\ndoc: Updated\n"}
+        # ICAv2 has old content
+        icav2_files = {"main.cwl": "class: Workflow\n"}
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", local_files)
+        mock_download_pipeline(DUMMY_PIPELINE_ID, None, file_contents=icav2_files)
+        mock_pipeline_files({"main.cwl": self.DUMMY_FILE_ID_1})
+
+        result = pipeline_update_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_id=DUMMY_PIPELINE_ID,
+            zip_path=zip_path,
+            force=True,
+        )
+
+        assert len(result["edited"]) == 1
+        assert Path("main.cwl") in result["edited"]
+        assert result["added"] == []
+        assert result["deleted"] == []
+
+        mock_update, mock_delete, mock_add = mock_update_delete_add
+        mock_update.assert_called_once()
+        # Verify the file_id was resolved correctly
+        call_args = mock_update.call_args
+        assert call_args[0][2] == self.DUMMY_FILE_ID_1  # file_id argument
+
+    def test_new_files_are_added(
+        self,
+        mocker,
+        tmp_path,
+        configuration_fixture,
+        draft_pipeline_mock,
+        mock_user_id,
+        mock_download_pipeline,
+        mock_pipeline_files,
+        mock_update_delete_add,
+    ):
+        """Verify new files in the zip trigger add_pipeline_file calls."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        # Local zip has an extra file
+        local_files = {
+            "main.cwl": "class: Workflow\n",
+            "tools/new_tool.cwl": "class: CommandLineTool\n",
+        }
+        icav2_files = {"main.cwl": "class: Workflow\n"}
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", local_files)
+        mock_download_pipeline(DUMMY_PIPELINE_ID, None, file_contents=icav2_files)
+        mock_pipeline_files({"main.cwl": self.DUMMY_FILE_ID_1})
+
+        result = pipeline_update_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_id=DUMMY_PIPELINE_ID,
+            zip_path=zip_path,
+            force=True,
+        )
+
+        assert len(result["added"]) == 1
+        assert Path("tools/new_tool.cwl") in result["added"]
+        assert result["edited"] == []
+        assert result["deleted"] == []
+
+        mock_update, mock_delete, mock_add = mock_update_delete_add
+        mock_add.assert_called_once()
+
+    def test_deleted_files_are_removed(
+        self,
+        mocker,
+        tmp_path,
+        configuration_fixture,
+        draft_pipeline_mock,
+        mock_user_id,
+        mock_download_pipeline,
+        mock_pipeline_files,
+        mock_update_delete_add,
+    ):
+        """Verify files missing from the zip trigger delete_pipeline_file calls."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        # Local zip has fewer files
+        local_files = {"main.cwl": "class: Workflow\n"}
+        # ICAv2 has an extra file
+        icav2_files = {
+            "main.cwl": "class: Workflow\n",
+            "tools/old_tool.cwl": "class: CommandLineTool\n",
+        }
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", local_files)
+        mock_download_pipeline(DUMMY_PIPELINE_ID, None, file_contents=icav2_files)
+        mock_pipeline_files({
+            "main.cwl": self.DUMMY_FILE_ID_1,
+            "tools/old_tool.cwl": self.DUMMY_FILE_ID_2,
+        })
+
+        result = pipeline_update_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_id=DUMMY_PIPELINE_ID,
+            zip_path=zip_path,
+            force=True,
+        )
+
+        assert len(result["deleted"]) == 1
+        assert Path("tools/old_tool.cwl") in result["deleted"]
+        assert result["edited"] == []
+        assert result["added"] == []
+
+        mock_update, mock_delete, mock_add = mock_update_delete_add
+        mock_delete.assert_called_once()
+        call_args = mock_delete.call_args
+        assert call_args[0][2] == self.DUMMY_FILE_ID_2
+
+    def test_combined_edits_adds_and_deletes(
+        self,
+        mocker,
+        tmp_path,
+        configuration_fixture,
+        draft_pipeline_mock,
+        mock_user_id,
+        mock_download_pipeline,
+        mock_pipeline_files,
+        mock_update_delete_add,
+    ):
+        """Verify a mixed scenario with edits, adds, and deletes all in one call."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        local_files = {
+            "main.cwl": "class: Workflow\ndoc: changed\n",  # edited
+            "tools/new_tool.cwl": "class: CommandLineTool\n",  # new
+        }
+        icav2_files = {
+            "main.cwl": "class: Workflow\n",  # will show as edited
+            "tools/old_tool.cwl": "class: CommandLineTool\n",  # will be deleted
+        }
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", local_files)
+        mock_download_pipeline(DUMMY_PIPELINE_ID, None, file_contents=icav2_files)
+        mock_pipeline_files({
+            "main.cwl": self.DUMMY_FILE_ID_1,
+            "tools/old_tool.cwl": self.DUMMY_FILE_ID_2,
+        })
+
+        result = pipeline_update_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_id=DUMMY_PIPELINE_ID,
+            zip_path=zip_path,
+            force=True,
+        )
+
+        assert Path("main.cwl") in result["edited"]
+        assert Path("tools/new_tool.cwl") in result["added"]
+        assert Path("tools/old_tool.cwl") in result["deleted"]
+
+        mock_update, mock_delete, mock_add = mock_update_delete_add
+        assert mock_update.call_count == 1
+        assert mock_add.call_count == 1
+        assert mock_delete.call_count == 1
+
+    def test_hidden_files_excluded_from_adds(
+        self,
+        mocker,
+        tmp_path,
+        configuration_fixture,
+        draft_pipeline_mock,
+        mock_user_id,
+        mock_download_pipeline,
+        mock_pipeline_files,
+        mock_update_delete_add,
+    ):
+        """Verify hidden directories and files are excluded from additions."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        local_files = {
+            "main.cwl": "class: Workflow\n",
+            ".git/config": "git config",
+            ".hidden_file": "secret",
+        }
+        icav2_files = {"main.cwl": "class: Workflow\n"}
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", local_files)
+        mock_download_pipeline(DUMMY_PIPELINE_ID, None, file_contents=icav2_files)
+        mock_pipeline_files({"main.cwl": self.DUMMY_FILE_ID_1})
+
+        result = pipeline_update_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_id=DUMMY_PIPELINE_ID,
+            zip_path=zip_path,
+            force=True,
+        )
+
+        # Hidden files/dirs should be excluded
+        assert result == {"edited": [], "added": [], "deleted": []}
+
+    def test_test_and_meta_files_excluded_from_adds(
+        self,
+        mocker,
+        tmp_path,
+        configuration_fixture,
+        draft_pipeline_mock,
+        mock_user_id,
+        mock_download_pipeline,
+        mock_pipeline_files,
+        mock_update_delete_add,
+    ):
+        """Verify .test, .test.snap, and environment/meta yaml files are excluded."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        local_files = {
+            "main.cwl": "class: Workflow\n",
+            "tools/tool.test": "test content",
+            "tools/tool.test.snap": "snapshot",
+            "environment.yml": "dependencies: []",
+            "meta.yaml": "name: test",
+        }
+        icav2_files = {"main.cwl": "class: Workflow\n"}
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", local_files)
+        mock_download_pipeline(DUMMY_PIPELINE_ID, None, file_contents=icav2_files)
+        mock_pipeline_files({"main.cwl": self.DUMMY_FILE_ID_1})
+
+        result = pipeline_update_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_id=DUMMY_PIPELINE_ID,
+            zip_path=zip_path,
+            force=True,
+        )
+
+        assert result == {"edited": [], "added": [], "deleted": []}
+
+    def test_nextflow_pipeline_generates_icav2_config(
+        self,
+        mocker,
+        tmp_path,
+        configuration_fixture,
+        draft_pipeline_mock,
+        mock_user_id,
+        mock_download_pipeline,
+        mock_pipeline_files,
+        mock_update_delete_add,
+    ):
+        """Verify Nextflow pipelines get conf/icav2.config auto-generated if missing."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        # Mock Nextflow helper to avoid full implementation complexity
+        mock_include = mocker.patch(
+            f"{MODULE_PATH}.include_icav2_config_into_nextflow_config"
+        )
+        mocker.patch(
+            f"{MODULE_PATH}.get_default_icav2_config_content",
+            return_value="// icav2 config placeholder\n",
+        )
+
+        # Nextflow pipeline with nextflow.config but no conf/icav2.config
+        local_files = {"nextflow.config": "params { input = '' }\n", "main.nf": "process foo {}"}
+        icav2_files = {"nextflow.config": "params { input = '' }\n", "main.nf": "process foo {}"}
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", local_files)
+        mock_download_pipeline(DUMMY_PIPELINE_ID, None, file_contents=icav2_files)
+        mock_pipeline_files({
+            "nextflow.config": self.DUMMY_FILE_ID_1,
+            "main.nf": self.DUMMY_FILE_ID_2,
+        })
+
+        result = pipeline_update_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_id=DUMMY_PIPELINE_ID,
+            zip_path=zip_path,
+            force=True,
+        )
+
+        # The icav2.config injection helper should have been called
+        mock_include.assert_called_once()
+
+    def test_icav2_config_not_deleted_from_icav2(
+        self,
+        mocker,
+        tmp_path,
+        configuration_fixture,
+        draft_pipeline_mock,
+        mock_user_id,
+        mock_download_pipeline,
+        mock_pipeline_files,
+        mock_update_delete_add,
+    ):
+        """Verify conf/icav2.config is never deleted even if missing from the local zip."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        # Local zip has no conf/icav2.config
+        local_files = {"main.cwl": "class: Workflow\n"}
+        # ICAv2 has conf/icav2.config
+        icav2_files = {
+            "main.cwl": "class: Workflow\n",
+            "conf/icav2.config": "// generated config\n",
+        }
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", local_files)
+        mock_download_pipeline(DUMMY_PIPELINE_ID, None, file_contents=icav2_files)
+        mock_pipeline_files({
+            "main.cwl": self.DUMMY_FILE_ID_1,
+            "conf/icav2.config": self.DUMMY_FILE_ID_2,
+        })
+
+        result = pipeline_update_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_id=DUMMY_PIPELINE_ID,
+            zip_path=zip_path,
+            force=True,
+        )
+
+        # conf/icav2.config should NOT appear in deleted
+        assert Path("conf/icav2.config") not in result["deleted"]
+        mock_update, mock_delete, mock_add = mock_update_delete_add
+        mock_delete.assert_not_called()
+
+    def test_force_false_cancels_on_user_input(
+        self,
+        mocker,
+        tmp_path,
+        configuration_fixture,
+        draft_pipeline_mock,
+        mock_user_id,
+        mock_download_pipeline,
+        mock_pipeline_files,
+        mock_update_delete_add,
+    ):
+        """Verify update is cancelled when user declines the confirmation prompt."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        local_files = {"main.cwl": "class: Workflow\ndoc: changed\n"}
+        icav2_files = {"main.cwl": "class: Workflow\n"}
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", local_files)
+        mock_download_pipeline(DUMMY_PIPELINE_ID, None, file_contents=icav2_files)
+        mock_pipeline_files({"main.cwl": self.DUMMY_FILE_ID_1})
+
+        # Simulate user declining
+        mocker.patch("builtins.input", return_value="n")
+
+        result = pipeline_update_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_id=DUMMY_PIPELINE_ID,
+            zip_path=zip_path,
+            force=False,
+        )
+
+        assert result == {"edited": [], "added": [], "deleted": []}
+        mock_update, mock_delete, mock_add = mock_update_delete_add
+        mock_update.assert_not_called()
+
+    def test_force_false_proceeds_on_user_confirm(
+        self,
+        mocker,
+        tmp_path,
+        configuration_fixture,
+        draft_pipeline_mock,
+        mock_user_id,
+        mock_download_pipeline,
+        mock_pipeline_files,
+        mock_update_delete_add,
+    ):
+        """Verify update proceeds when user confirms the prompt."""
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            pipeline_update_from_zip,
+        )
+
+        local_files = {"main.cwl": "class: Workflow\ndoc: changed\n"}
+        icav2_files = {"main.cwl": "class: Workflow\n"}
+
+        zip_path = self._create_zip(tmp_path, "my_pipeline", local_files)
+        mock_download_pipeline(DUMMY_PIPELINE_ID, None, file_contents=icav2_files)
+        mock_pipeline_files({"main.cwl": self.DUMMY_FILE_ID_1})
+
+        # Simulate user confirming
+        mocker.patch("builtins.input", return_value="yes")
+
+        result = pipeline_update_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_id=DUMMY_PIPELINE_ID,
+            zip_path=zip_path,
+            force=False,
+        )
+
+        assert len(result["edited"]) == 1
+        mock_update, mock_delete, mock_add = mock_update_delete_add
+        mock_update.assert_called_once()

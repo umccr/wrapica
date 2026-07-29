@@ -6,6 +6,7 @@ Project Pipeline Helpers
 
 # Standard imports
 import typing
+from filecmp import cmpfiles
 from io import StringIO
 from typing import Tuple, Dict, Optional, Union, List, cast, Any
 from urllib.parse import urlparse
@@ -2672,3 +2673,262 @@ def create_nextflow_project_pipeline(
         project_id=project_id,
         pipeline_id=pipeline_id
     )
+
+
+
+def pipeline_update_from_zip(
+        project_id: Union[UUID4, str],
+        pipeline_id: Union[UUID4, str],
+        zip_path: Path,
+        force: bool = False,
+) -> Dict[str, List[Path]]:
+    """
+    Update an existing draft pipeline on ICAv2 from a local zip file.
+
+    Compares the contents of the zip file against the current pipeline files on
+    ICAv2, then applies the differences: updating edited files, adding new files,
+    and deleting files that are no longer present in the zip.
+
+    The pipeline must be in DRAFT status and owned by the current user.
+
+    For Nextflow pipelines, a ``conf/icav2.config`` file is automatically generated
+    if missing, and the ``includeConfig`` directive is injected into ``nextflow.config``.
+
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_id: The pipeline identifier to update
+    :param zip_path: The local path to the zip file containing the updated pipeline sources.
+        The zip is expected to contain a single top-level directory named after the zip stem.
+    :param force: If True, skip the interactive confirmation prompt. Defaults to False.
+
+    :return: A dictionary with keys ``edited``, ``added``, and ``deleted``, each containing
+        a list of relative Path objects for the affected files.
+    :rtype: Dict[str, List[Path]]
+
+    :raises FileNotFoundError: If zip_path does not exist
+    :raises ValueError: If the file is not a zip, the pipeline is not in DRAFT status,
+        or the pipeline is not owned by the current user
+    :raises ApiException: If any API call to update/add/delete pipeline files fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from pathlib import Path
+        from wrapica.project_pipelines import pipeline_update_from_zip
+
+        result = pipeline_update_from_zip(
+            project_id="project-123",
+            pipeline_id="pipeline-456",
+            zip_path=Path("/path/to/updated_pipeline.zip"),
+            force=True
+        )
+
+        print(f"Edited: {result['edited']}")
+        print(f"Added: {result['added']}")
+        print(f"Deleted: {result['deleted']}")
+    """
+    from ...pipelines import list_pipeline_files, download_pipeline_to_directory
+    from ...user import get_user_id_from_configuration
+
+    # Validate zip file
+    if not zip_path.is_file():
+        logger.error(f"Zip file does not exist: {zip_path}")
+        raise FileNotFoundError(f"Zip file does not exist: {zip_path}")
+
+    if not zip_path.name.endswith(".zip"):
+        logger.error(f"Expected a .zip file, got: {zip_path.name}")
+        raise ValueError(f"Expected a .zip file, got: {zip_path.name}")
+
+    # Check pipeline is in draft status and owned by the current user
+    project_pipeline_obj: ProjectPipelineV4 = get_project_pipeline_obj(project_id, pipeline_id)
+
+    pipeline_status = cast(PipelineStatusType, project_pipeline_obj.pipeline.status)
+    if pipeline_status != "DRAFT":
+        logger.error(
+            f"Pipeline '{pipeline_id}' is not in DRAFT status (current: {pipeline_status}). "
+            f"Cannot update a released pipeline."
+        )
+        raise ValueError(
+            f"Pipeline '{pipeline_id}' is in '{pipeline_status}' status, must be DRAFT to update."
+        )
+
+    # Check ownership
+    user_id = get_user_id_from_configuration()
+    if str(project_pipeline_obj.pipeline.owner.id) != str(user_id):
+        logger.error(
+            f"Pipeline '{pipeline_id}' is not owned by the current user '{user_id}'. "
+            f"Owner is '{project_pipeline_obj.pipeline.owner.id}'."
+        )
+        raise ValueError(
+            f"Pipeline '{pipeline_id}' is not owned by the current user."
+        )
+
+    logger.info(f"Pipeline '{pipeline_id}' is editable (DRAFT, owned by current user)")
+
+    # Unzip the local pipeline
+    tmp_local_dir_obj = TemporaryDirectory()
+    tmp_local_dir = Path(tmp_local_dir_obj.name)
+    ZipFile(zip_path).extractall(tmp_local_dir)
+
+    # The zip should contain a top-level directory named after the zip stem
+    local_pipeline_dir = tmp_local_dir / zip_path.stem
+    if not local_pipeline_dir.is_dir():
+        # Fallback: if there's no subdirectory, use the temp dir itself
+        local_pipeline_dir = tmp_local_dir
+
+    # For Nextflow pipelines, ensure conf/icav2.config exists and is included
+    nextflow_config_path = local_pipeline_dir / "nextflow.config"
+    if nextflow_config_path.is_file():
+        icav2_config_path = local_pipeline_dir / ICAV2_CONFIG_NEXTFLOW_PATH
+        if not icav2_config_path.is_file():
+            logger.info(f"Adding missing icav2.config file to {icav2_config_path}")
+            icav2_config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(icav2_config_path, "w") as icav2_config_h:
+                icav2_config_h.write(get_default_icav2_config_content())
+        include_icav2_config_into_nextflow_config(nextflow_config_path)
+
+    # Download current pipeline from ICAv2
+    tmp_icav2_dir_obj = TemporaryDirectory()
+    tmp_icav2_dir = Path(tmp_icav2_dir_obj.name)
+    logger.info(f"Downloading pipeline '{pipeline_id}' from ICAv2 to {tmp_icav2_dir}")
+    download_pipeline_to_directory(pipeline_id, tmp_icav2_dir)
+
+    # Get pipeline file mapping for resolving file IDs
+    pipeline_file_mapping: List[PipelineFile] = list_pipeline_files(pipeline_id)
+
+    # Collect relative paths of all files in both directories
+    local_files = sorted(
+        f.relative_to(local_pipeline_dir)
+        for f in local_pipeline_dir.rglob("*")
+        if f.is_file()
+    )
+
+    icav2_files = sorted(
+        f.relative_to(tmp_icav2_dir)
+        for f in tmp_icav2_dir.rglob("*")
+        if f.is_file()
+    )
+
+    # Compare files
+    all_relative_paths = sorted({*local_files, *icav2_files})
+    file_cmp_match, file_cmp_edited, file_cmp_errors = cmpfiles(
+        str(local_pipeline_dir),
+        str(tmp_icav2_dir),
+        [str(p) for p in all_relative_paths],
+        shallow=False
+    )
+
+    # Convert back to Path objects
+    file_cmp_match = [Path(f) for f in file_cmp_match]
+    file_cmp_edited = [Path(f) for f in file_cmp_edited]
+    file_cmp_errors = [Path(f) for f in file_cmp_errors]
+
+    # Files missing from local (to be deleted from ICAv2)
+    file_cmp_deleted = [
+        f for f in file_cmp_errors
+        if not (local_pipeline_dir / f).is_file()
+        # Don't delete conf/icav2.config as it may be auto-generated
+        and f != Path(ICAV2_CONFIG_NEXTFLOW_PATH)
+    ]
+
+    # New files in local (to be added to ICAv2)
+    file_cmp_new = [
+        f for f in file_cmp_errors
+        if (local_pipeline_dir / f).is_file()
+        # Exclude hidden top-level directories
+        and not f.parts[0].startswith(".")
+        # Exclude hidden files in the top directory
+        and not (len(f.parts) == 1 and f.name.startswith("."))
+        # Exclude test files
+        and not f.name.endswith(".test")
+        and not f.name.endswith(".test.snap")
+        # Exclude conda/meta files
+        and f.name not in ("environment.yml", "environment.yaml", "meta.yml", "meta.yaml")
+    ]
+
+    # Log comparison results
+    if file_cmp_match:
+        logger.info(
+            f"Files matching (no update needed): {len(file_cmp_match)}\n"
+            + "\n".join(f"  {f}" for f in file_cmp_match)
+        )
+
+    if file_cmp_edited:
+        logger.info(
+            f"Files edited (will be updated): {len(file_cmp_edited)}\n"
+            + "\n".join(f"  {f}" for f in file_cmp_edited)
+        )
+
+    if file_cmp_new:
+        logger.info(
+            f"Files to add: {len(file_cmp_new)}\n"
+            + "\n".join(f"  {f}" for f in file_cmp_new)
+        )
+
+    if file_cmp_deleted:
+        logger.info(
+            f"Files to delete: {len(file_cmp_deleted)}\n"
+            + "\n".join(f"  {f}" for f in file_cmp_deleted)
+        )
+
+    # Check if there are any changes
+    if not file_cmp_edited and not file_cmp_new and not file_cmp_deleted:
+        logger.info("No changes detected between local zip and ICAv2 pipeline")
+        return {"edited": [], "added": [], "deleted": []}
+
+    # Confirm with user if not forced
+    if not force:
+        confirm = input(
+            "Would you like to continue with the pipeline update? (y/yes) "
+            "(any other key will cancel): "
+        )
+        if confirm.strip().lower() not in ("y", "yes"):
+            logger.info("Pipeline update cancelled by user")
+            return {"edited": [], "added": [], "deleted": []}
+
+    # Helper to resolve a file name to its pipeline file ID
+    def _get_file_id(file_name: Path) -> str:
+        try:
+            return next(
+                pf.id for pf in pipeline_file_mapping
+                if str(pf.name) == str(file_name)
+            )
+        except StopIteration:
+            logger.error(
+                f"Could not find file ID for '{file_name}'. "
+                f"Available: {', '.join(pf.name for pf in pipeline_file_mapping)}"
+            )
+            raise
+
+    # Update edited files
+    for file_name in file_cmp_edited:
+        logger.info(f"Updating file: {file_name}")
+        local_file_path = local_pipeline_dir / file_name
+        file_id = _get_file_id(file_name)
+        update_pipeline_file(project_id, pipeline_id, file_id, local_file_path)
+
+    # Add new files
+    for file_name in file_cmp_new:
+        logger.info(f"Adding file: {file_name}")
+        file_path = local_pipeline_dir / file_name
+        add_pipeline_file(
+            project_id=project_id,
+            pipeline_id=pipeline_id,
+            file_path=file_path,
+            relative_path=file_name
+        )
+
+    # Delete removed files
+    for file_name in file_cmp_deleted:
+        logger.info(f"Deleting file: {file_name}")
+        file_id = _get_file_id(file_name)
+        delete_pipeline_file(project_id, pipeline_id, file_id)
+
+    logger.info(f"Pipeline '{pipeline_id}' has been successfully updated!")
+
+    return {
+        "edited": file_cmp_edited,
+        "added": file_cmp_new,
+        "deleted": file_cmp_deleted,
+    }
