@@ -105,7 +105,7 @@ Your storage configuration yaml file may look like this:
       bucketName: research-project-bucket
       keyPrefix: research-data/
 
-You may be able to generate the storage configuration mapping programatically with the following command:
+You may be able to generate the storage configuration mapping programmatically with the following command:
 
 .. code-block:: bash
 
@@ -129,7 +129,7 @@ You may be able to generate the storage configuration mapping programatically wi
 
 
 Project to Storage Configuration List
--------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Env var:
 
@@ -148,12 +148,12 @@ List of objects where each object has the following attributes:
 * prefix: The prefix of the **project** on the storage configuration
     * if the project is set to the root of the storage configuration, set the prefix parameter to :code:`null`
 
-Your project-to-storage configuration yaml may look something like this
+Your project-to-storage configuration yaml may look something like this:
 
 .. code-block:: yaml
 
     - id: 81657569-adce-4ae6-bd0d-87225fe819e9
-      bucketName: reference-data-bucket
+      name: reference-data-project
       storageConfigurationId: 81657569-adce-4ae6-bd0d-87225fe819e9
       # Project mounted at the root of the prefix (s3://research-data-bucket/reference-data/)
       prefix: null
@@ -192,7 +192,7 @@ List of objects where each object has the following attributes:
     * bucketName: A bucket that this storage credential has access to
     * keyPrefix: A key prefix on the bucket that this storage credential has access to
 
-Your storage credential yaml may look something like this
+Your storage credential yaml may look something like this:
 
 .. code-block:: yaml
 
