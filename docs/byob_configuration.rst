@@ -1,22 +1,83 @@
 BYOB Configuration
 ==================
 
-Unfortunately, it is not easy to resolve an s3 URI to an ICAv2 (or vice versa), due
-to API limitations on storage configurations.
+wrapica provides helper functions for working with Bring-Your-Own-Bucket (BYOB) storage
+configurations on ICAv2. These functions resolve S3 URIs to ICAv2 URIs (and vice versa),
+map projects to their storage configurations, and find the root S3 prefix of a project's
+self-managed storage configuration.
 
-Hence you will need three separate environment variables that point to three separate yaml files :)
-This will include:
+API-based resolution (recommended)
+-----------------------------------
 
-* A storage configuration setup
-    * What is the bucket / prefix for each storage configuration (saves an API call each time we need to convert an S3 URI to an ICAv2 URI
-* A project to storage configuration mapping
-    * which project is configured to which storage configuration, and at what prefix (if any).
-* A storage credential setup
-    * For a given storage credential id (that the user either created or has been shared across the tenant), what are the s3 prefixes that this storage configuration has access to?
+With recent ICA API improvements, wrapica can now resolve storage configurations and
+project-to-storage-configuration mappings **directly from the API** — no YAML files required.
 
+When the corresponding environment variables are *not* set, wrapica will automatically
+call the ICA API to:
+
+1. List all storage configurations available in the tenant.
+2. List all projects and determine which storage configuration each project uses.
+3. Resolve the root S3 subfolder for a given project.
+
+This means you can use the conversion and lookup functions out of the box as long as
+``ICAV2_ACCESS_TOKEN`` (and optionally ``ICAV2_BASE_URL``) are set.
+
+Example: resolve a project's S3 root
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from wrapica.storage_configuration import get_project_self_storage_configuration_s3_uri
+
+    # Returns the full S3 URI prefix for the project, e.g. "s3://bucket/key-prefix/project-sub/"
+    s3_root = get_project_self_storage_configuration_s3_uri("abcd1234-ab12-ab12-ab12-abcdef123456")
+
+Example: map projects to storage configurations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from wrapica.storage_configuration import get_project_to_storage_configuration_mapping_list
+
+    mappings = get_project_to_storage_configuration_mapping_list()
+
+    for mapping in mappings:
+        print(f"Project: {mapping['name']} -> Storage Config: {mapping['storageConfigurationId']}, prefix: {mapping.get('prefix')}")
+
+Example: convert between S3 and ICAv2 URIs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from wrapica.storage_configuration import (
+        convert_s3_uri_to_icav2_uri,
+        convert_icav2_uri_to_s3_uri,
+    )
+
+    icav2_uri = convert_s3_uri_to_icav2_uri("s3://my-bucket/prefix/data/file.txt")
+    # icav2://abcd1234-ab12-ab12-ab12-abcdef123456/data/file.txt
+
+    s3_uri = convert_icav2_uri_to_s3_uri("icav2://abcd1234-ab12-ab12-ab12-abcdef123456/data/file.txt")
+    # s3://my-bucket/prefix/data/file.txt
+
+
+YAML file overrides
+--------------------
+
+The storage configuration and project-to-storage-configuration mapping YAML files are
+**optional** — wrapica will fall back to the API when they are not set.
+
+However, the **storage credential list YAML is still mandatory** for S3 buckets that are
+not mounted onto any ICA project. The API does not expose which S3 prefixes a given
+storage credential has access to, so this mapping must be provided explicitly.
+
+If your ICA token does not have the required permissions to list storage configurations
+or projects, or you want to avoid extra API calls for performance reasons, you can
+also supply YAML files for the other two lists via environment variables. When set,
+wrapica will use these files **instead of** calling the API.
 
 Storage Configuration Setup
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Env var:
 
@@ -44,7 +105,7 @@ Your storage configuration yaml file may look like this:
       bucketName: research-project-bucket
       keyPrefix: research-data/
 
-You may be able to generate the storage configuration mapping programatically with the following command:
+You may be able to generate the storage configuration mapping programmatically with the following command:
 
 .. code-block:: bash
 
@@ -68,7 +129,7 @@ You may be able to generate the storage configuration mapping programatically wi
 
 
 Project to Storage Configuration List
--------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Env var:
 
@@ -87,12 +148,12 @@ List of objects where each object has the following attributes:
 * prefix: The prefix of the **project** on the storage configuration
     * if the project is set to the root of the storage configuration, set the prefix parameter to :code:`null`
 
-Your project-to-storage configuration yaml may look something like this
+Your project-to-storage configuration yaml may look something like this:
 
 .. code-block:: yaml
 
     - id: 81657569-adce-4ae6-bd0d-87225fe819e9
-      bucketName: reference-data-bucket
+      name: reference-data-project
       storageConfigurationId: 81657569-adce-4ae6-bd0d-87225fe819e9
       # Project mounted at the root of the prefix (s3://research-data-bucket/reference-data/)
       prefix: null
@@ -102,8 +163,18 @@ Your project-to-storage configuration yaml may look something like this
       # Project mounted at the prefix (s3://research-project-bucket/research-data/colon-cancer-data/)
       prefix: colon-cancer-data
 
+.. note::
+
+    When neither YAML file is set, wrapica resolves the project-to-storage-configuration
+    mapping by calling the ``/api/projects/{project_id}/selfManagedStorageConfiguration``
+    endpoint for each project that has a self-managed storage configuration. This
+    returns the ``storageConfigurationSubFolder`` — the root S3 URI for the project —
+    which wrapica then uses to derive the project prefix relative to the storage
+    configuration's key prefix.
+
+
 Storage Credential Setup
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Env var:
 
@@ -121,7 +192,7 @@ List of objects where each object has the following attributes:
     * bucketName: A bucket that this storage credential has access to
     * keyPrefix: A key prefix on the bucket that this storage credential has access to
 
-Your storage credential yaml may look something like this
+Your storage credential yaml may look something like this:
 
 .. code-block:: yaml
 
@@ -140,3 +211,49 @@ Your storage credential yaml may look something like this
           keyPrefix: research-data/colon-cancer-data/
         - bucketName: research-project-bucket
           keyPrefix: clinical-trial-control-data/colon-control-data/
+
+
+How it works
+------------
+
+The following diagram shows the resolution order wrapica uses:
+
+1. **Storage Configuration List** — if ``ICAV2_STORAGE_CONFIGURATION_LIST_FILE`` is set,
+   load from YAML; otherwise call ``GET /api/storageConfigurations``.
+
+2. **Project-to-Storage Mapping** — if ``ICAV2_PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST_FILE``
+   is set, load from YAML; otherwise iterate over all projects (via ``list_projects()``) and
+   call ``GET /api/projects/{id}/selfManagedStorageConfiguration`` for each project that has
+   a self-managed storage configuration.
+
+3. **URI Conversion** — with both lists resolved, wrapica can map any S3 URI to an ICAv2
+   URI (and back) by matching the bucket + key prefix against the storage configuration and
+   project prefix.
+
+Key functions
+~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Function
+     - Description
+   * - ``get_storage_configuration_list()``
+     - List all storage configurations in the tenant
+   * - ``get_project_to_storage_configuration_mapping_list()``
+     - Map each project to its storage configuration and prefix
+   * - ``get_project_self_storage_configuration_s3_uri(project_id)``
+     - Get the root S3 URI for a project's self-managed storage configuration
+   * - ``get_s3_key_prefix_by_project_id(project_id)``
+     - Get the S3 key prefix URI for a project
+   * - ``get_project_id_by_s3_key_prefix(s3_key_prefix)``
+     - Resolve which project owns a given S3 prefix
+   * - ``convert_s3_uri_to_icav2_uri(s3_uri)``
+     - Convert an S3 URI to an ICAv2 URI
+   * - ``convert_icav2_uri_to_s3_uri(icav2_uri)``
+     - Convert an ICAv2 URI to an S3 URI
+   * - ``convert_project_data_obj_to_s3_uri(project_data_obj)``
+     - Convert a ProjectData object to its S3 URI
+   * - ``convert_s3_uri_to_project_data_obj(s3_uri)``
+     - Convert an S3 URI to a ProjectData object
