@@ -163,8 +163,18 @@ Your project-to-storage configuration yaml may look something like this
       # Project mounted at the prefix (s3://research-project-bucket/research-data/colon-cancer-data/)
       prefix: colon-cancer-data
 
+.. note::
+
+    When neither YAML file is set, wrapica resolves the project-to-storage-configuration
+    mapping by calling the ``/api/projects/{project_id}/selfManagedStorageConfiguration``
+    endpoint for each project that has a self-managed storage configuration. This
+    returns the ``storageConfigurationSubFolder`` — the root S3 URI for the project —
+    which wrapica then uses to derive the project prefix relative to the storage
+    configuration's key prefix.
+
+
 Storage Credential Setup
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Env var:
 
