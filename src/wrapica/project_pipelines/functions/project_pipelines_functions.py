@@ -65,7 +65,7 @@ from ...utils.globals import (
     ICAV2_URI_SCHEME,
     S3_URI_SCHEME,
     URI_REGEX_OBJ,
-    ICAV2_CONFIG_NEXTFLOW_PATH
+    ICAV2_CONFIG_NEXTFLOW_PATH,
 )
 from ...literals import DataType, PipelineStatusType, AnalysisStorageSizeType, ResourceType, NextflowPipelineVersionType
 from ...utils.miscell import is_uuid_format, is_uri_format, coerce_to_uuid4_obj
@@ -1446,11 +1446,7 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
                 samplesheet_mount_dir_path = Path(str(samplesheet_folder_obj.project_id)) / samplesheet_folder_obj.data.id / SAMPLESHEET_DIR_NAME
                 mount_list.append(
                     AnalysisInputDataMount(
-                        dataId=get_project_data_obj_from_project_id_and_path(
-                            project_id=cache_uri_obj.project_id,
-                            data_path=Path(cast(str, samplesheet_folder_obj.data.details.path)),
-                            data_type=FOLDER_DATA_TYPE,
-                        ).data.id,
+                        dataId=samplesheet_folder_obj.data.id,
                         mountPath=str(samplesheet_mount_dir_path)
                     )
                 )
