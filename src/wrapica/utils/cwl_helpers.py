@@ -17,7 +17,20 @@ from urllib.parse import urlparse
 from ruamel.yaml import YAML, CommentedMap
 
 # CWL Util imports
-from cwl_utils.parser.cwl_v1_2 import shortname, RecordSchema, WorkflowStep
+from cwl_utils.parser.cwl_v1_2 import WorkflowStep
+
+# ``shortname`` moved to ``cwl_utils.parser.utils`` and ``RecordSchema`` was
+# renamed to ``CWLRecordSchema`` in cwl_utils >= 0.41. Import with fallbacks so
+# we support the full pinned range (cwl_utils >= 0.38, < 1).
+try:
+    from cwl_utils.parser.utils import shortname
+except ImportError:
+    from cwl_utils.parser.cwl_v1_2 import shortname
+
+try:
+    from cwl_utils.parser.cwl_v1_2 import CWLRecordSchema as RecordSchema
+except ImportError:
+    from cwl_utils.parser.cwl_v1_2 import RecordSchema
 
 # Local imports
 from .logger import get_logger
