@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Standard library imports
-from typing import Union
+from typing import Optional, Union
 from pydantic import UUID4
 
 # Libica Api imports
@@ -17,11 +17,18 @@ from libica.openapi.v3.models import (
 # Local imports
 from ...utils.globals import ICAV2_ACCESS_TOKEN_AUDIENCE
 from ...utils.logger import get_logger
-from ...utils.configuration import get_icav2_configuration, get_jwt_token_obj
+from ...utils.configuration import (
+    get_icav2_access_token,
+    get_icav2_configuration,
+    get_jwt_token_obj
+)
 from ...utils.miscell import is_uuid_format
 
 # Get logger
 logger = get_logger()
+
+# Global runtime vars
+CURRENT_USER_OBJ: Optional[User] = None
 
 
 def get_user_obj_from_user_id(
@@ -231,6 +238,108 @@ def get_user_id_from_configuration() -> str:
     return get_jwt_token_obj(get_icav2_configuration().access_token, ICAV2_ACCESS_TOKEN_AUDIENCE).get("sub")
 
 
+def get_user_id_from_access_token() -> str:
+    """
+    Extract the current user identifier from the in-memory ICAv2 access token.
+
+    The user identifier is recovered from the ``mem`` (memberships) claim in the JWT.
+    The first membership key prefixed with ``uid:`` is used, and the ``uid:`` prefix is
+    stripped to return the raw user identifier.
+
+    :return: The user identifier extracted from the JWT ``mem`` claim
+    :rtype: str
+
+    :raises ValueError: If no ``uid:`` prefixed membership can be found in the token
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.user import get_user_id_from_access_token
+
+        user_id = get_user_id_from_access_token()
+
+        print(f"Current user ID: {user_id}")
+        # Current user ID: abcd1234-ab12-ab12-ab12-abcdef123456
+    """
+    # Decode the (second block of the) jwt to get the token claims
+    token_obj = get_jwt_token_obj(get_icav2_access_token(), ICAV2_ACCESS_TOKEN_AUDIENCE)
+
+    # Collect the memberships key
+    memberships = token_obj.get("mem", {})
+
+    # Find the first membership key with a 'uid:' prefix
+    try:
+        uid_membership_key = next(
+            filter(
+                lambda membership_key_iter: membership_key_iter.startswith("uid:"),
+                memberships.keys()
+            )
+        )
+    except StopIteration:
+        logger.error("Could not find a 'uid:' prefixed membership in the access token")
+        raise ValueError
+
+    # Strip the 'uid:' prefix to get the raw user identifier
+    return uid_membership_key.split("uid:", 1)[-1]
+
+
+def set_current_user_obj() -> None:
+    """
+    Set the current user object global from the in-memory ICAv2 access token.
+
+    The user identifier is recovered from the JWT ``mem`` claim via
+    :py:func:`get_user_id_from_access_token`, and the full user object is then retrieved
+    from the API and cached in the ``CURRENT_USER_OBJ`` global so that subsequent lookups
+    do not re-hit the API.
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.user import set_current_user_obj
+
+        # Sets the global current user object for the session
+        set_current_user_obj()
+    """
+    global CURRENT_USER_OBJ
+
+    CURRENT_USER_OBJ = get_user_obj_from_user_id(get_user_id_from_access_token())
+
+
+def get_current_user_obj() -> User:
+    """
+    Return the user object for the currently authenticated user.
+
+    The user identifier is derived from the in-memory ICAv2 access token (via the JWT
+    ``mem`` claim) rather than from an API "current user" endpoint. The resolved user
+    object is cached in a global so that repeated calls do not re-hit the API.
+
+    :return: The user object for the currently authenticated user
+    :rtype: `User <https://umccr.github.io/libica/openapi/v3/docs/User/>`_
+
+    :raises ValueError: If no ``uid:`` prefixed membership can be found in the token
+    :raises ApiException: If the API call to retrieve the user fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.user import get_current_user_obj
+
+        user = get_current_user_obj()
+
+        print(f"Username: {user.username}")
+        # Username: jsmith
+    """
+    if CURRENT_USER_OBJ is None:
+        set_current_user_obj()
+    return CURRENT_USER_OBJ
+
+
 def get_tenant_id_for_user() -> str:
     """
     Return the tenant identifier for the currently authenticated user.
@@ -255,3 +364,5 @@ def get_tenant_id_for_user() -> str:
     user_id = get_user_id_from_configuration()
 
     return get_user_obj_from_user_id(user_id).tenant_id
+
+
