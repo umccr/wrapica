@@ -12,6 +12,9 @@ Functions
      coerce_user_id_or_name_to_user_obj,
      coerce_user_id_or_name_to_user_id,
      get_user_id_from_configuration,
+     get_user_id_from_access_token,
+     get_current_user_obj,
+     set_current_user_obj,
      get_tenant_id_for_user
    :undoc-members:
    :show-inheritance:

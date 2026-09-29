@@ -249,9 +249,15 @@ def get_region_from_bundle_id(
 
 def set_default_region() -> None:
     """
-    Set the default region from the single available region in the tenant.
+    Set the default region for the session.
 
-    :raises Exception: If no regions are found or multiple regions exist
+    If a single region is available in the tenant, that region is used. If multiple
+    regions are available (the ICA platform no longer flags a default), the region is
+    resolved by matching the current user's country against the available regions'
+    countries.
+
+    :raises Exception: If no regions are found, or if none of the available regions
+        match the current user's country
 
     :Examples:
 
@@ -271,10 +277,40 @@ def set_default_region() -> None:
     if len(regions) == 0:
         raise Exception("No regions found, could not set default region")
 
-    if not len(regions) == 1:
-        raise Exception("Multiple regions found, cannot set default region")
+    if len(regions) == 1:
+        DEFAULT_REGION = regions[0]
+        return
 
-    DEFAULT_REGION = regions[0]
+    # Multiple regions available - the ICA platform no longer indicates a default.
+    # Fall back to matching the current user's country against the available regions.
+    from ...user import get_current_user_obj
+
+    current_user_obj = get_current_user_obj()
+
+    if current_user_obj.country is None:
+        raise Exception(
+            "Multiple regions found and the current user has no country set, "
+            "cannot determine default region"
+        )
+
+    current_user_country_id = str(current_user_obj.country.id)
+
+    try:
+        DEFAULT_REGION = next(
+            filter(
+                lambda region_iter: str(region_iter.country.id) == current_user_country_id,
+                regions
+            )
+        )
+    except StopIteration:
+        logger.error(
+            f"Could not find a region matching the current user's country id "
+            f"'{current_user_country_id}'"
+        )
+        raise Exception(
+            "Multiple regions found and none match the current user's country, "
+            "cannot determine default region"
+        )
 
 
 def get_default_region() -> Region:
