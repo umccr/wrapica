@@ -32,7 +32,7 @@ from ...literals import (
 
 # Libica models
 from libica.openapi.v3.models import (
-    AnalysisQueryParameters,
+    AnalysisQueryParametersPipeline,
     AnalysisV3,
     AnalysisV4,
     AnalysisInput,
@@ -702,12 +702,12 @@ def list_analyses(
         # Complete a comma join of the sort parameters
         sort = ",".join(sort)
 
-    # AnalysisQueryParameters
+    # AnalysisQueryParametersPipeline
     analysis_query_parameters = {
         "status": status if status is not None else None,
         "user_reference": user_reference,
     }
-    analysis_query_parameters = AnalysisQueryParameters(
+    analysis_query_parameters = AnalysisQueryParametersPipeline(
         # Filter out None values and parse into query parameters
         **dict(filter(
             lambda kv_iter_: kv_iter_[1] is not None,
@@ -750,7 +750,7 @@ def list_analyses(
                             "page_size": str(page_size),
                             "page_offset": str(page_offset),
                             "page_token": page_token,
-                            "analysis_query_parameters": analysis_query_parameters,
+                            "analysis_query_parameters_pipeline": analysis_query_parameters,
                             "sort": sort
                         }.items()
                     )
