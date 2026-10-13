@@ -27,12 +27,15 @@ Functions
 .. automodule:: wrapica.project_pipelines
    :members:
      get_project_pipeline_obj,
+     get_project_pipeline_obj_from_pipeline_name,
+     get_project_pipeline_id_from_pipeline_name,
      get_project_pipeline_obj_from_pipeline_code,
      get_project_pipeline_id_from_pipeline_code,
      get_default_analysis_storage_obj_from_project_pipeline,
      get_default_analysis_storage_id_from_project_pipeline,
      get_project_pipeline_description_from_pipeline_id,
      get_analysis_storage_id_from_analysis_storage_size,
+     coerce_pipeline_id_or_name_to_project_pipeline_obj,
      coerce_pipeline_id_or_code_to_project_pipeline_obj,
      get_analysis_storage_from_analysis_storage_id,
      get_analysis_storage_from_analysis_storage_size,

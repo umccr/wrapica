@@ -6,6 +6,7 @@ Project Pipeline Helpers
 
 # Standard imports
 import typing
+import warnings
 from filecmp import cmpfiles
 from io import StringIO
 from typing import Tuple, Dict, Optional, Union, List, cast, Any
@@ -105,6 +106,57 @@ PipelineType = Union[ProjectPipeline, ProjectPipelineV4]
 logger = get_logger()
 
 
+def _resolve_pipeline_create_identifier_kwargs(
+        pipeline_name: Optional[str],
+        pipeline_version: Optional[str],
+        pipeline_code: Optional[str],
+) -> Dict[str, str]:
+    """
+    Resolve the identifier kwargs (``name``/``version`` or the deprecated ``code``) to pass
+    to the libica pipeline-create endpoints.
+
+    Enforces, in order: both supplied -> ValueError; only pipeline_code -> DeprecationWarning
+    + ``{"code": ...}``; only pipeline_name -> ``{"name": ..., ["version": ...]}``; neither
+    supplied -> ValueError.
+
+    :param pipeline_name: The preferred pipeline name identifier
+    :param pipeline_version: The optional pipeline version (only used with pipeline_name)
+    :param pipeline_code: The deprecated pipeline code identifier
+
+    :return: The identifier kwargs to pass to the libica create call
+    :rtype: Dict[str, str]
+
+    :raises ValueError: If both or neither of pipeline_name/pipeline_code is supplied
+    """
+    # Both supplied -> error (checked first)
+    if pipeline_code is not None and pipeline_name is not None:
+        raise ValueError(
+            "Provide either pipeline_name (preferred) or the deprecated pipeline_code, not both"
+        )
+
+    # Only pipeline_code supplied (deprecated path)
+    if pipeline_code is not None:
+        warnings.warn(
+            "pipeline_code is deprecated and will be removed in a future release. "
+            "Pass pipeline_name (and the optional pipeline_version) instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return {"code": pipeline_code}
+
+    # Only pipeline_name supplied
+    if pipeline_name is not None:
+        identifier_kwargs = {"name": pipeline_name}
+        if pipeline_version is not None:
+            identifier_kwargs["version"] = pipeline_version
+        return identifier_kwargs
+
+    # Neither supplied
+    raise ValueError(
+        "Must provide pipeline_name (preferred) or the deprecated pipeline_code"
+    )
+
+
 def get_project_pipeline_obj(
         project_id: Union[UUID4, str],
         pipeline_id: Union[UUID4, str],
@@ -132,8 +184,8 @@ def get_project_pipeline_obj(
             pipeline_id="pipeline-456"
         )
 
-        print(f"Pipeline ID: {project_pipeline_obj.pipeline.id}, Code: {project_pipeline_obj.pipeline.code}")
-        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my-pipeline
+        print(f"Pipeline ID: {project_pipeline_obj.pipeline.id}, Name: {project_pipeline_obj.pipeline.name}, Version: {project_pipeline_obj.pipeline.version}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my-pipeline, Version: 1.0.0
     """
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -158,12 +210,181 @@ def get_project_pipeline_obj(
     return api_response
 
 
+def get_project_pipeline_obj_from_pipeline_name(
+        project_id: Union[UUID4, str],
+        pipeline_name: str,
+        pipeline_version: Optional[str] = None,
+) -> ProjectPipelineV4:
+    """
+    Return the project pipeline object matching a given name (and optional version).
+
+    When ``pipeline_version`` is omitted, the latest version in the pipeline group is
+    returned (resolved via ``latest_version_in_group``). If exactly one pipeline matches the
+    name, it is returned regardless of its ``latest_version_in_group`` flag.
+
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_name: The pipeline name to look up in the project (must be non-empty)
+    :param pipeline_version: The pipeline version to look up. Defaults to None,
+        in which case the latest version in the pipeline group is returned
+
+    :return: The project pipeline object matching the given name (and version)
+    :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
+
+    :raises ValueError: If pipeline_name is empty, the name/version cannot be found,
+        or the version is omitted and the match is ambiguous
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_pipelines import get_project_pipeline_obj_from_pipeline_name
+
+        project_pipeline_obj = get_project_pipeline_obj_from_pipeline_name(
+            project_id="project-123",
+            pipeline_name="my_pipeline",
+            pipeline_version="1.0.0"
+        )
+
+        print(f"Pipeline ID: {project_pipeline_obj.pipeline.id}, Name: {project_pipeline_obj.pipeline.name}, Version: {project_pipeline_obj.pipeline.version}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my_pipeline, Version: 1.0.0
+    """
+    # Reject an empty identifier up front (PipelineV4.name has MinLen(1), so an empty
+    # name can never match a stored pipeline)
+    if not pipeline_name:
+        logger.error("pipeline_name must be a non-empty string")
+        raise ValueError("pipeline_name must be a non-empty string")
+
+    matches = [
+        project_pipeline_iter
+        for project_pipeline_iter in list_project_pipelines(project_id)
+        if project_pipeline_iter.pipeline.name == pipeline_name
+    ]
+
+    # 1. Explicit version requested
+    if pipeline_version is not None:
+        versioned = [
+            project_pipeline_iter
+            for project_pipeline_iter in matches
+            if project_pipeline_iter.pipeline.version == pipeline_version
+        ]
+        if len(versioned) == 0:
+            logger.error(
+                f"Could not find pipeline name '{pipeline_name}' with version "
+                f"'{pipeline_version}' in project {project_id}"
+            )
+            raise ValueError(
+                f"Could not find pipeline name '{pipeline_name}' with version "
+                f"'{pipeline_version}' in project {project_id}"
+            )
+        if len(versioned) > 1:
+            logger.error(
+                f"Found multiple pipelines named '{pipeline_name}' with version "
+                f"'{pipeline_version}' in project {project_id}"
+            )
+            raise ValueError(
+                f"Found multiple pipelines named '{pipeline_name}' with version "
+                f"'{pipeline_version}' in project {project_id}"
+            )
+        return versioned[0]
+
+    # 2. Version omitted -> "latest in group"
+    if len(matches) == 0:
+        logger.error(f"Could not find pipeline name '{pipeline_name}' in project {project_id}")
+        raise ValueError(f"Could not find pipeline name '{pipeline_name}' in project {project_id}")
+    if len(matches) == 1:
+        return matches[0]
+
+    flagged = [
+        project_pipeline_iter
+        for project_pipeline_iter in matches
+        if project_pipeline_iter.pipeline.latest_version_in_group is True
+    ]
+    if len(flagged) == 1:
+        return flagged[0]
+
+    if len(flagged) > 1:
+        group_ids = sorted(set(
+            str(getattr(project_pipeline_iter.pipeline.pipeline_group, "id", None))
+            for project_pipeline_iter in flagged
+        ))
+        logger.error(
+            f"Multiple 'latest' pipelines named '{pipeline_name}' across groups "
+            f"{group_ids} in project {project_id}; pass pipeline_version"
+        )
+        raise ValueError(
+            f"Multiple 'latest' pipelines named '{pipeline_name}' across groups "
+            f"{group_ids} in project {project_id}; pass pipeline_version"
+        )
+
+    # 0 flagged (flags False/None) -> ambiguous
+    available_versions = sorted(set(
+        str(project_pipeline_iter.pipeline.version) for project_pipeline_iter in matches
+    ))
+    logger.error(
+        f"Multiple versions for pipeline name '{pipeline_name}' in project {project_id}: "
+        f"{available_versions}; pass pipeline_version"
+    )
+    raise ValueError(
+        f"Multiple versions for pipeline name '{pipeline_name}' in project {project_id}: "
+        f"{available_versions}; pass pipeline_version"
+    )
+
+
+def get_project_pipeline_id_from_pipeline_name(
+        project_id: Union[UUID4, str],
+        pipeline_name: str,
+        pipeline_version: Optional[str] = None,
+) -> str:
+    """
+    Return the pipeline ID for a given pipeline name within a project.
+
+    :param project_id: The project identifier as a UUID4 object or UUID-formatted string
+    :param pipeline_name: The pipeline name to look up (must be non-empty)
+    :param pipeline_version: The pipeline version to look up. Defaults to None,
+        in which case the latest version in the pipeline group is returned
+
+    :return: The pipeline ID as a string
+    :rtype: str
+
+    :raises ValueError: If pipeline_name is empty, the name/version cannot be found,
+        or the version is omitted and the match is ambiguous
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_pipelines import get_project_pipeline_id_from_pipeline_name
+
+        pipeline_id = get_project_pipeline_id_from_pipeline_name(
+            project_id="project-123",
+            pipeline_name="my_pipeline",
+            pipeline_version="1.0.0"
+        )
+
+        print(pipeline_id)
+        # abcd1234-ab12-ab12-ab12-abcdef123456
+    """
+    return str(
+        get_project_pipeline_obj_from_pipeline_name(
+            project_id, pipeline_name, pipeline_version
+        ).pipeline.id
+    )
+
+
 def get_project_pipeline_obj_from_pipeline_code(
         project_id: Union[UUID4, str],
         pipeline_code: str
 ) -> ProjectPipeline:
     """
     Return the project pipeline object matching a given pipeline code.
+
+    .. deprecated::
+
+        Pipelines are now identified by ``name``/``version`` rather than ``code``.
+        Use :func:`get_project_pipeline_obj_from_pipeline_name` instead. This function
+        will be removed in a future release.
 
     :param project_id: The project identifier as a UUID4 object or UUID-formatted string
     :param pipeline_code: The pipeline code string to look up in the project
@@ -188,6 +409,13 @@ def get_project_pipeline_obj_from_pipeline_code(
         print(f"Pipeline ID: {project_pipeline_obj.pipeline.id}, Code: {project_pipeline_obj.pipeline.code}")
         # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_pipeline_code
     """
+    warnings.warn(
+        "get_project_pipeline_obj_from_pipeline_code is deprecated and will be removed in a "
+        "future release. Pipelines are now identified by name/version; migrate to "
+        "get_project_pipeline_obj_from_pipeline_name(project_id, pipeline_name, pipeline_version).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     try:
         return next(
             filter(
@@ -206,6 +434,12 @@ def get_project_pipeline_id_from_pipeline_code(
 ) -> str:
     """
     Return the pipeline ID for a given pipeline code within a project.
+
+    .. deprecated::
+
+        Pipelines are now identified by ``name``/``version`` rather than ``code``.
+        Use :func:`get_project_pipeline_id_from_pipeline_name` instead. This function
+        will be removed in a future release.
 
     :param project_id: The project identifier as a UUID4 object or UUID-formatted string
     :param pipeline_code: The pipeline code string to look up
@@ -230,6 +464,13 @@ def get_project_pipeline_id_from_pipeline_code(
         print(pipeline_id)
         # abcd1234-ab12-ab12-ab12-abcdef123456
     """
+    warnings.warn(
+        "get_project_pipeline_id_from_pipeline_code is deprecated and will be removed in a "
+        "future release. Pipelines are now identified by name/version; migrate to "
+        "get_project_pipeline_id_from_pipeline_name(project_id, pipeline_name, pipeline_version).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return str(get_project_pipeline_obj_from_pipeline_code(project_id, pipeline_code).pipeline.id)
 
 
@@ -347,9 +588,62 @@ def get_project_pipeline_description_from_pipeline_id(
     return project_pipeline_obj.pipeline.description
 
 
+def coerce_pipeline_id_or_name_to_project_pipeline_obj(
+        pipeline_id_or_name: str,
+        pipeline_version: Optional[str] = None,
+) -> ProjectPipelineV4:
+    """
+    Coerce a pipeline ID or name string to a project pipeline object.
+
+    A UUID-formatted string is resolved by ID; any other string is resolved by pipeline
+    **name** (with the optional ``pipeline_version``). The project context is resolved via
+    the current project (``ICAV2_PROJECT_ID``).
+
+    :param pipeline_id_or_name: The pipeline identifier as a UUID string or pipeline name
+    :param pipeline_version: The pipeline version to look up when a name is given. Defaults to None,
+        in which case the latest version in the pipeline group is returned
+
+    :return: The resolved project pipeline object
+    :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
+
+    :raises ValueError: If the pipeline name/version cannot be found or is ambiguous
+    :raises ApiException: If the API call to retrieve the pipeline fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.project_pipelines import coerce_pipeline_id_or_name_to_project_pipeline_obj
+
+        project_pipeline_obj = coerce_pipeline_id_or_name_to_project_pipeline_obj(
+            pipeline_id_or_name="my_pipeline",
+            pipeline_version="1.0.0"
+        )
+
+        print(f"Pipeline ID: {project_pipeline_obj.pipeline.id}, Name: {project_pipeline_obj.pipeline.name}, Version: {project_pipeline_obj.pipeline.version}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my_pipeline, Version: 1.0.0
+    """
+    from ...project import get_project_id
+
+    project_id = get_project_id()
+
+    if is_uuid_format(pipeline_id_or_name):
+        return get_project_pipeline_obj(project_id, pipeline_id_or_name)
+    return get_project_pipeline_obj_from_pipeline_name(
+        project_id, pipeline_id_or_name, pipeline_version
+    )
+
+
 def coerce_pipeline_id_or_code_to_project_pipeline_obj(pipeline_id_or_code: str) -> PipelineType:
     """
     Coerce a pipeline ID or code string to a project pipeline object.
+
+    .. deprecated::
+
+        A non-UUID string is now resolved by pipeline **name**, not code.
+        Use :func:`coerce_pipeline_id_or_name_to_project_pipeline_obj` instead. This
+        function will be removed in a future release.
 
     :param pipeline_id_or_code: The pipeline identifier as a UUID string or pipeline code
 
@@ -373,13 +667,16 @@ def coerce_pipeline_id_or_code_to_project_pipeline_obj(pipeline_id_or_code: str)
         print(f"Pipeline ID: {project_pipeline_obj.pipeline.id}, Code: {project_pipeline_obj.pipeline.code}")
         # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_pipeline_code
     """
-    from ...project import get_project_id
+    warnings.warn(
+        "coerce_pipeline_id_or_code_to_project_pipeline_obj is deprecated and will be "
+        "removed in a future release. A non-UUID string is now resolved by pipeline NAME, "
+        "not code. Pass a UUID, or migrate to "
+        "coerce_pipeline_id_or_name_to_project_pipeline_obj(pipeline_id_or_name, pipeline_version).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    project_id = get_project_id()
-
-    if is_uuid_format(pipeline_id_or_code):
-        return get_project_pipeline_obj(project_id, pipeline_id_or_code)
-    return get_project_pipeline_obj_from_pipeline_code(project_id, pipeline_id_or_code)
+    return coerce_pipeline_id_or_name_to_project_pipeline_obj(pipeline_id_or_code)
 
 
 def get_analysis_storage_from_analysis_storage_id(
@@ -1516,14 +1813,14 @@ def convert_uris_to_data_ids_from_nextflow_input_json(
 
 def list_project_pipelines(
         project_id: Union[UUID4, str]
-) -> List[ProjectPipeline]:
+) -> List[ProjectPipelineV4]:
     """
     List all pipelines available in a given project.
 
     :param project_id: The project identifier as a UUID4 object or UUID-formatted string
 
     :return: The list of project pipeline objects in the project
-    :rtype: List[`ProjectPipeline <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipeline/>`_]
+    :rtype: List[`ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_]
 
     :raises ValueError: If the API call to list project pipelines fails
 
@@ -1539,13 +1836,17 @@ def list_project_pipelines(
         print(f"Found {len(pipeline_list)} pipeline(s)")
         # Found 3 pipeline(s)
         for pipeline in pipeline_list:
-            print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
-            # Pipeline ID: abcd1234-..., Code: my-pipeline
+            print(f"Pipeline ID: {pipeline.pipeline.id}, Name: {pipeline.pipeline.name}, Version: {pipeline.pipeline.version}")
+            # Pipeline ID: abcd1234-..., Name: my-pipeline, Version: 1.0.0
     """
 
     # Get api instance
     with ApiClient(get_icav2_configuration()) as api_client:
-
+        # Force the API client to send back the v4 API
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v4+json"
+        )
         api_instance = ProjectPipelineApi(api_client)
 
     try:
@@ -1940,23 +2241,27 @@ def add_pipeline_file(
 
 def create_cwl_project_pipeline(
         project_id: Union[UUID4, str],
-        pipeline_code: str,
-        workflow_path: Path,
+        pipeline_name: Optional[str] = None,
+        workflow_path: Path = None,
         tool_paths: Optional[List[Path]] = None,
+        pipeline_version: Optional[str] = None,
         workflow_description: Optional[str] = None,
         params_xml_file: Optional[Path] = None,
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
-        resource_type: Optional[ResourceType] = None
+        resource_type: Optional[ResourceType] = None,
+        pipeline_code: Optional[str] = None
 ) -> ProjectPipelineV4:
     """
     Create a CWL project pipeline from a workflow file and optional tool files.
 
     :param project_id: The project identifier as a UUID4 object or UUID-formatted string
-    :param pipeline_code: The unique code string for the new pipeline
+    :param pipeline_name: The name for the new pipeline (preferred identifier)
     :param workflow_path: The local path to the CWL workflow file
     :param tool_paths: The list of local paths to CWL tool files. Defaults to None,
         in which case no additional tools are uploaded
+    :param pipeline_version: The version for the new pipeline. Defaults to None,
+        in which case no version is set
     :param workflow_description: The description text for the pipeline. Defaults to None,
         in which case no description is set
     :param params_xml_file: The local path to a params.xml file. Defaults to None,
@@ -1967,10 +2272,13 @@ def create_cwl_project_pipeline(
         in which case no documentation is attached
     :param resource_type: The compute resource type for the pipeline. Defaults to None,
         in which case no specific resource is requested
+    :param pipeline_code: (Deprecated) The unique code string for the new pipeline. Defaults
+        to None. Mutually exclusive with pipeline_name; use pipeline_name instead
 
     :return: The created project pipeline object
     :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
 
+    :raises ValueError: If both or neither of pipeline_name/pipeline_code is supplied
     :raises ApiException: If the API call to create the pipeline fails
 
     :Examples:
@@ -1983,13 +2291,21 @@ def create_cwl_project_pipeline(
 
         pipeline = create_cwl_project_pipeline(
             project_id="project-123",
-            pipeline_code="my_cwl_pipeline",
+            pipeline_name="my_cwl_pipeline",
+            pipeline_version="1.0.0",
             workflow_path=Path("/path/to/workflow.cwl")
         )
 
-        print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
-        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_cwl_pipeline
+        print(f"Pipeline ID: {pipeline.pipeline.id}, Name: {pipeline.pipeline.name}, Version: {pipeline.pipeline.version}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my_cwl_pipeline, Version: 1.0.0
     """
+
+    # Resolve the identifier kwargs (name/version or deprecated code) for the create call
+    identifier_kwargs = _resolve_pipeline_create_identifier_kwargs(
+        pipeline_name=pipeline_name,
+        pipeline_version=pipeline_version,
+        pipeline_code=pipeline_code,
+    )
 
     # Add in workflow and
     workflow_path_tuple_bytes = open(workflow_path, 'rb').read()
@@ -2093,7 +2409,7 @@ def create_cwl_project_pipeline(
         # Create a CWL pipeline within a project.
         api_response = api_instance.create_cwl_pipeline(
             project_id=str(project_id),
-            code=pipeline_code,
+            **identifier_kwargs,
             description=workflow_description,
             workflow_cwl_file=workflow_path_tuple_bytes,
             parameters_xml_file=params_xml_tuple_bytes,
@@ -2114,19 +2430,23 @@ def create_cwl_project_pipeline(
 
 def create_cwl_workflow_from_zip(
         project_id: Union[UUID4, str],
-        pipeline_code: str,
-        zip_path: Path,
+        pipeline_name: Optional[str] = None,
+        zip_path: Path = None,
+        pipeline_version: Optional[str] = None,
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_description: Optional[str] = None,
         html_documentation_path: Optional[Path] = None,
-        resource_type: Optional[ResourceType] = None
+        resource_type: Optional[ResourceType] = None,
+        pipeline_code: Optional[str] = None
 ) -> ProjectPipelineV4:
     """
     Create a CWL project pipeline from a zip file containing workflow and tools.
 
     :param project_id: The project identifier as a UUID4 object or UUID-formatted string
-    :param pipeline_code: The unique code string for the new pipeline
+    :param pipeline_name: The name for the new pipeline (preferred identifier)
     :param zip_path: The local path to the zip file containing workflow.cwl and tools
+    :param pipeline_version: The version for the new pipeline. Defaults to None,
+        in which case no version is set
     :param analysis_storage: The analysis storage object to use. Defaults to None,
         in which case the default Small storage is used
     :param workflow_description: The description text for the pipeline. Defaults to None,
@@ -2135,10 +2455,13 @@ def create_cwl_workflow_from_zip(
         in which case no documentation is attached
     :param resource_type: The compute resource type for the pipeline. Defaults to None,
         in which case no specific resource is requested
+    :param pipeline_code: (Deprecated) The unique code string for the new pipeline. Defaults
+        to None. Mutually exclusive with pipeline_name; use pipeline_name instead
 
     :return: The created project pipeline object
     :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
 
+    :raises ValueError: If both or neither of pipeline_name/pipeline_code is supplied
     :raises FileNotFoundError: If the zip file does not contain a workflow.cwl file
     :raises ApiException: If the API call to create the pipeline fails
 
@@ -2152,12 +2475,13 @@ def create_cwl_workflow_from_zip(
 
         pipeline = create_cwl_workflow_from_zip(
             project_id="project-123",
-            pipeline_code="my_cwl_pipeline",
+            pipeline_name="my_cwl_pipeline",
+            pipeline_version="1.0.0",
             zip_path=Path("/path/to/workflow.zip")
         )
 
-        print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
-        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_cwl_pipeline
+        print(f"Pipeline ID: {pipeline.pipeline.id}, Name: {pipeline.pipeline.name}, Version: {pipeline.pipeline.version}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my_cwl_pipeline, Version: 1.0.0
     """
     # Unzip the workflow and tool files
     with (TemporaryDirectory() as temp_dir, ZipFile(zip_path, 'r') as zip_h):
@@ -2201,6 +2525,8 @@ def create_cwl_workflow_from_zip(
         # Create the cwl workflow
         return create_cwl_project_pipeline(
             project_id=project_id,
+            pipeline_name=pipeline_name,
+            pipeline_version=pipeline_version,
             pipeline_code=pipeline_code,
             workflow_path=workflow_path,
             tool_paths=tool_paths,
@@ -2214,29 +2540,36 @@ def create_cwl_workflow_from_zip(
 
 def create_nextflow_pipeline_from_zip(
         project_id: Union[UUID4, str],
-        pipeline_code: str,
-        zip_path: Path,
-        workflow_description: str,
+        pipeline_name: Optional[str] = None,
+        zip_path: Path = None,
+        workflow_description: str = None,
+        pipeline_version: Optional[str] = None,
         html_documentation_path: Optional[Path] = None,
         resource_type: Optional[ResourceType] = None,
-        nextflow_version: Optional[NextflowPipelineVersionType] = None
+        nextflow_version: Optional[NextflowPipelineVersionType] = None,
+        pipeline_code: Optional[str] = None
 ) -> ProjectPipelineV4:
     """
     Create a Nextflow project pipeline from a zip file containing workflow files.
 
     :param project_id: The project identifier as a UUID4 object or UUID-formatted string
-    :param pipeline_code: The unique code string for the new pipeline
+    :param pipeline_name: The name for the new pipeline (preferred identifier)
     :param zip_path: The local path to the zip file containing main.nf and config
     :param workflow_description: The description text for the pipeline
+    :param pipeline_version: The version for the new pipeline. Defaults to None,
+        in which case no version is set
     :param html_documentation_path: The local path to HTML documentation. Defaults to None,
         in which case no documentation is attached
     :param resource_type: The compute resource type for the pipeline. Defaults to None,
         in which case no specific resource is requested
     :param nextflow_version: The nextflow version to use. Defaults to None, in which case the default version is used
+    :param pipeline_code: (Deprecated) The unique code string for the new pipeline. Defaults
+        to None. Mutually exclusive with pipeline_name; use pipeline_name instead
 
     :return: The created project pipeline object
     :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
 
+    :raises ValueError: If both or neither of pipeline_name/pipeline_code is supplied
     :raises ApiException: If the API call to create the pipeline fails
 
     :Examples:
@@ -2249,13 +2582,14 @@ def create_nextflow_pipeline_from_zip(
 
         pipeline = create_nextflow_pipeline_from_zip(
             project_id="project-123",
-            pipeline_code="my_nf_pipeline",
+            pipeline_name="my_nf_pipeline",
+            pipeline_version="1.0.0",
             zip_path=Path("/path/to/pipeline.zip"),
             workflow_description="My Nextflow pipeline"
         )
 
-        print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
-        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_nf_pipeline
+        print(f"Pipeline ID: {pipeline.pipeline.id}, Name: {pipeline.pipeline.name}, Version: {pipeline.pipeline.version}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my_nf_pipeline, Version: 1.0.0
     """
     # Extract the zip file
     with TemporaryDirectory() as temp_dir:
@@ -2303,6 +2637,8 @@ def create_nextflow_pipeline_from_zip(
         # Create the nextflow pipeline
         return create_nextflow_project_pipeline(
             project_id=project_id,
+            pipeline_name=pipeline_name,
+            pipeline_version=pipeline_version,
             pipeline_code=pipeline_code,
             main_nextflow_file=main_nf_path,
             nextflow_config_file=config_file,
@@ -2317,30 +2653,37 @@ def create_nextflow_pipeline_from_zip(
 
 def create_nextflow_pipeline_from_nf_core_zip(
         project_id: Union[UUID4, str],
-        pipeline_code: str,
-        zip_path: Path,
-        pipeline_revision: str,
+        pipeline_name: Optional[str] = None,
+        zip_path: Path = None,
+        pipeline_revision: str = None,
+        pipeline_version: Optional[str] = None,
         workflow_description: Optional[str] = None,
         html_documentation_path: Optional[Path] = None,
-        resource_type: Optional[ResourceType] = None
+        resource_type: Optional[ResourceType] = None,
+        pipeline_code: Optional[str] = None
 ) -> ProjectPipelineV4:
     """
     Create a Nextflow project pipeline from an nf-core zip download.
 
     :param project_id: The project identifier as a UUID4 object or UUID-formatted string
-    :param pipeline_code: The unique code string for the new pipeline
+    :param pipeline_name: The name for the new pipeline (preferred identifier)
     :param zip_path: The local path to the nf-core zip file
     :param pipeline_revision: The nf-core pipeline revision string used to locate the workflow directory
+    :param pipeline_version: The version for the new pipeline. Defaults to None,
+        in which case no version is set
     :param workflow_description: The description text for the pipeline. Defaults to None,
         in which case no description is set
     :param html_documentation_path: The local path to HTML documentation. Defaults to None,
         in which case no documentation is attached
     :param resource_type: The compute resource type for the pipeline. Defaults to None,
         in which case no specific resource is requested
+    :param pipeline_code: (Deprecated) The unique code string for the new pipeline. Defaults
+        to None. Mutually exclusive with pipeline_name; use pipeline_name instead
 
     :return: The created project pipeline object
     :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
 
+    :raises ValueError: If both or neither of pipeline_name/pipeline_code is supplied
     :raises ApiException: If the API call to create the pipeline fails
 
     :Examples:
@@ -2352,15 +2695,19 @@ def create_nextflow_pipeline_from_nf_core_zip(
         from wrapica.project_pipelines import create_nextflow_pipeline_from_nf_core_zip
         pipeline = create_nextflow_pipeline_from_nf_core_zip(
             project_id="project-123",
-            pipeline_code="nfcore_bamtofastq__1_0_0",
+            pipeline_name="nfcore_bamtofastq",
+            pipeline_version="1.0.0",
             zip_path=Path("/path/to/bamtofastq.zip"),
             pipeline_revision="1.0.0",
             workflow_description="nf-core bamtofastq pipeline"
         )
 
-        print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
-        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: nfcore_bamtofastq__1_0_0
+        print(f"Pipeline ID: {pipeline.pipeline.id}, Name: {pipeline.pipeline.name}, Version: {pipeline.pipeline.version}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: nfcore_bamtofastq, Version: 1.0.0
     """
+
+    # Derive a stable archive/zip layout name from the chosen identifier
+    pipeline_zip_name = pipeline_name or pipeline_code
 
     temp_dir = TemporaryDirectory()
 
@@ -2447,22 +2794,24 @@ def create_nextflow_pipeline_from_nf_core_zip(
 
     # Now zip everything back up
     new_zip_tmp_dir_obj = TemporaryDirectory()
-    new_zip_file_path = Path(new_zip_tmp_dir_obj.name) / (pipeline_code + ".zip")
+    new_zip_file_path = Path(new_zip_tmp_dir_obj.name) / (pipeline_zip_name + ".zip")
 
     with ZipFile(new_zip_file_path, 'w') as zip_h:
         # Add in the main.nf file
-        zip_h.write(main_nf_path, arcname=Path(pipeline_code) / main_nf_path.name)
+        zip_h.write(main_nf_path, arcname=Path(pipeline_zip_name) / main_nf_path.name)
         # Add in the nextflow.config file
-        zip_h.write(config_file, arcname=Path(pipeline_code) / config_file.name)
+        zip_h.write(config_file, arcname=Path(pipeline_zip_name) / config_file.name)
         # Add in the params.xml file
-        zip_h.write(params_xml_file_path, arcname=Path(pipeline_code) / params_xml_file_path.name)
+        zip_h.write(params_xml_file_path, arcname=Path(pipeline_zip_name) / params_xml_file_path.name)
         # Add in all the other files
         for tool_path in local_workflow_and_module_paths:
-            zip_h.write(tool_path, arcname=Path(pipeline_code) / tool_path.relative_to(workflow_dir))
+            zip_h.write(tool_path, arcname=Path(pipeline_zip_name) / tool_path.relative_to(workflow_dir))
 
     # Create the nextflow pipeline
     return create_nextflow_pipeline_from_zip(
         project_id=project_id,
+        pipeline_name=pipeline_name,
+        pipeline_version=pipeline_version,
         pipeline_code=pipeline_code,
         zip_path=new_zip_file_path,
         workflow_description=workflow_description,
@@ -2473,26 +2822,30 @@ def create_nextflow_pipeline_from_nf_core_zip(
 
 def create_nextflow_project_pipeline(
         project_id: Union[UUID4, str],
-        pipeline_code: str,
-        main_nextflow_file: Path,
-        nextflow_config_file: Path,
-        other_nextflow_files: List[Path],
-        workflow_description: str,
+        pipeline_name: Optional[str] = None,
+        main_nextflow_file: Path = None,
+        nextflow_config_file: Path = None,
+        other_nextflow_files: List[Path] = None,
+        workflow_description: str = None,
+        pipeline_version: Optional[str] = None,
         params_xml_file: Optional[Path] = None,
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
         resource_type: Optional[ResourceType] = None,
-        nextflow_version: Optional[NextflowPipelineVersionType] = None
+        nextflow_version: Optional[NextflowPipelineVersionType] = None,
+        pipeline_code: Optional[str] = None
 ) -> ProjectPipelineV4:
     """
     Create a Nextflow project pipeline from individual workflow files.
 
     :param project_id: The project identifier as a UUID4 object or UUID-formatted string
-    :param pipeline_code: The unique code string for the new pipeline
+    :param pipeline_name: The name for the new pipeline (preferred identifier)
     :param main_nextflow_file: The local path to the main.nf file
     :param nextflow_config_file: The local path to the nextflow.config file
     :param other_nextflow_files: The list of local paths to additional pipeline files
     :param workflow_description: The description text for the pipeline
+    :param pipeline_version: The version for the new pipeline. Defaults to None,
+        in which case no version is set
     :param params_xml_file: The local path to a params.xml file. Defaults to None,
         in which case a blank params XML is generated
     :param analysis_storage: The analysis storage object to use. Defaults to None,
@@ -2502,10 +2855,13 @@ def create_nextflow_project_pipeline(
     :param resource_type: The compute resource type for the pipeline. Defaults to None,
         in which case no specific resource is requested
     :param nextflow_version: The nextflow version to use. Defaults to None, in which case the default version is used
+    :param pipeline_code: (Deprecated) The unique code string for the new pipeline. Defaults
+        to None. Mutually exclusive with pipeline_name; use pipeline_name instead
 
     :return: The created project pipeline object
     :rtype: `ProjectPipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/ProjectPipelineV4/>`_
 
+    :raises ValueError: If both or neither of pipeline_name/pipeline_code is supplied
     :raises ApiException: If the API call to create the pipeline fails
 
     :Examples:
@@ -2517,16 +2873,24 @@ def create_nextflow_project_pipeline(
         from wrapica.project_pipelines import create_nextflow_project_pipeline
         pipeline = create_nextflow_project_pipeline(
             project_id="project-123",
-            pipeline_code="my_nf_pipeline",
+            pipeline_name="my_nf_pipeline",
+            pipeline_version="1.0.0",
             main_nextflow_file=Path("/path/to/main.nf"),
             nextflow_config_file=Path("/path/to/nextflow.config"),
             other_nextflow_files=[],
             workflow_description="My Nextflow pipeline"
         )
 
-        print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
-        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my_nf_pipeline
+        print(f"Pipeline ID: {pipeline.pipeline.id}, Name: {pipeline.pipeline.name}, Version: {pipeline.pipeline.version}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my_nf_pipeline, Version: 1.0.0
     """
+
+    # Resolve the identifier kwargs (name/version or deprecated code) for the create call
+    identifier_kwargs = _resolve_pipeline_create_identifier_kwargs(
+        pipeline_name=pipeline_name,
+        pipeline_version=pipeline_version,
+        pipeline_code=pipeline_code,
+    )
 
     # Get nextflow main and config files
     main_nextflow_file_tuple_bytes = ('main.nf', open(main_nextflow_file, 'rb').read())
@@ -2597,13 +2961,13 @@ def create_nextflow_project_pipeline(
     else:
         resources = None
 
-    # Get the nextflow project pipeline version
+    # Get the nextflow project pipeline language version
     if nextflow_version is None:
-        pipeline_version = get_default_nextflow_pipeline_version()
+        nextflow_language_version = get_default_nextflow_pipeline_version()
     else:
         nextflow_versions_list = get_nextflow_pipeline_versions_list()
         try:
-            pipeline_version = next(filter(
+            nextflow_language_version = next(filter(
                 lambda nextflow_version_iter_: nextflow_version_iter_.name == nextflow_version,
                 nextflow_versions_list
             ))
@@ -2627,12 +2991,12 @@ def create_nextflow_project_pipeline(
         # Create a Nextflow pipeline within a project.
         api_response = api_instance.create_nextflow_pipeline(
             project_id=str(project_id),
-            code=pipeline_code,
+            **identifier_kwargs,
             description=workflow_description,
             main_nextflow_file=main_nextflow_file_tuple_bytes,
             parameters_xml_file=params_xml_file_tuple_bytes,
             analysis_storage_id=coerce_to_uuid4_obj(analysis_storage.id),
-            pipeline_language_version_id=coerce_to_uuid4_obj(pipeline_version.id),
+            pipeline_language_version_id=coerce_to_uuid4_obj(nextflow_language_version.id),
             nextflow_config_file=nextflow_config_file_tuple_bytes,
             other_nextflow_files=other_nextflow_files_tuple_bytes_list,
             html_documentation=workflow_html_documentation_tuple_bytes,

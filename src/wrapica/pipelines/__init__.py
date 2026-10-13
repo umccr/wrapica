@@ -11,7 +11,10 @@ from libica.openapi.v3.models import (
 # Local imports
 from .functions.pipelines_functions import (
     get_pipeline_obj_from_pipeline_id,
+    get_pipeline_obj_from_pipeline_name,
     get_pipeline_obj_from_pipeline_code,
+    coerce_pipeline_id_or_name_to_pipeline_obj,
+    coerce_pipeline_id_or_name_to_pipeline_id,
     coerce_pipeline_id_or_code_to_pipeline_obj,
     coerce_pipeline_id_or_code_to_pipeline_id,
     list_all_pipelines,
@@ -32,7 +35,10 @@ __all__ = [
     'PipelineFile',
     # Local functions
     'get_pipeline_obj_from_pipeline_id',
+    'get_pipeline_obj_from_pipeline_name',
     'get_pipeline_obj_from_pipeline_code',
+    'coerce_pipeline_id_or_name_to_pipeline_obj',
+    'coerce_pipeline_id_or_name_to_pipeline_id',
     'coerce_pipeline_id_or_code_to_pipeline_obj',
     'coerce_pipeline_id_or_code_to_pipeline_id',
     'list_all_pipelines',
