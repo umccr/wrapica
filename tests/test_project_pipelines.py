@@ -87,9 +87,10 @@ class TestGetProjectPipelineObjFromPipelineCode:
             get_project_pipeline_obj_from_pipeline_code,
         )
 
-        result = get_project_pipeline_obj_from_pipeline_code(
-            DUMMY_PROJECT_ID, "target-pipeline"
-        )
+        with pytest.warns(DeprecationWarning):
+            result = get_project_pipeline_obj_from_pipeline_code(
+                DUMMY_PROJECT_ID, "target-pipeline"
+            )
 
         assert result is mock_pipeline_2
 
@@ -107,10 +108,405 @@ class TestGetProjectPipelineObjFromPipelineCode:
             get_project_pipeline_obj_from_pipeline_code,
         )
 
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError):
+                get_project_pipeline_obj_from_pipeline_code(
+                    DUMMY_PROJECT_ID, "nonexistent-pipeline"
+                )
+
+
+def _make_pp_v4(name=None, version=None, latest=None, group_id="group-x", pipeline_id=None, group_none=False):
+    """Build a mock ProjectPipelineV4-like object for name/version resolution tests."""
+    mock = MagicMock()
+    mock.pipeline.name = name
+    mock.pipeline.version = version
+    mock.pipeline.latest_version_in_group = latest
+    mock.pipeline.id = pipeline_id
+    if group_none:
+        mock.pipeline.pipeline_group = None
+    else:
+        mock.pipeline.pipeline_group = MagicMock()
+        mock.pipeline.pipeline_group.id = group_id
+    return mock
+
+
+class TestGetProjectPipelineObjFromPipelineName:
+    """Tests for get_project_pipeline_obj_from_pipeline_name."""
+
+    def _import(self):
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            get_project_pipeline_obj_from_pipeline_name,
+        )
+        return get_project_pipeline_obj_from_pipeline_name
+
+    def test_empty_name_raises_without_api_call(self, mocker, configuration_fixture):
+        """Verify an empty name raises ValueError before any API call."""
+        mock_list = mocker.patch(f"{MODULE_PATH}.list_project_pipelines")
+        func = self._import()
+
         with pytest.raises(ValueError):
-            get_project_pipeline_obj_from_pipeline_code(
-                DUMMY_PROJECT_ID, "nonexistent-pipeline"
+            func(DUMMY_PROJECT_ID, "")
+
+        mock_list.assert_not_called()
+
+    def test_exact_version_match(self, mocker, configuration_fixture):
+        """Verify an explicit version returns the exact match."""
+        obj_1 = _make_pp_v4(name="my-pipeline", version="1.0.0")
+        obj_2 = _make_pp_v4(name="my-pipeline", version="2.0.0")
+        mocker.patch(f"{MODULE_PATH}.list_project_pipelines", return_value=[obj_1, obj_2])
+
+        result = self._import()(DUMMY_PROJECT_ID, "my-pipeline", "2.0.0")
+
+        assert result is obj_2
+
+    def test_single_match_not_flagged(self, mocker, configuration_fixture):
+        """Verify a single name match is returned regardless of latest flag."""
+        obj_1 = _make_pp_v4(name="my-pipeline", version="1.0.0", latest=False)
+        obj_other = _make_pp_v4(name="other", version="1.0.0")
+        mocker.patch(f"{MODULE_PATH}.list_project_pipelines", return_value=[obj_1, obj_other])
+
+        result = self._import()(DUMMY_PROJECT_ID, "my-pipeline")
+
+        assert result is obj_1
+
+    def test_latest_default(self, mocker, configuration_fixture):
+        """Verify the latest-flagged version is returned when version omitted."""
+        obj_1 = _make_pp_v4(name="my-pipeline", version="1.0.0", latest=False)
+        obj_2 = _make_pp_v4(name="my-pipeline", version="2.0.0", latest=True)
+        mocker.patch(f"{MODULE_PATH}.list_project_pipelines", return_value=[obj_1, obj_2])
+
+        result = self._import()(DUMMY_PROJECT_ID, "my-pipeline")
+
+        assert result is obj_2
+
+    def test_not_found_raises(self, mocker, configuration_fixture):
+        """Verify ValueError when the name is not found."""
+        obj_other = _make_pp_v4(name="other", version="1.0.0")
+        mocker.patch(f"{MODULE_PATH}.list_project_pipelines", return_value=[obj_other])
+
+        with pytest.raises(ValueError):
+            self._import()(DUMMY_PROJECT_ID, "my-pipeline")
+
+    def test_ambiguous_zero_flagged(self, mocker, configuration_fixture):
+        """Verify ValueError when multiple matches and none flagged latest."""
+        obj_1 = _make_pp_v4(name="my-pipeline", version="1.0.0", latest=None)
+        obj_2 = _make_pp_v4(name="my-pipeline", version="2.0.0", latest=False)
+        mocker.patch(f"{MODULE_PATH}.list_project_pipelines", return_value=[obj_1, obj_2])
+
+        with pytest.raises(ValueError):
+            self._import()(DUMMY_PROJECT_ID, "my-pipeline")
+
+    def test_ambiguous_multi_flagged_lists_group_ids(self, mocker, configuration_fixture):
+        """Verify ValueError lists the distinct group ids when >1 flagged latest."""
+        obj_1 = _make_pp_v4(name="my-pipeline", version="1.0.0", latest=True, group_id="group-a")
+        obj_2 = _make_pp_v4(name="my-pipeline", version="2.0.0", latest=True, group_id="group-b")
+        mocker.patch(f"{MODULE_PATH}.list_project_pipelines", return_value=[obj_1, obj_2])
+
+        with pytest.raises(ValueError) as exc_info:
+            self._import()(DUMMY_PROJECT_ID, "my-pipeline")
+
+        assert "group-a" in str(exc_info.value)
+        assert "group-b" in str(exc_info.value)
+
+    def test_pipeline_group_none_does_not_raise(self, mocker, configuration_fixture):
+        """Verify a None pipeline_group in the ambiguity path does not raise AttributeError."""
+        obj_1 = _make_pp_v4(name="my-pipeline", version="1.0.0", latest=True, group_none=True)
+        obj_2 = _make_pp_v4(name="my-pipeline", version="2.0.0", latest=True, group_none=True)
+        mocker.patch(f"{MODULE_PATH}.list_project_pipelines", return_value=[obj_1, obj_2])
+
+        with pytest.raises(ValueError) as exc_info:
+            self._import()(DUMMY_PROJECT_ID, "my-pipeline")
+
+        # None group ids render as "None" rather than raising
+        assert "None" in str(exc_info.value)
+
+
+class TestGetProjectPipelineIdFromPipelineName:
+    """Tests for get_project_pipeline_id_from_pipeline_name."""
+
+    def test_returns_stringified_id(self, mocker, configuration_fixture):
+        """Verify the function returns str(obj.pipeline.id)."""
+        mock_obj = MagicMock()
+        mock_obj.pipeline.id = DUMMY_PIPELINE_ID
+        mocker.patch(
+            f"{MODULE_PATH}.get_project_pipeline_obj_from_pipeline_name",
+            return_value=mock_obj,
+        )
+
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            get_project_pipeline_id_from_pipeline_name,
+        )
+
+        result = get_project_pipeline_id_from_pipeline_name(DUMMY_PROJECT_ID, "my-pipeline")
+
+        assert result == str(DUMMY_PIPELINE_ID)
+
+
+class TestCoercePipelineIdOrNameToProjectPipelineObj:
+    """Tests for coerce_pipeline_id_or_name_to_project_pipeline_obj."""
+
+    def test_uuid_delegates_to_get_by_id(self, mocker, configuration_fixture):
+        """Verify UUID input delegates to get_project_pipeline_obj."""
+        mocker.patch("wrapica.project.get_project_id", return_value=DUMMY_PROJECT_ID)
+        mock_obj = MagicMock()
+        mock_get = mocker.patch(
+            f"{MODULE_PATH}.get_project_pipeline_obj",
+            return_value=mock_obj,
+        )
+
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            coerce_pipeline_id_or_name_to_project_pipeline_obj,
+        )
+
+        result = coerce_pipeline_id_or_name_to_project_pipeline_obj(DUMMY_PIPELINE_ID)
+
+        assert result is mock_obj
+        mock_get.assert_called_once_with(DUMMY_PROJECT_ID, DUMMY_PIPELINE_ID)
+
+    def test_non_uuid_delegates_to_name_resolver(self, mocker, configuration_fixture):
+        """Verify non-UUID input delegates to get_project_pipeline_obj_from_pipeline_name."""
+        mocker.patch("wrapica.project.get_project_id", return_value=DUMMY_PROJECT_ID)
+        mock_obj = MagicMock()
+        mock_get = mocker.patch(
+            f"{MODULE_PATH}.get_project_pipeline_obj_from_pipeline_name",
+            return_value=mock_obj,
+        )
+
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            coerce_pipeline_id_or_name_to_project_pipeline_obj,
+        )
+
+        result = coerce_pipeline_id_or_name_to_project_pipeline_obj("my-pipeline", "1.0.0")
+
+        assert result is mock_obj
+        mock_get.assert_called_once_with(DUMMY_PROJECT_ID, "my-pipeline", "1.0.0")
+
+
+class TestCoercePipelineIdOrCodeToProjectPipelineObjDeprecated:
+    """Tests for the deprecated coerce_pipeline_id_or_code_to_project_pipeline_obj alias."""
+
+    def test_delegates_to_name_resolver_and_warns(self, mocker, configuration_fixture):
+        """Verify the deprecated alias delegates to the NAME coerce resolver and warns."""
+        mock_obj = MagicMock()
+        mock_delegate = mocker.patch(
+            f"{MODULE_PATH}.coerce_pipeline_id_or_name_to_project_pipeline_obj",
+            return_value=mock_obj,
+        )
+
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            coerce_pipeline_id_or_code_to_project_pipeline_obj,
+        )
+
+        with pytest.warns(DeprecationWarning):
+            result = coerce_pipeline_id_or_code_to_project_pipeline_obj("my-pipeline-code")
+
+        assert result is mock_obj
+        mock_delegate.assert_called_once_with("my-pipeline-code")
+
+
+class TestCreatePipelineIdentifierValidation:
+    """Tests for the pipeline_name / pipeline_code identifier rules in create functions."""
+
+    def _make_cwl_zip(self, tmp_path):
+        zip_path = tmp_path / "my_workflow.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("my_workflow/workflow.cwl", "class: Workflow\ndoc: Test\n")
+        return zip_path
+
+    def test_create_cwl_project_pipeline_name_passes_name_version(
+        self, mocker, configuration_fixture, tmp_path
+    ):
+        """Verify pipeline_name/pipeline_version are wired to name=/version= on libica."""
+        workflow_path = tmp_path / "workflow.cwl"
+        workflow_path.write_text("class: Workflow\n")
+
+        mock_storage = MagicMock()
+        mock_storage.id = "99999999-8888-4000-8000-999999999999"
+        mocker.patch(
+            f"{MODULE_PATH}.get_analysis_storage_from_analysis_storage_size",
+            return_value=mock_storage,
+        )
+        mocker.patch(f"{MODULE_PATH}.load_document_by_uri", return_value=MagicMock(hints=None))
+        mocker.patch(f"{MODULE_PATH}.get_icav2_configuration", return_value=MagicMock())
+        mock_response = MagicMock()
+        mock_response.pipeline.id = DUMMY_PIPELINE_ID
+        mock_create = mocker.patch.object(
+            ProjectPipelineApi, "create_cwl_pipeline", return_value=mock_response
+        )
+        mocker.patch(f"{MODULE_PATH}.get_project_pipeline_obj", return_value=MagicMock())
+
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            create_cwl_project_pipeline,
+        )
+
+        create_cwl_project_pipeline(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_name="my-pipeline",
+            pipeline_version="1.0.0",
+            workflow_path=workflow_path,
+        )
+
+        call_kwargs = mock_create.call_args[1]
+        assert call_kwargs["name"] == "my-pipeline"
+        assert call_kwargs["version"] == "1.0.0"
+        assert "code" not in call_kwargs
+
+    def test_create_cwl_project_pipeline_code_passes_code_and_warns(
+        self, mocker, configuration_fixture, tmp_path
+    ):
+        """Verify the deprecated pipeline_code wires code= and emits DeprecationWarning."""
+        workflow_path = tmp_path / "workflow.cwl"
+        workflow_path.write_text("class: Workflow\n")
+
+        mock_storage = MagicMock()
+        mock_storage.id = "99999999-8888-4000-8000-999999999999"
+        mocker.patch(
+            f"{MODULE_PATH}.get_analysis_storage_from_analysis_storage_size",
+            return_value=mock_storage,
+        )
+        mocker.patch(f"{MODULE_PATH}.load_document_by_uri", return_value=MagicMock(hints=None))
+        mocker.patch(f"{MODULE_PATH}.get_icav2_configuration", return_value=MagicMock())
+        mock_response = MagicMock()
+        mock_response.pipeline.id = DUMMY_PIPELINE_ID
+        mock_create = mocker.patch.object(
+            ProjectPipelineApi, "create_cwl_pipeline", return_value=mock_response
+        )
+        mocker.patch(f"{MODULE_PATH}.get_project_pipeline_obj", return_value=MagicMock())
+
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            create_cwl_project_pipeline,
+        )
+
+        with pytest.warns(DeprecationWarning):
+            create_cwl_project_pipeline(
+                project_id=DUMMY_PROJECT_ID,
+                pipeline_code="my-pipeline-code",
+                workflow_path=workflow_path,
             )
+
+        call_kwargs = mock_create.call_args[1]
+        assert call_kwargs["code"] == "my-pipeline-code"
+        assert "name" not in call_kwargs
+
+    def test_create_cwl_project_pipeline_both_raises_no_api_call(
+        self, mocker, configuration_fixture, tmp_path
+    ):
+        """Verify supplying both name and code raises ValueError with no API call."""
+        workflow_path = tmp_path / "workflow.cwl"
+        workflow_path.write_text("class: Workflow\n")
+
+        mock_create = mocker.patch.object(ProjectPipelineApi, "create_cwl_pipeline")
+
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            create_cwl_project_pipeline,
+        )
+
+        with pytest.raises(ValueError):
+            create_cwl_project_pipeline(
+                project_id=DUMMY_PROJECT_ID,
+                pipeline_name="my-pipeline",
+                pipeline_code="my-pipeline-code",
+                workflow_path=workflow_path,
+            )
+
+        mock_create.assert_not_called()
+
+    def test_create_cwl_project_pipeline_neither_raises(
+        self, mocker, configuration_fixture, tmp_path
+    ):
+        """Verify supplying neither name nor code raises ValueError."""
+        workflow_path = tmp_path / "workflow.cwl"
+        workflow_path.write_text("class: Workflow\n")
+
+        mock_create = mocker.patch.object(ProjectPipelineApi, "create_cwl_pipeline")
+
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            create_cwl_project_pipeline,
+        )
+
+        with pytest.raises(ValueError):
+            create_cwl_project_pipeline(
+                project_id=DUMMY_PROJECT_ID,
+                workflow_path=workflow_path,
+            )
+
+        mock_create.assert_not_called()
+
+    def test_create_nextflow_project_pipeline_name_passes_name_version(
+        self, mocker, configuration_fixture, tmp_path
+    ):
+        """Verify pipeline_name/pipeline_version are wired to name=/version= on libica."""
+        main_nf = tmp_path / "main.nf"
+        main_nf.write_text("process {}\n")
+        config = tmp_path / "nextflow.config"
+        config.write_text("")
+
+        mock_storage = MagicMock()
+        mock_storage.id = "99999999-8888-4000-8000-999999999999"
+        mocker.patch(
+            f"{MODULE_PATH}.get_analysis_storage_from_analysis_storage_size",
+            return_value=mock_storage,
+        )
+        mock_lang_version = MagicMock()
+        mock_lang_version.id = "88888888-9999-4000-8000-888888888888"
+        mocker.patch(
+            f"{MODULE_PATH}.get_default_nextflow_pipeline_version",
+            return_value=mock_lang_version,
+        )
+        mocker.patch(f"{MODULE_PATH}.get_icav2_configuration", return_value=MagicMock())
+        mock_response = MagicMock()
+        mock_response.pipeline.id = DUMMY_PIPELINE_ID
+        mock_create = mocker.patch.object(
+            ProjectPipelineApi, "create_nextflow_pipeline", return_value=mock_response
+        )
+        mocker.patch(f"{MODULE_PATH}.get_project_pipeline_obj", return_value=MagicMock())
+
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            create_nextflow_project_pipeline,
+        )
+
+        create_nextflow_project_pipeline(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_name="my-nf-pipeline",
+            pipeline_version="2.0.0",
+            main_nextflow_file=main_nf,
+            nextflow_config_file=config,
+            other_nextflow_files=[],
+            workflow_description="desc",
+        )
+
+        call_kwargs = mock_create.call_args[1]
+        assert call_kwargs["name"] == "my-nf-pipeline"
+        assert call_kwargs["version"] == "2.0.0"
+        assert "code" not in call_kwargs
+
+    def test_create_nextflow_project_pipeline_both_raises_no_api_call(
+        self, mocker, configuration_fixture, tmp_path
+    ):
+        """Verify supplying both name and code raises ValueError with no API call."""
+        main_nf = tmp_path / "main.nf"
+        main_nf.write_text("process {}\n")
+        config = tmp_path / "nextflow.config"
+        config.write_text("")
+
+        mock_create = mocker.patch.object(ProjectPipelineApi, "create_nextflow_pipeline")
+
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            create_nextflow_project_pipeline,
+        )
+
+        with pytest.raises(ValueError):
+            create_nextflow_project_pipeline(
+                project_id=DUMMY_PROJECT_ID,
+                pipeline_name="my-nf-pipeline",
+                pipeline_code="my-nf-code",
+                main_nextflow_file=main_nf,
+                nextflow_config_file=config,
+                other_nextflow_files=[],
+                workflow_description="desc",
+            )
+
+        mock_create.assert_not_called()
 
 
 class TestLaunchCwlWorkflow:
@@ -380,7 +776,8 @@ class TestCreateCwlWorkflowFromZip:
 
         mock_pipeline_result = MagicMock()
         mock_pipeline_result.pipeline.id = DUMMY_PIPELINE_ID
-        mock_pipeline_result.pipeline.code = "my-cwl-pipeline"
+        mock_pipeline_result.pipeline.name = "my-cwl-pipeline"
+        mock_pipeline_result.pipeline.version = "1.0.0"
 
         mock_create = mocker.patch(
             f"{MODULE_PATH}.create_cwl_project_pipeline",
@@ -401,7 +798,8 @@ class TestCreateCwlWorkflowFromZip:
 
         result = create_cwl_workflow_from_zip(
             project_id=DUMMY_PROJECT_ID,
-            pipeline_code="my-cwl-pipeline",
+            pipeline_name="my-cwl-pipeline",
+            pipeline_version="1.0.0",
             zip_path=zip_path,
         )
 
@@ -409,8 +807,44 @@ class TestCreateCwlWorkflowFromZip:
         mock_create.assert_called_once()
         call_kwargs = mock_create.call_args[1]
         assert call_kwargs["project_id"] == DUMMY_PROJECT_ID
-        assert call_kwargs["pipeline_code"] == "my-cwl-pipeline"
+        assert call_kwargs["pipeline_name"] == "my-cwl-pipeline"
+        assert call_kwargs["pipeline_version"] == "1.0.0"
         assert call_kwargs["workflow_description"] == "Test workflow description"
+
+    def test_creates_pipeline_from_zip_with_deprecated_code(self, mocker, configuration_fixture, tmp_path):
+        """Verify passing the deprecated pipeline_code still works but warns."""
+        zip_path = tmp_path / "my_workflow.zip"
+        workflow_content = "class: Workflow\ndoc: Test workflow\n"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("my_workflow/workflow.cwl", workflow_content)
+
+        mock_pipeline_result = MagicMock()
+        mock_create = mocker.patch(
+            f"{MODULE_PATH}.create_cwl_project_pipeline",
+            return_value=mock_pipeline_result,
+        )
+        mock_workflow_obj = MagicMock()
+        mock_workflow_obj.doc = "Test workflow description"
+        mocker.patch(
+            f"{MODULE_PATH}.load_document_by_uri",
+            return_value=mock_workflow_obj,
+        )
+
+        from wrapica.project_pipelines.functions.project_pipelines_functions import (
+            create_cwl_workflow_from_zip,
+        )
+
+        # The deprecation warning fires inside create_cwl_project_pipeline, which is
+        # mocked here, so the wrapper itself only forwards the kwarg unchanged.
+        result = create_cwl_workflow_from_zip(
+            project_id=DUMMY_PROJECT_ID,
+            pipeline_code="my-cwl-pipeline",
+            zip_path=zip_path,
+        )
+
+        assert result is mock_pipeline_result
+        call_kwargs = mock_create.call_args[1]
+        assert call_kwargs["pipeline_code"] == "my-cwl-pipeline"
 
     def test_raises_file_not_found_without_workflow_cwl(self, mocker, configuration_fixture, tmp_path):
         """Verify FileNotFoundError is raised when zip lacks workflow.cwl."""
@@ -425,7 +859,7 @@ class TestCreateCwlWorkflowFromZip:
         with pytest.raises(FileNotFoundError):
             create_cwl_workflow_from_zip(
                 project_id=DUMMY_PROJECT_ID,
-                pipeline_code="my-pipeline",
+                pipeline_name="my-pipeline",
                 zip_path=zip_path,
             )
 

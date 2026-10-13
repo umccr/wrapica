@@ -7,7 +7,10 @@ Functions
 .. automodule:: wrapica.pipelines
    :members:
      get_pipeline_obj_from_pipeline_id,
+     get_pipeline_obj_from_pipeline_name,
      get_pipeline_obj_from_pipeline_code,
+     coerce_pipeline_id_or_name_to_pipeline_obj,
+     coerce_pipeline_id_or_name_to_pipeline_id,
      coerce_pipeline_id_or_code_to_pipeline_obj,
      coerce_pipeline_id_or_code_to_pipeline_id,
      list_all_pipelines,

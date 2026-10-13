@@ -759,8 +759,8 @@ def list_pipelines_in_bundle(
         )
 
         for pipeline in pipeline_list:
-            print(f"Pipeline ID: {pipeline.pipeline.id}, Code: {pipeline.pipeline.code}")
-            # Pipeline ID: abcd1234-..., Code: my-pipeline
+            print(f"Pipeline ID: {pipeline.pipeline.id}, Name: {pipeline.pipeline.name}, Version: {pipeline.pipeline.version}")
+            # Pipeline ID: abcd1234-..., Name: my-pipeline, Version: 1.0.0
     """
     # Use the curl api for now
     # No looping for pipelines

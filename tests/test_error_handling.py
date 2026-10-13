@@ -83,5 +83,32 @@ class TestGetPipelineObjFromPipelineCodeStopIteration:
 
         from wrapica.pipelines import get_pipeline_obj_from_pipeline_code
 
-        with pytest.raises(StopIteration):
-            get_pipeline_obj_from_pipeline_code("nonexistent-pipeline-code")
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(StopIteration):
+                get_pipeline_obj_from_pipeline_code("nonexistent-pipeline-code")
+
+
+class TestGetPipelineObjFromPipelineNameValueError:
+    """Test ValueError from get_pipeline_obj_from_pipeline_name."""
+
+    def test_raises_value_error_when_name_not_found(self, mocker, configuration_fixture):
+        """Verify ValueError is raised when no pipeline matches the given name."""
+        mock_pipeline_v3 = MagicMock()
+        mock_pipeline_v3.id = DUMMY_PIPELINE_ID
+
+        mock_pipeline_v4 = MagicMock()
+        mock_pipeline_v4.name = "other-pipeline"
+
+        mocker.patch(
+            "wrapica.pipelines.functions.pipelines_functions.list_all_pipelines",
+            return_value=[mock_pipeline_v3],
+        )
+        mocker.patch(
+            "wrapica.pipelines.functions.pipelines_functions.get_pipeline_obj_from_pipeline_id",
+            return_value=mock_pipeline_v4,
+        )
+
+        from wrapica.pipelines import get_pipeline_obj_from_pipeline_name
+
+        with pytest.raises(ValueError):
+            get_pipeline_obj_from_pipeline_name("nonexistent-pipeline")
