@@ -6,6 +6,7 @@ from typing import Union
 # Import libica models
 from libica.openapi.v3.models import (
     AnalysisQueryParameters,
+    AnalysisQueryParametersPipeline,
     AnalysisV3,
     AnalysisV4,
     AnalysisInput,
@@ -51,6 +52,7 @@ from .functions.project_analysis_functions import (
 __all__ = [
     # Models
     'AnalysisQueryParameters',
+    'AnalysisQueryParametersPipeline',
     'AnalysisType',
     'AnalysisV3',
     'AnalysisV4',

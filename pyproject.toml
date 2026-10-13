@@ -19,7 +19,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "libica >= 3.2, < 4",
+    "libica >= 3.3, < 4",
     "boto3 >= 1.40.67, < 2",
     "fastapi >= 0.121.0, < 1",
     "PyJWT >= 2.8.0, < 3",
