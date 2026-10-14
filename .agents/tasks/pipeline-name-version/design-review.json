@@ -1,0 +1,38 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "MEDIUM",
+      "title": "Wrong claim about the project coerce alias's current return hint",
+      "where": "Decision 3 (return-hint pinning) and 'New / changed public function signatures (summary)'",
+      "problem": "Design states coerce_pipeline_id_or_code_to_project_pipeline_obj currently declares '-> ProjectPipelineV4' and should keep it. The actual source hint is 'PipelineType' (= Union[ProjectPipeline, ProjectPipelineV4]) at project_pipelines_functions.py:350, module alias at line 101. Following the design literally yields a wrong 'no change needed' conclusion or an unintended narrowing of the hint during the deprecation window.",
+      "fix": "Correct the design to state the current hint is PipelineType (= Union[ProjectPipeline, ProjectPipelineV4]), keep it unchanged for the window, and have only the NEW coerce_pipeline_id_or_name_to_project_pipeline_obj declare '-> ProjectPipelineV4'. Also note the deprecated get_project_pipeline_obj_from_pipeline_code keeps its existing '-> ProjectPipeline' hint."
+    },
+    {
+      "id": 2,
+      "severity": "MEDIUM",
+      "title": "Create-function docstring examples printing Code: are not inventoried and the docs plan does not clearly cover them",
+      "where": "Inventory item 11, Decision 5, 'Docs updates required'",
+      "problem": "All five migrated create functions have docstring code-block examples that print 'Code: {pipeline.pipeline.code}' (lines ~1989, ~2158, ~2256, ~2361, ~2526) and call with pipeline_code=. These example lines are not enumerated in the inventory, and the docs plan only commits to updating examples on 'name/version-returning functions' and new functions, leaving coverage ambiguous. The inventory's closing claim that 'only the deprecated *_code shims remain' is therefore inaccurate.",
+      "fix": "Add an explicit inventory sub-item listing the five create functions' docstring examples; require each example to switch the call argument to pipeline_name=/pipeline_version= and print Name/Version instead of Code. Then the 'only *_code shims remain' statement becomes true."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "title": "PipelineV4.name MinLen(1) justification is imprecise",
+      "where": "Decision 1a / Input validation (Finding R2-5 rationale)",
+      "problem": "The claim 'PipelineV4.name carries MinLen(1)' is correct but the constraint lives on the inner Annotated[str, ...]; model_fields['name'].metadata is empty, which could mislead a shallow checker.",
+      "fix": "Reword to 'the inner constraint on PipelineV4.name is min_length=1 (nested in its Optional[Annotated[str, ...]])', or drop the libica-constraint justification and rely on the fail-fast rationale alone."
+    },
+    {
+      "id": 4,
+      "severity": "NIT",
+      "title": "Tenant O(N) resolver cost note understated",
+      "where": "Decision 1b (Approach B)",
+      "problem": "Each loop iteration calls get_pipeline_obj_from_pipeline_id, which opens a fresh ApiClient/PipelineApi and sets the v4 Accept header per call, so the cost is N client constructions plus N round-trips, not just N round-trips. The no-short-circuit eager-fetch rationale is otherwise correct.",
+      "fix": "Optionally note the per-id client construction in Decision 1b and keep the 'prefer project-scoped helpers' guidance prominent; reusing one ApiClient across the loop is a possible follow-up (out of scope)."
+    }
+  ],
+  "reviewDoc": "/home/alexiswl/GitHub/UMCCR/wrapica/.worktrees/pipeline-name-version/.agents/tasks/pipeline-name-version/design-review.md"
+}

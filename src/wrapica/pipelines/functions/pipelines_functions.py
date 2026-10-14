@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # Standard library imports
+import warnings
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -57,8 +58,8 @@ def get_pipeline_obj_from_pipeline_id(
             pipeline_id="abcd1234-ab12-ab12-ab12-abcdef123456"
         )
 
-        print(f"Pipeline ID: {pipeline_obj.id}, Code: {pipeline_obj.code}")
-        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my-pipeline
+        print(f"Pipeline ID: {pipeline_obj.id}, Name: {pipeline_obj.name}, Version: {pipeline_obj.version}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my-pipeline, Version: 1.0.0
     """
     with ApiClient(get_icav2_configuration()) as api_client:
         # Force the API client to send back the v4 API
@@ -80,11 +81,153 @@ def get_pipeline_obj_from_pipeline_id(
     return api_response
 
 
+def get_pipeline_obj_from_pipeline_name(
+    pipeline_name: str,
+    pipeline_version: Optional[str] = None,
+) -> PipelineV4:
+    """
+    Return the tenant-wide pipeline object matching a given name (and optional version).
+
+    .. note::
+
+        **Prefer the project-scoped helpers whenever a project context is available.**
+        There is no tenant-wide ``v4`` *list* endpoint in libica, so this resolver must
+        eagerly fetch every tenant pipeline as a ``PipelineV4`` object (one API call per
+        pipeline) before it can filter by name/version. This is an **O(N) network cost**.
+        If you have a ``project_id``, use
+        :func:`wrapica.project_pipelines.get_project_pipeline_obj_from_pipeline_name`
+        instead, which resolves name/version from a single list call.
+
+    When ``pipeline_version`` is omitted, the latest version in the pipeline group is
+    returned (resolved via ``latest_version_in_group``). If exactly one pipeline matches the
+    name, it is returned regardless of its ``latest_version_in_group`` flag.
+
+    :param pipeline_name: The pipeline name to look up (must be non-empty)
+    :param pipeline_version: The pipeline version to look up. Defaults to None,
+        in which case the latest version in the pipeline group is returned
+
+    :return: The pipeline object matching the given name (and version)
+    :rtype: `PipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/PipelineV4/>`_
+
+    :raises ValueError: If pipeline_name is empty, the name/version cannot be found,
+        or the version is omitted and the match is ambiguous
+    :raises ApiException: If any API call to retrieve a pipeline fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.pipelines import get_pipeline_obj_from_pipeline_name
+
+        pipeline_obj = get_pipeline_obj_from_pipeline_name(
+            pipeline_name="my-pipeline",
+            pipeline_version="1.0.0"
+        )
+
+        print(f"Pipeline ID: {pipeline_obj.id}, Name: {pipeline_obj.name}, Version: {pipeline_obj.version}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my-pipeline, Version: 1.0.0
+    """
+    # Reject an empty identifier up front (PipelineV4.name has MinLen(1), so an empty
+    # name can never match a stored pipeline)
+    if not pipeline_name:
+        logger.error("pipeline_name must be a non-empty string")
+        raise ValueError("pipeline_name must be a non-empty string")
+
+    # Eagerly fetch every tenant pipeline as a v4 object (no short-circuit) -
+    # "latest in group" cannot be decided without seeing all sibling versions.
+    pipeline_v4_objs: List[PipelineV4] = [
+        get_pipeline_obj_from_pipeline_id(pipeline_v3.id)
+        for pipeline_v3 in list_all_pipelines()
+    ]
+
+    matches = [
+        pipeline_obj
+        for pipeline_obj in pipeline_v4_objs
+        if pipeline_obj.name == pipeline_name
+    ]
+
+    # 1. Explicit version requested
+    if pipeline_version is not None:
+        versioned = [
+            pipeline_obj
+            for pipeline_obj in matches
+            if pipeline_obj.version == pipeline_version
+        ]
+        if len(versioned) == 0:
+            logger.error(
+                f"Could not find pipeline name '{pipeline_name}' "
+                f"with version '{pipeline_version}'"
+            )
+            raise ValueError(
+                f"Could not find pipeline name '{pipeline_name}' "
+                f"with version '{pipeline_version}'"
+            )
+        if len(versioned) > 1:
+            logger.error(
+                f"Found multiple pipelines named '{pipeline_name}' "
+                f"with version '{pipeline_version}'"
+            )
+            raise ValueError(
+                f"Found multiple pipelines named '{pipeline_name}' "
+                f"with version '{pipeline_version}'"
+            )
+        return versioned[0]
+
+    # 2. Version omitted -> "latest in group"
+    if len(matches) == 0:
+        logger.error(f"Could not find pipeline name '{pipeline_name}'")
+        raise ValueError(f"Could not find pipeline name '{pipeline_name}'")
+    if len(matches) == 1:
+        return matches[0]
+
+    flagged = [
+        pipeline_obj
+        for pipeline_obj in matches
+        if pipeline_obj.latest_version_in_group is True
+    ]
+    if len(flagged) == 1:
+        return flagged[0]
+
+    if len(flagged) > 1:
+        group_ids = sorted(set(
+            str(getattr(pipeline_obj.pipeline_group, "id", None))
+            for pipeline_obj in flagged
+        ))
+        logger.error(
+            f"Multiple 'latest' pipelines named '{pipeline_name}' "
+            f"across groups {group_ids}; pass pipeline_version"
+        )
+        raise ValueError(
+            f"Multiple 'latest' pipelines named '{pipeline_name}' "
+            f"across groups {group_ids}; pass pipeline_version"
+        )
+
+    # 0 flagged (flags False/None) -> ambiguous
+    available_versions = sorted(set(
+        str(pipeline_obj.version) for pipeline_obj in matches
+    ))
+    logger.error(
+        f"Multiple versions for pipeline name '{pipeline_name}': "
+        f"{available_versions}; pass pipeline_version"
+    )
+    raise ValueError(
+        f"Multiple versions for pipeline name '{pipeline_name}': "
+        f"{available_versions}; pass pipeline_version"
+    )
+
+
 def get_pipeline_obj_from_pipeline_code(
     pipeline_code: str
 ) -> PipelineType:
     """
     Return the pipeline object matching the given pipeline code.
+
+    .. deprecated::
+
+        Pipelines are now identified by ``name``/``version`` rather than ``code``.
+        Use :func:`get_pipeline_obj_from_pipeline_name` instead. This function will be
+        removed in a future release.
 
     :param pipeline_code: The unique code string identifying the pipeline
 
@@ -107,6 +250,13 @@ def get_pipeline_obj_from_pipeline_code(
         print(f"Pipeline ID: {pipeline_obj.id}, Code: {pipeline_obj.code}")
         # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my-pipeline-code
     """
+    warnings.warn(
+        "get_pipeline_obj_from_pipeline_code is deprecated and will be removed in a "
+        "future release. Pipelines are now identified by name/version; migrate to "
+        "get_pipeline_obj_from_pipeline_name(pipeline_name, pipeline_version).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     try:
         return next(
@@ -120,9 +270,102 @@ def get_pipeline_obj_from_pipeline_code(
         raise StopIteration
 
 
+def coerce_pipeline_id_or_name_to_pipeline_obj(
+    pipeline_id_or_name: str,
+    pipeline_version: Optional[str] = None,
+) -> PipelineV4:
+    """
+    Coerce a pipeline ID or name string to a pipeline object.
+
+    A UUID-formatted string is resolved by ID; any other string is resolved by pipeline
+    **name** (with the optional ``pipeline_version``).
+
+    :param pipeline_id_or_name: The pipeline identifier as a UUID-formatted string or a pipeline name
+    :param pipeline_version: The pipeline version to look up when a name is given. Defaults to None,
+        in which case the latest version in the pipeline group is returned
+
+    :return: The resolved pipeline object for the given identifier
+    :rtype: `PipelineV4 <https://umccr.github.io/libica/openapi/v3/docs/PipelineV4/>`_
+
+    :raises ValueError: If the pipeline name/version cannot be found or is ambiguous
+    :raises ApiException: If the API call to retrieve the pipeline fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.pipelines import coerce_pipeline_id_or_name_to_pipeline_obj
+
+        pipeline_obj = coerce_pipeline_id_or_name_to_pipeline_obj(
+            "my-pipeline",
+            pipeline_version="1.0.0"
+        )
+
+        print(f"Pipeline ID: {pipeline_obj.id}, Name: {pipeline_obj.name}, Version: {pipeline_obj.version}")
+        # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Name: my-pipeline, Version: 1.0.0
+    """
+
+    # Check uuid format
+    if is_uuid_format(pipeline_id_or_name):
+        return get_pipeline_obj_from_pipeline_id(pipeline_id_or_name)
+    else:
+        return get_pipeline_obj_from_pipeline_name(pipeline_id_or_name, pipeline_version)
+
+
+def coerce_pipeline_id_or_name_to_pipeline_id(
+    pipeline_id_or_name: str,
+    pipeline_version: Optional[str] = None,
+) -> Union[UUID4, str]:
+    """
+    Coerce a pipeline ID or name string to the pipeline ID.
+
+    A UUID-formatted string is returned as-is; any other string is resolved by pipeline
+    **name** (with the optional ``pipeline_version``).
+
+    :param pipeline_id_or_name: The pipeline identifier as a UUID-formatted string or a pipeline name
+    :param pipeline_version: The pipeline version to look up when a name is given. Defaults to None,
+        in which case the latest version in the pipeline group is returned
+
+    :return: The pipeline ID for the given identifier
+    :rtype: str
+
+    :raises ValueError: If the pipeline name/version cannot be found or is ambiguous
+    :raises ApiException: If the API call to retrieve the pipeline fails
+
+    :Examples:
+
+    .. code-block:: python
+        :linenos:
+
+        from wrapica.pipelines import coerce_pipeline_id_or_name_to_pipeline_id
+
+        pipeline_id = coerce_pipeline_id_or_name_to_pipeline_id(
+            "my-pipeline",
+            pipeline_version="1.0.0"
+        )
+
+        print(pipeline_id)
+        # abcd1234-ab12-ab12-ab12-abcdef123456
+    """
+
+    # Check uuid format
+    if is_uuid_format(pipeline_id_or_name):
+        return pipeline_id_or_name
+
+    # If not uuid format, assume it is a pipeline name
+    return get_pipeline_obj_from_pipeline_name(pipeline_id_or_name, pipeline_version).id
+
+
 def coerce_pipeline_id_or_code_to_pipeline_obj(pipeline_id_or_code: str) -> PipelineType:
     """
     Coerce a pipeline ID or code string to a pipeline object.
+
+    .. deprecated::
+
+        A non-UUID string is now resolved by pipeline **name**, not code.
+        Use :func:`coerce_pipeline_id_or_name_to_pipeline_obj` instead. This function
+        will be removed in a future release.
 
     :param pipeline_id_or_code: The pipeline identifier as a UUID-formatted string or a pipeline code
 
@@ -130,7 +373,7 @@ def coerce_pipeline_id_or_code_to_pipeline_obj(pipeline_id_or_code: str) -> Pipe
     :rtype: `Pipeline <https://umccr.github.io/libica/openapi/v3/docs/Pipeline/>`_
 
     :raises ApiException: If the API call to retrieve the pipeline fails
-    :raises StopIteration: If the pipeline code does not match any pipeline
+    :raises ValueError: If the pipeline name does not match any pipeline
 
     :Examples:
 
@@ -146,24 +389,34 @@ def coerce_pipeline_id_or_code_to_pipeline_obj(pipeline_id_or_code: str) -> Pipe
         print(f"Pipeline ID: {pipeline_obj.id}, Code: {pipeline_obj.code}")
         # Pipeline ID: abcd1234-ab12-ab12-ab12-abcdef123456, Code: my-pipeline-code
     """
+    warnings.warn(
+        "coerce_pipeline_id_or_code_to_pipeline_obj is deprecated and will be removed in a "
+        "future release. A non-UUID string is now resolved by pipeline NAME, not code. "
+        "Pass a UUID, or migrate to "
+        "coerce_pipeline_id_or_name_to_pipeline_obj(pipeline_id_or_name, pipeline_version).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    # Check uuid format
-    if is_uuid_format(pipeline_id_or_code):
-        return get_pipeline_obj_from_pipeline_id(pipeline_id_or_code)
-    else:
-        return get_pipeline_obj_from_pipeline_code(pipeline_id_or_code)
+    return coerce_pipeline_id_or_name_to_pipeline_obj(pipeline_id_or_code)
 
 
 def coerce_pipeline_id_or_code_to_pipeline_id(pipeline_id_or_code: str) -> Union[UUID4, str]:
     """
     Coerce a pipeline ID or code string to the pipeline ID.
 
+    .. deprecated::
+
+        A non-UUID string is now resolved by pipeline **name**, not code.
+        Use :func:`coerce_pipeline_id_or_name_to_pipeline_id` instead. This function
+        will be removed in a future release.
+
     :param pipeline_id_or_code: The pipeline identifier as a UUID-formatted string or a pipeline code
 
     :return: The pipeline ID for the given identifier
     :rtype: str
 
-    :raises StopIteration: If the pipeline code does not match any pipeline
+    :raises ValueError: If the pipeline name does not match any pipeline
 
     :Examples:
 
@@ -179,13 +432,16 @@ def coerce_pipeline_id_or_code_to_pipeline_id(pipeline_id_or_code: str) -> Union
         print(pipeline_id)
         # abcd1234-ab12-ab12-ab12-abcdef123456
     """
+    warnings.warn(
+        "coerce_pipeline_id_or_code_to_pipeline_id is deprecated and will be removed in a "
+        "future release. A non-UUID string is now resolved by pipeline NAME, not code. "
+        "Pass a UUID, or migrate to "
+        "coerce_pipeline_id_or_name_to_pipeline_id(pipeline_id_or_name, pipeline_version).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    # Check uuid format
-    if is_uuid_format(pipeline_id_or_code):
-        return pipeline_id_or_code
-
-    # If not uuid format, assume it is a pipeline code
-    return get_pipeline_obj_from_pipeline_code(pipeline_id_or_code).id
+    return coerce_pipeline_id_or_name_to_pipeline_id(pipeline_id_or_code)
 
 
 def list_all_pipelines() -> List[PipelineType]:
@@ -209,6 +465,12 @@ def list_all_pipelines() -> List[PipelineType]:
         for pipeline in pipelines:
             print(f"Pipeline: {pipeline.code}")
             # Pipeline: my-pipeline
+
+    .. note::
+
+        The tenant-wide list endpoint returns ``PipelineV3`` items, which expose only
+        ``code`` (no ``name``/``version``). To resolve a pipeline by name/version, use
+        :func:`get_pipeline_obj_from_pipeline_name`.
     """
 
     # Create an instance of the API class
@@ -427,12 +689,14 @@ def download_pipeline_to_zip(
     # Get the pipeline as an object
     pipeline_obj = get_pipeline_obj_from_pipeline_id(pipeline_id)
 
-    # Get the pipeline code
-    pipeline_code = pipeline_obj.code
+    # Derive a temp-dir name from name/version with an id fallback (cosmetic; must not raise)
+    pipeline_dir_name = pipeline_obj.name or str(pipeline_obj.id)
+    if pipeline_obj.version is not None:
+        pipeline_dir_name = f"{pipeline_dir_name}__{pipeline_obj.version}"
 
     # Create the temporary directory
     with TemporaryDirectory() as tmp_dir:
-        output_dir = Path(tmp_dir) / pipeline_code
+        output_dir = Path(tmp_dir) / pipeline_dir_name
 
         # Download the pipeline to the directory
         download_pipeline_to_directory(pipeline_id, output_dir)
