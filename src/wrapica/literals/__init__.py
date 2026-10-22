@@ -161,13 +161,6 @@ AnalysisTagType = Literal[
     "reference_tag",
 ]
 
-ResourceType = Literal[
-    "f1",
-    "f2",
-    "gpu",
-    "software_only",
-]
-
 NextflowPipelineVersionType = Literal[
     "22.04.3",
     "24.10.2",
