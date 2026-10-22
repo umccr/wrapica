@@ -2402,6 +2402,12 @@ def create_cwl_project_pipeline(
     # Check response
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
+        # Force default accept header to v4
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v4+json"
+        )
+
         # Create an instance of the API class
         api_instance = ProjectPipelineApi(api_client)
 
@@ -2984,6 +2990,12 @@ def create_nextflow_project_pipeline(
 
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
+        # Force default accept header to v4
+        api_client.set_default_header(
+            header_name="Accept",
+            header_value="application/vnd.illumina.v4+json"
+        )
+
         # Create an instance of the API class
         api_instance = ProjectPipelineApi(api_client)
 
