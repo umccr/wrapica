@@ -29,7 +29,6 @@ from libica.openapi.v3 import (
     ProjectAnalysisStorageApi,
     ProjectPipelineV4,
     PipelineConfigurationParameter,
-    PipelineResources,
     AnalysisS3DataDetails,
     CwlAnalysisWithJsonInput,
 )
@@ -68,7 +67,7 @@ from ...utils.globals import (
     URI_REGEX_OBJ,
     ICAV2_CONFIG_NEXTFLOW_PATH,
 )
-from ...literals import DataType, PipelineStatusType, AnalysisStorageSizeType, ResourceType, NextflowPipelineVersionType
+from ...literals import DataType, PipelineStatusType, AnalysisStorageSizeType, NextflowPipelineVersionType
 from ...utils.miscell import is_uuid_format, is_uri_format, coerce_to_uuid4_obj
 from ...utils.nextflow_helpers import (
     include_icav2_config_into_nextflow_config,
@@ -2249,7 +2248,6 @@ def create_cwl_project_pipeline(
         params_xml_file: Optional[Path] = None,
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
-        resource_type: Optional[ResourceType] = None,
         pipeline_code: Optional[str] = None
 ) -> ProjectPipelineV4:
     """
@@ -2270,8 +2268,6 @@ def create_cwl_project_pipeline(
         in which case the default Small storage is used
     :param workflow_html_documentation: The local path to HTML documentation. Defaults to None,
         in which case no documentation is attached
-    :param resource_type: The compute resource type for the pipeline. Defaults to None,
-        in which case no specific resource is requested
     :param pipeline_code: (Deprecated) The unique code string for the new pipeline. Defaults
         to None. Mutually exclusive with pipeline_name; use pipeline_name instead
 
@@ -2378,27 +2374,6 @@ def create_cwl_project_pipeline(
     else:
         html_documentation_tuple_bytes = None
 
-    # Check if the resource type is set
-    if resource_type is not None:
-        if resource_type == "f1":
-            resources = PipelineResources(
-                f1=True,
-            )
-        elif resource_type == "f2":
-            resources = PipelineResources(
-                f2=True
-            )
-        elif resource_type == "gpu":
-            resources = PipelineResources(
-                gpu=True
-            )
-        else:
-            resources = PipelineResources(
-                **{"software-only": True}
-            )
-    else:
-        resources = None
-
     # Check response
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
@@ -2415,8 +2390,7 @@ def create_cwl_project_pipeline(
             parameters_xml_file=params_xml_tuple_bytes,
             analysis_storage_id=coerce_to_uuid4_obj(analysis_storage.id),
             tool_cwl_files=tool_tuple_bytes_list,
-            html_documentation=html_documentation_tuple_bytes,
-            resources=resources
+            html_documentation=html_documentation_tuple_bytes
         )
     except ApiException as e:
         logger.error("Exception when calling ProjectPipelineApi->create_cwl_pipeline: %s\n" % e)
@@ -2436,7 +2410,6 @@ def create_cwl_workflow_from_zip(
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_description: Optional[str] = None,
         html_documentation_path: Optional[Path] = None,
-        resource_type: Optional[ResourceType] = None,
         pipeline_code: Optional[str] = None
 ) -> ProjectPipelineV4:
     """
@@ -2453,8 +2426,6 @@ def create_cwl_workflow_from_zip(
         in which case the doc attribute from workflow.cwl is used
     :param html_documentation_path: The local path to HTML documentation. Defaults to None,
         in which case no documentation is attached
-    :param resource_type: The compute resource type for the pipeline. Defaults to None,
-        in which case no specific resource is requested
     :param pipeline_code: (Deprecated) The unique code string for the new pipeline. Defaults
         to None. Mutually exclusive with pipeline_name; use pipeline_name instead
 
@@ -2533,8 +2504,7 @@ def create_cwl_workflow_from_zip(
             workflow_description=workflow_description,
             params_xml_file=params_xml_file,
             analysis_storage=analysis_storage,
-            workflow_html_documentation=html_documentation_path,
-            resource_type=resource_type
+            workflow_html_documentation=html_documentation_path
         )
 
 
@@ -2545,7 +2515,6 @@ def create_nextflow_pipeline_from_zip(
         workflow_description: str = None,
         pipeline_version: Optional[str] = None,
         html_documentation_path: Optional[Path] = None,
-        resource_type: Optional[ResourceType] = None,
         nextflow_version: Optional[NextflowPipelineVersionType] = None,
         pipeline_code: Optional[str] = None
 ) -> ProjectPipelineV4:
@@ -2560,8 +2529,6 @@ def create_nextflow_pipeline_from_zip(
         in which case no version is set
     :param html_documentation_path: The local path to HTML documentation. Defaults to None,
         in which case no documentation is attached
-    :param resource_type: The compute resource type for the pipeline. Defaults to None,
-        in which case no specific resource is requested
     :param nextflow_version: The nextflow version to use. Defaults to None, in which case the default version is used
     :param pipeline_code: (Deprecated) The unique code string for the new pipeline. Defaults
         to None. Mutually exclusive with pipeline_name; use pipeline_name instead
@@ -2646,7 +2613,6 @@ def create_nextflow_pipeline_from_zip(
             workflow_description=workflow_description,
             params_xml_file=params_xml_file_path if params_xml_file_path.is_file() else None,
             workflow_html_documentation=html_documentation_path,
-            resource_type=resource_type,
             nextflow_version=nextflow_version,
         )
 
@@ -2659,7 +2625,6 @@ def create_nextflow_pipeline_from_nf_core_zip(
         pipeline_version: Optional[str] = None,
         workflow_description: Optional[str] = None,
         html_documentation_path: Optional[Path] = None,
-        resource_type: Optional[ResourceType] = None,
         pipeline_code: Optional[str] = None
 ) -> ProjectPipelineV4:
     """
@@ -2675,8 +2640,6 @@ def create_nextflow_pipeline_from_nf_core_zip(
         in which case no description is set
     :param html_documentation_path: The local path to HTML documentation. Defaults to None,
         in which case no documentation is attached
-    :param resource_type: The compute resource type for the pipeline. Defaults to None,
-        in which case no specific resource is requested
     :param pipeline_code: (Deprecated) The unique code string for the new pipeline. Defaults
         to None. Mutually exclusive with pipeline_name; use pipeline_name instead
 
@@ -2815,8 +2778,7 @@ def create_nextflow_pipeline_from_nf_core_zip(
         pipeline_code=pipeline_code,
         zip_path=new_zip_file_path,
         workflow_description=workflow_description,
-        html_documentation_path=html_documentation_path,
-        resource_type=resource_type
+        html_documentation_path=html_documentation_path
     )
 
 
@@ -2831,7 +2793,6 @@ def create_nextflow_project_pipeline(
         params_xml_file: Optional[Path] = None,
         analysis_storage: Optional[AnalysisStorageType] = None,
         workflow_html_documentation: Optional[Path] = None,
-        resource_type: Optional[ResourceType] = None,
         nextflow_version: Optional[NextflowPipelineVersionType] = None,
         pipeline_code: Optional[str] = None
 ) -> ProjectPipelineV4:
@@ -2852,8 +2813,6 @@ def create_nextflow_project_pipeline(
         in which case the default Small storage is used
     :param workflow_html_documentation: The local path to HTML documentation. Defaults to None,
         in which case no documentation is attached
-    :param resource_type: The compute resource type for the pipeline. Defaults to None,
-        in which case no specific resource is requested
     :param nextflow_version: The nextflow version to use. Defaults to None, in which case the default version is used
     :param pipeline_code: (Deprecated) The unique code string for the new pipeline. Defaults
         to None. Mutually exclusive with pipeline_name; use pipeline_name instead
@@ -2940,27 +2899,6 @@ def create_nextflow_project_pipeline(
     else:
         workflow_html_documentation_tuple_bytes = None
 
-    # Check if the resource type is set
-    if resource_type is not None:
-        if resource_type == "f1":
-            resources = PipelineResources(
-                f1=True
-            )
-        elif resource_type == "f2":
-            resources = PipelineResources(
-                f2=True
-            )
-        elif resource_type == "gpu":
-            resources = PipelineResources(
-                gpu=True
-            )
-        else:
-            resources = PipelineResources.from_dict(
-                {"software-only": True}
-            )
-    else:
-        resources = None
-
     # Get the nextflow project pipeline language version
     if nextflow_version is None:
         nextflow_language_version = get_default_nextflow_pipeline_version()
@@ -2999,8 +2937,7 @@ def create_nextflow_project_pipeline(
             pipeline_language_version_id=coerce_to_uuid4_obj(nextflow_language_version.id),
             nextflow_config_file=nextflow_config_file_tuple_bytes,
             other_nextflow_files=other_nextflow_files_tuple_bytes_list,
-            html_documentation=workflow_html_documentation_tuple_bytes,
-            resources=resources
+            html_documentation=workflow_html_documentation_tuple_bytes
         )
     except Exception as e:
         logger.error("Exception when calling ProjectPipelineApi->create_nextflow_pipeline: %s\n" % e)
