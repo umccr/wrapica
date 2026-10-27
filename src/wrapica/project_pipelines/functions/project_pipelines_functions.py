@@ -2157,6 +2157,58 @@ def delete_pipeline_file(
         raise ApiException("Exception when calling ProjectPipelineApi->delete_project_pipeline_file") from e
 
 
+def _file_has_non_ascii_bytes(file_path: Path) -> bool:
+    """Return True if the file contains any non-ASCII bytes.
+
+    Text files that contain multibyte UTF-8 (e.g. accented characters such as
+    ``ä``/``ü``/``ö`` in a nf-core ``CITATIONS.md``) are corrupted when sent as
+    part of the single batched ``multipart/form-data`` create call: the bytes
+    come back from ICA re-decoded with the wrong charset (each UTF-8 byte
+    becomes ``U+FFFD``). Uploading such files individually via
+    :func:`add_pipeline_file` round-trips the bytes intact.
+
+    This helper lets the create path route any file with non-ASCII content
+    through the individual-upload path, alongside the binary files that are
+    already handled that way.
+
+    Args:
+        file_path: Path to the file to inspect.
+
+    Returns:
+        True if any byte in the file is outside the 7-bit ASCII range
+        (``>= 0x80``), False otherwise (including for an empty file).
+    """
+    with open(file_path, "rb") as file_h:
+        for chunk in iter(lambda: file_h.read(8192), b""):
+            if any(byte >= 0x80 for byte in chunk):
+                return True
+    return False
+
+
+def _must_upload_individually(file_path: Path) -> bool:
+    """Return True if a pipeline file must be uploaded on its own.
+
+    A file is uploaded individually (via :func:`add_pipeline_file`) rather than
+    in the batched create call when it is either:
+
+    * binary (detected with ``binaryornot.is_binary``), or
+    * a text file containing non-ASCII bytes (see
+      :func:`_file_has_non_ascii_bytes`).
+
+    The batched ``multipart/form-data`` create call corrupts multibyte UTF-8
+    content, so both cases are kept out of the batch and sent individually,
+    which preserves the bytes.
+
+    Args:
+        file_path: Path to the file to inspect.
+
+    Returns:
+        True if the file should be uploaded individually, False if it can go in
+        the batched create call.
+    """
+    return is_binary(str(file_path)) or _file_has_non_ascii_bytes(file_path)
+
+
 def add_pipeline_file(
         project_id: Union[UUID4, str],
         pipeline_id: Union[UUID4, str],
@@ -2892,7 +2944,7 @@ def create_nextflow_project_pipeline(
                 open(nf_file_iter_, 'rb').read()
             ),
             list(filter(
-                lambda file_iter: not is_binary(str(file_iter)),
+                lambda file_iter: not _must_upload_individually(file_iter),
                 other_nextflow_files
             ))
         ))
@@ -2958,23 +3010,26 @@ def create_nextflow_project_pipeline(
     # Get the pipeline id from the response
     pipeline_id = api_response.pipeline.id
 
-    # Binary files need to be added to the pipeline separately
-    binary_files = list(filter(
-        lambda file_iter: is_binary(str(file_iter)),
+    # Binary files and text files containing non-ASCII (multibyte UTF-8) bytes
+    # must be added to the pipeline separately: the batched create call above
+    # corrupts multibyte UTF-8 content, so these are uploaded individually
+    # (which preserves the bytes intact).
+    individual_upload_files = list(filter(
+        lambda file_iter: _must_upload_individually(file_iter),
         other_nextflow_files
     ))
 
-    # Add in the binary files
-    for binary_file in binary_files:
-        logger.info(f"Adding in {binary_file} to pipeline separately")
+    # Add in the individually-uploaded files
+    for individual_file in individual_upload_files:
+        logger.info(f"Adding in {individual_file} to pipeline separately")
         add_pipeline_file(
             project_id=project_id,
             pipeline_id=pipeline_id,
-            file_path=binary_file,
-            relative_path=binary_file.parent.absolute().resolve().relative_to(
+            file_path=individual_file,
+            relative_path=individual_file.parent.absolute().resolve().relative_to(
                 main_nextflow_file.parent.absolute().resolve()
             ).joinpath(
-                binary_file.name
+                individual_file.name
             )
         )
 
