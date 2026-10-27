@@ -16,23 +16,11 @@ from cwl_utils.parser.cwl_v1_0 import (
     InputRecordSchema as InputRecordSchema_v1_0,
 )
 
-# The generic ``RecordSchema``, ``ArraySchema`` and ``EnumSchema`` classes were
-# renamed in cwl_utils >= 0.41 (``RecordSchema`` -> ``CWLRecordSchema``,
-# ``ArraySchema`` -> ``CWLArraySchema``) and the concrete ``EnumSchema`` class
-# was dropped in favour of ``InputEnumSchema``. Import with a fallback so we
-# support the full pinned range (cwl_utils >= 0.38, < 1).
-try:
-    from cwl_utils.parser.cwl_v1_0 import (
-        CWLRecordSchema as RecordSchema_v1_0,
-        CWLArraySchema as ArraySchema_v1_0,
-    )
-    from cwl_utils.parser.cwl_v1_0 import InputEnumSchema as EnumSchema_v1_0
-except ImportError:
-    from cwl_utils.parser.cwl_v1_0 import (
-        RecordSchema as RecordSchema_v1_0,
-        ArraySchema as ArraySchema_v1_0,
-        EnumSchema as EnumSchema_v1_0,
-    )
+from cwl_utils.parser.cwl_v1_0 import (
+    CWLRecordSchema as RecordSchema_v1_0,
+    CWLArraySchema as ArraySchema_v1_0,
+    InputEnumSchema as EnumSchema_v1_0,
+)
 
 
 from cwl_utils.parser.cwl_v1_0 import (
@@ -57,18 +45,11 @@ from cwl_utils.parser.cwl_v1_1 import (
     InputRecordSchema as InputRecordSchema_v1_1,
 )
 
-try:
-    from cwl_utils.parser.cwl_v1_1 import (
-        CWLRecordSchema as RecordSchema_v1_1,
-        CWLArraySchema as ArraySchema_v1_1,
-    )
-    from cwl_utils.parser.cwl_v1_1 import InputEnumSchema as EnumSchema_v1_1
-except ImportError:
-    from cwl_utils.parser.cwl_v1_1 import (
-        RecordSchema as RecordSchema_v1_1,
-        ArraySchema as ArraySchema_v1_1,
-        EnumSchema as EnumSchema_v1_1,
-    )
+from cwl_utils.parser.cwl_v1_1 import (
+    CWLRecordSchema as RecordSchema_v1_1,
+    CWLArraySchema as ArraySchema_v1_1,
+    InputEnumSchema as EnumSchema_v1_1,
+)
 
 from cwl_utils.parser.cwl_v1_1 import (
     Workflow as Workflow_v1_1,
@@ -97,18 +78,11 @@ from cwl_utils.parser.cwl_v1_2 import (
     InputRecordSchema as InputRecordSchema_v1_2,
 )
 
-try:
-    from cwl_utils.parser.cwl_v1_2 import (
-        CWLRecordSchema as RecordSchema_v1_2,
-        CWLArraySchema as ArraySchema_v1_2,
-    )
-    from cwl_utils.parser.cwl_v1_2 import InputEnumSchema as EnumSchema_v1_2
-except ImportError:
-    from cwl_utils.parser.cwl_v1_2 import (
-        RecordSchema as RecordSchema_v1_2,
-        ArraySchema as ArraySchema_v1_2,
-        EnumSchema as EnumSchema_v1_2,
-    )
+from cwl_utils.parser.cwl_v1_2 import (
+    CWLRecordSchema as RecordSchema_v1_2,
+    CWLArraySchema as ArraySchema_v1_2,
+    InputEnumSchema as EnumSchema_v1_2,
+)
 
 from cwl_utils.parser.cwl_v1_2 import (
     Workflow as Workflow_v1_2,

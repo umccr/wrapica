@@ -28,7 +28,7 @@ dependencies = [
     "verboselogs >= 1.7, < 2",
     "websocket_client >= 1.4.2, < 2",
     "beautifulsoup4 >= 4.10.0, < 5",
-    "cwl_utils >= 0.38, < 1",
+    "cwl_utils >= 0.45, < 1",
     "pandas >= 2.2.2, < 3",
     "binaryornot >= 0.4.4, < 1",
 ]
