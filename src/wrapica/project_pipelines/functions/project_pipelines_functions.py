@@ -3062,8 +3062,7 @@ def pipeline_update_from_zip(
     :rtype: Dict[str, List[Path]]
 
     :raises FileNotFoundError: If zip_path does not exist
-    :raises ValueError: If the file is not a zip, the pipeline is not in DRAFT status,
-        or the pipeline is not owned by the current user
+    :raises ValueError: If the file is not a zip or the pipeline is not in DRAFT status
     :raises ApiException: If any API call to update/add/delete pipeline files fails
 
     :Examples:
@@ -3086,7 +3085,6 @@ def pipeline_update_from_zip(
         print(f"Deleted: {result['deleted']}")
     """
     from ...pipelines import list_pipeline_files, download_pipeline_to_directory
-    from ...user import get_user_id_from_configuration
 
     # Validate zip file
     if not zip_path.is_file():
@@ -3097,7 +3095,7 @@ def pipeline_update_from_zip(
         logger.error(f"Expected a .zip file, got: {zip_path.name}")
         raise ValueError(f"Expected a .zip file, got: {zip_path.name}")
 
-    # Check pipeline is in draft status and owned by the current user
+    # Check pipeline is in draft status
     project_pipeline_obj: ProjectPipelineV4 = get_project_pipeline_obj(project_id, pipeline_id)
 
     pipeline_status = cast(PipelineStatusType, project_pipeline_obj.pipeline.status)
