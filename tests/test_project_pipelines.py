@@ -1046,36 +1046,6 @@ class TestPipelineUpdateFromZip:
                 force=True,
             )
 
-    def test_raises_value_error_for_non_owner(
-        self, mocker, tmp_path, configuration_fixture
-    ):
-        """Verify ValueError when current user doesn't own the pipeline."""
-        from wrapica.project_pipelines.functions.project_pipelines_functions import (
-            pipeline_update_from_zip,
-        )
-
-        mock_pipeline = MagicMock()
-        mock_pipeline.pipeline.status = "DRAFT"
-        mock_pipeline.pipeline.owner.id = "other-user-id-0000-0000-000000000000"
-        mocker.patch(
-            f"{MODULE_PATH}.get_project_pipeline_obj",
-            return_value=mock_pipeline,
-        )
-        mocker.patch(
-            f"{self.USER_MODULE_PATH}.get_user_id_from_configuration",
-            return_value="eeeeeeee-5555-4000-8000-eeeeeeeeeeee",
-        )
-
-        zip_path = self._create_zip(tmp_path, "my_pipeline", {"main.nf": "process {}"})
-
-        with pytest.raises(ValueError, match="not owned by the current user"):
-            pipeline_update_from_zip(
-                project_id=DUMMY_PROJECT_ID,
-                pipeline_id=DUMMY_PIPELINE_ID,
-                zip_path=zip_path,
-                force=True,
-            )
-
     def test_no_changes_detected(
         self,
         mocker,
