@@ -2021,13 +2021,6 @@ def release_project_pipeline(
         logger.error("Pipeline is not in draft status, cannot release already released pipeline")
         raise ValueError
 
-    # Check pipeline id belongs to owner
-    username = get_user_id_from_configuration()
-
-    if not username == str(project_pipeline_obj.pipeline.owner.id):
-        logger.error("This pipeline does not belong to you, you cannot release it")
-        raise ValueError
-
     # Enter a context with an instance of the API client
     with ApiClient(get_icav2_configuration()) as api_client:
         # Force headers for : based API call
@@ -3061,19 +3054,6 @@ def pipeline_update_from_zip(
         raise ValueError(
             f"Pipeline '{pipeline_id}' is in '{pipeline_status}' status, must be DRAFT to update."
         )
-
-    # Check ownership
-    user_id = get_user_id_from_configuration()
-    if str(project_pipeline_obj.pipeline.owner.id) != str(user_id):
-        logger.error(
-            f"Pipeline '{pipeline_id}' is not owned by the current user '{user_id}'. "
-            f"Owner is '{project_pipeline_obj.pipeline.owner.id}'."
-        )
-        raise ValueError(
-            f"Pipeline '{pipeline_id}' is not owned by the current user."
-        )
-
-    logger.info(f"Pipeline '{pipeline_id}' is editable (DRAFT, owned by current user)")
 
     # Unzip the local pipeline
     tmp_local_dir_obj = TemporaryDirectory()
