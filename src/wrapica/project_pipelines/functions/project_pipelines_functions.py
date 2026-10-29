@@ -3,7 +3,7 @@
 """
 Project Pipeline Helpers
 """
-
+import shutil
 # Standard imports
 import typing
 import warnings
@@ -3119,22 +3119,29 @@ def pipeline_update_from_zip(
         # Fallback: if there's no subdirectory, use the temp dir itself
         local_pipeline_dir = tmp_local_dir
 
-    # For Nextflow pipelines, ensure conf/icav2.config exists and is included
-    nextflow_config_path = local_pipeline_dir / "nextflow.config"
-    if nextflow_config_path.is_file():
-        icav2_config_path = local_pipeline_dir / ICAV2_CONFIG_NEXTFLOW_PATH
-        if not icav2_config_path.is_file():
-            logger.info(f"Adding missing icav2.config file to {icav2_config_path}")
-            icav2_config_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(icav2_config_path, "w") as icav2_config_h:
-                icav2_config_h.write(get_default_icav2_config_content())
-        include_icav2_config_into_nextflow_config(nextflow_config_path)
-
     # Download current pipeline from ICAv2
     tmp_icav2_dir_obj = TemporaryDirectory()
     tmp_icav2_dir = Path(tmp_icav2_dir_obj.name)
     logger.info(f"Downloading pipeline '{pipeline_id}' from ICAv2 to {tmp_icav2_dir}")
     download_pipeline_to_directory(pipeline_id, tmp_icav2_dir)
+
+    # For Nextflow pipelines, ensure conf/icav2.config exists and is included
+    local_nextflow_config_path = local_pipeline_dir / "nextflow.config"
+    if local_nextflow_config_path.is_file():
+        local_icav2_config_path = local_pipeline_dir / ICAV2_CONFIG_NEXTFLOW_PATH
+        remote_icav2_config_path = tmp_icav2_dir / ICAV2_CONFIG_NEXTFLOW_PATH
+        if not local_icav2_config_path.is_file():
+            if not remote_icav2_config_path.is_file():
+                logger.info(f"Adding missing icav2.config file to {local_icav2_config_path}")
+                local_icav2_config_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(local_icav2_config_path, "w") as icav2_config_h:
+                    icav2_config_h.write(get_default_icav2_config_content())
+            else:
+                shutil.copy2(
+                    remote_icav2_config_path,
+                    local_icav2_config_path
+                )
+        include_icav2_config_into_nextflow_config(local_nextflow_config_path)
 
     # Get pipeline file mapping for resolving file IDs
     pipeline_file_mapping: List[PipelineFile] = list_pipeline_files(pipeline_id)
