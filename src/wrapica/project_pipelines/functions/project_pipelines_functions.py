@@ -3,8 +3,9 @@
 """
 Project Pipeline Helpers
 """
-import shutil
+
 # Standard imports
+import shutil
 import typing
 import warnings
 from filecmp import cmpfiles
