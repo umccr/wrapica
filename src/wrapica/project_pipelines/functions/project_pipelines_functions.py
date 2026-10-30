@@ -3194,7 +3194,9 @@ def pipeline_update_from_zip(
         and not f.name.endswith(".test")
         and not f.name.endswith(".test.snap")
         # Exclude conda/meta files
-        and f.name not in ("environment.yml", "environment.yaml", "meta.yml", "meta.yaml")
+        and ( f.name not in ("environment.yml", "environment.yaml", "meta.yml", "meta.yaml") )
+        # Exclude empty files
+        and not (local_pipeline_dir / f).stat().st_size == 0
     ]
 
     # Log comparison results
